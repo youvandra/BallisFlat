@@ -7,6 +7,8 @@ import {IERC721Errors, IERC20Errors} from "@openzeppelin/contracts/interfaces/dr
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {BallIsFlat} from "../src/BallIsFlat.sol";
 import {IBallIsFlat} from "../src/IBallIsFlat.sol";
+import {Squad} from "./Squad.sol";
+import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
 import {MockWIF, HookToken, Reenterer, NoReceiver} from "./mocks/Mocks.sol";
 
 contract BallIsFlatTest is Test {
@@ -47,10 +49,22 @@ contract BallIsFlatTest is Test {
     // ------------------------------------------------------------------ helpers
 
     function _players() internal pure returns (uint32[] memory p) {
+        // strictly ascending, as listMatch requires
         p = new uint32[](3);
-        p[0] = KANE;
-        p[1] = MODRIC;
-        p[2] = SAKA;
+        p[0] = SAKA;
+        p[1] = KANE;
+        p[2] = MODRIC;
+    }
+
+    function _proof(uint32 player) internal pure returns (bytes32[] memory) {
+        return Squad.proof(_players(), player);
+    }
+
+    function _proofs(uint32[] memory winners) internal pure returns (bytes32[][] memory out) {
+        out = new bytes32[][](winners.length);
+        for (uint256 i; i < winners.length; ++i) {
+            out[i] = _proof(winners[i]);
+        }
     }
 
     function _one(uint32 a) internal pure returns (uint32[] memory w) {
@@ -74,14 +88,14 @@ contract BallIsFlatTest is Test {
 
     function _mint(address who, uint256 matchId, uint32 player) internal returns (uint256) {
         vm.prank(who);
-        return bif.mint(matchId, player);
+        return bif.mint(matchId, player, _proof(player));
     }
 
     function _propose(uint256 matchId, uint32[] memory winners) internal {
         IBallIsFlat.MatchInfo memory m = bif.matchInfo(matchId);
         if (block.timestamp < m.kickoff) vm.warp(m.kickoff);
         vm.prank(settler);
-        bif.propose(matchId, winners, "https://www.fotmob.com/match/1");
+        bif.propose(matchId, winners, _proofs(winners), "https://www.fotmob.com/match/1");
     }
 
     function _settle(uint256 matchId, uint32[] memory winners) internal {
@@ -117,7 +131,7 @@ contract BallIsFlatTest is Test {
     function test_ListMatch_HappyPath() public {
         uint64 kickoff = uint64(block.timestamp) + KICK;
         vm.expectEmit(true, false, false, true);
-        emit IBallIsFlat.MatchListed(1, kickoff, PRICE, 0, _players());
+        emit IBallIsFlat.MatchListed(1, kickoff, PRICE, 0, Squad.root(_players()), _players());
         uint256 id = bif.listMatch(kickoff, PRICE, 0, _players(), 0);
         assertEq(id, 1);
         assertEq(bif.matchCount(), 1);
@@ -126,8 +140,8 @@ contract BallIsFlatTest is Test {
         assertEq(m.price, PRICE);
         assertEq(uint8(m.status), uint8(IBallIsFlat.Status.Listed));
         assertEq(m.pot, 0);
-        assertEq(bif.playersOf(id).length, 3);
-        assertEq(bif.playersOf(id)[1], MODRIC);
+        assertEq(m.playersRoot, Squad.root(_players()));
+        assertEq(m.playersRoot, bif.squadRoot(_players()));
         assertEq(_list(1), 2);
         assertEq(bif.matchInfo(2).nextMatch, 1);
     }
@@ -151,8 +165,10 @@ contract BallIsFlatTest is Test {
         bif.listMatch(future, 0, 0, _players(), 0); // zero price
         vm.expectRevert(BallIsFlat.InvalidListing.selector);
         bif.listMatch(future, PRICE, 0, new uint32[](0), 0); // no players
-        vm.expectRevert(BallIsFlat.InvalidListing.selector);
+        vm.expectRevert(BallIsFlat.InvalidSquad.selector);
         bif.listMatch(future, PRICE, 0, _two(KANE, KANE), 0); // duplicate player
+        vm.expectRevert(BallIsFlat.InvalidSquad.selector);
+        bif.listMatch(future, PRICE, 0, _two(MODRIC, KANE), 0); // not ascending
         vm.expectRevert(BallIsFlat.InvalidListing.selector);
         bif.listMatch(future, PRICE, 1, _players(), 0); // nextMatch does not exist yet
         assertEq(bif.matchCount(), 0);
@@ -193,7 +209,7 @@ contract BallIsFlatTest is Test {
         _mint(alice, id, KANE);
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.AlreadyHasCard.selector, id, 1));
-        bif.mint(id, MODRIC);
+        bif.mint(id, MODRIC, _proof(MODRIC));
     }
 
     function test_Mint_TransferAwayStillBlocksSecondMint() public {
@@ -203,7 +219,7 @@ contract BallIsFlatTest is Test {
         bif.transferFrom(alice, bob, t);
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.AlreadyHasCard.selector, id, t));
-        bif.mint(id, MODRIC);
+        bif.mint(id, MODRIC, _proof(MODRIC));
         // the receiver of a card can still mint their own
         _mint(bob, id, SAKA);
         assertEq(bif.balanceOf(bob), 2);
@@ -225,33 +241,33 @@ contract BallIsFlatTest is Test {
         vm.warp(kickoff);
         vm.prank(bob);
         vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.MintClosed.selector, id));
-        bif.mint(id, KANE);
+        bif.mint(id, KANE, _proof(KANE));
         vm.warp(kickoff + 1 hours);
         vm.prank(bob);
         vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.MintClosed.selector, id));
-        bif.mint(id, KANE);
+        bif.mint(id, KANE, _proof(KANE));
     }
 
     function test_Mint_UnknownPlayerReverts() public {
         uint256 id = _list();
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.UnknownPlayer.selector, id, uint32(99)));
-        bif.mint(id, 99);
+        bif.mint(id, 99, _proof(99));
     }
 
     function test_Mint_NotListedReverts() public {
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.NotListed.selector, 0));
-        bif.mint(0, KANE);
+        bif.mint(0, KANE, _proof(KANE));
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.NotListed.selector, 5));
-        bif.mint(5, KANE);
+        bif.mint(5, KANE, _proof(KANE));
         uint256 id = _list();
         vm.prank(settler);
         bif.voidMatch(id);
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.NotListed.selector, id));
-        bif.mint(id, KANE);
+        bif.mint(id, KANE, _proof(KANE));
     }
 
     function test_Mint_PausedReverts_AndPauseIsOwnerOnly() public {
@@ -263,7 +279,7 @@ contract BallIsFlatTest is Test {
         assertTrue(bif.mintPaused());
         vm.prank(alice);
         vm.expectRevert(IBallIsFlat.MintPaused.selector);
-        bif.mint(id, KANE);
+        bif.mint(id, KANE, _proof(KANE));
         bif.setMintPaused(false);
         _mint(alice, id, KANE);
     }
@@ -285,7 +301,7 @@ contract BallIsFlatTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, address(bif), 0, PRICE)
         );
-        bif.mint(id, KANE);
+        bif.mint(id, KANE, _proof(KANE));
     }
 
     function test_Mint_ToNonReceiverContractReverts() public {
@@ -293,7 +309,7 @@ contract BallIsFlatTest is Test {
         NoReceiver nr = new NoReceiver();
         wif.mint(address(nr), PRICE);
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721InvalidReceiver.selector, address(nr)));
-        nr.mint(bif, address(wif), id, KANE);
+        nr.mint(bif, address(wif), id, KANE, _proof(KANE));
     }
 
     // ------------------------------------------------------------------ propose / correct
@@ -304,12 +320,12 @@ contract BallIsFlatTest is Test {
         vm.warp(kickoff - 1);
         vm.prank(settler);
         vm.expectRevert(IBallIsFlat.TooEarly.selector);
-        bif.propose(id, _one(KANE), "u");
+        bif.propose(id, _one(KANE), _proofs(_one(KANE)), "u");
         vm.warp(kickoff);
         vm.expectEmit(true, false, false, true);
         emit IBallIsFlat.ResultProposed(id, _one(KANE), "u");
         vm.prank(settler);
-        bif.propose(id, _one(KANE), "u");
+        bif.propose(id, _one(KANE), _proofs(_one(KANE)), "u");
         IBallIsFlat.MatchInfo memory m = bif.matchInfo(id);
         assertEq(uint8(m.status), uint8(IBallIsFlat.Status.Proposed));
         assertEq(m.proposedAt, kickoff);
@@ -322,9 +338,9 @@ contract BallIsFlatTest is Test {
         vm.warp(bif.matchInfo(id).kickoff);
         vm.prank(stranger);
         vm.expectRevert(IBallIsFlat.NotSettler.selector);
-        bif.propose(id, _one(KANE), "u");
+        bif.propose(id, _one(KANE), _proofs(_one(KANE)), "u");
         vm.expectRevert(IBallIsFlat.NotSettler.selector); // owner is not the settler
-        bif.propose(id, _one(KANE), "u");
+        bif.propose(id, _one(KANE), _proofs(_one(KANE)), "u");
     }
 
     function test_Propose_InvalidWinners() public {
@@ -332,23 +348,23 @@ contract BallIsFlatTest is Test {
         vm.warp(bif.matchInfo(id).kickoff);
         vm.startPrank(settler);
         vm.expectRevert(BallIsFlat.InvalidWinners.selector);
-        bif.propose(id, new uint32[](0), "u");
+        bif.propose(id, new uint32[](0), _proofs(new uint32[](0)), "u");
         vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.UnknownPlayer.selector, id, uint32(42)));
-        bif.propose(id, _two(KANE, 42), "u");
+        bif.propose(id, _two(KANE, 42), _proofs(_two(KANE, 42)), "u");
         vm.expectRevert(BallIsFlat.InvalidWinners.selector);
-        bif.propose(id, _two(KANE, KANE), "u"); // duplicate would double count winningCards
+        bif.propose(id, _two(KANE, KANE), _proofs(_two(KANE, KANE)), "u"); // duplicate would double count winningCards
         vm.stopPrank();
     }
 
     function test_Propose_WrongStatus() public {
         vm.prank(settler);
         vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.WrongStatus.selector, 3, IBallIsFlat.Status.None));
-        bif.propose(3, _one(KANE), "u");
+        bif.propose(3, _one(KANE), _proofs(_one(KANE)), "u");
         uint256 id = _list();
         _propose(id, _one(KANE));
         vm.prank(settler);
         vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.WrongStatus.selector, id, IBallIsFlat.Status.Proposed));
-        bif.propose(id, _one(KANE), "u");
+        bif.propose(id, _one(KANE), _proofs(_one(KANE)), "u");
     }
 
     function test_Correct_InsideWindow() public {
@@ -361,7 +377,7 @@ contract BallIsFlatTest is Test {
         vm.expectEmit(true, false, false, true);
         emit IBallIsFlat.ResultCorrected(id, _one(MODRIC), "fixed");
         vm.prank(settler);
-        bif.correct(id, _one(MODRIC), "fixed");
+        bif.correct(id, _one(MODRIC), _proofs(_one(MODRIC)), "fixed");
         IBallIsFlat.MatchInfo memory m = bif.matchInfo(id);
         assertEq(m.proposedAt, proposedAt, "correct restarts nothing");
         assertEq(m.sourceUrl, "fixed");
@@ -383,18 +399,18 @@ contract BallIsFlatTest is Test {
         vm.warp(bif.matchInfo(id).proposedAt + WINDOW);
         vm.prank(settler);
         vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.WindowClosed.selector, id));
-        bif.correct(id, _one(MODRIC), "late");
+        bif.correct(id, _one(MODRIC), _proofs(_one(MODRIC)), "late");
     }
 
     function test_Correct_AccessControlAndStatus() public {
         uint256 id = _list();
         vm.prank(settler);
         vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.WrongStatus.selector, id, IBallIsFlat.Status.Listed));
-        bif.correct(id, _one(KANE), "u");
+        bif.correct(id, _one(KANE), _proofs(_one(KANE)), "u");
         _propose(id, _one(KANE));
         vm.prank(stranger);
         vm.expectRevert(IBallIsFlat.NotSettler.selector);
-        bif.correct(id, _one(MODRIC), "u");
+        bif.correct(id, _one(MODRIC), _proofs(_one(MODRIC)), "u");
     }
 
     // ------------------------------------------------------------------ finalize
@@ -799,9 +815,9 @@ contract BallIsFlatTest is Test {
         vm.warp(bif.matchInfo(id).kickoff);
         vm.prank(settler);
         vm.expectRevert(IBallIsFlat.NotSettler.selector);
-        bif.propose(id, _one(KANE), "u");
+        bif.propose(id, _one(KANE), _proofs(_one(KANE)), "u");
         vm.prank(bob);
-        bif.propose(id, _one(KANE), "u");
+        bif.propose(id, _one(KANE), _proofs(_one(KANE)), "u");
     }
 
     // ------------------------------------------------------------------ reentrancy
@@ -817,10 +833,10 @@ contract BallIsFlatTest is Test {
     function test_Reentrancy_ClaimViaTokenHook() public {
         (BallIsFlat h, HookToken tok, Reenterer r) = _hookSetup();
         uint256 id = h.listMatch(uint64(block.timestamp) + KICK, PRICE, 0, _players(), 0);
-        uint256 t = r.doMint(id, KANE);
+        uint256 t = r.doMint(id, KANE, _proof(KANE));
         vm.warp(block.timestamp + KICK);
         vm.prank(settler);
-        h.propose(id, _one(KANE), "u");
+        h.propose(id, _one(KANE), _proofs(_one(KANE)), "u");
         vm.warp(block.timestamp + WINDOW);
         h.finalize(id);
 
@@ -836,13 +852,13 @@ contract BallIsFlatTest is Test {
     function test_Reentrancy_RefundViaTokenHook() public {
         (BallIsFlat h, HookToken tok, Reenterer r) = _hookSetup();
         uint256 id = h.listMatch(uint64(block.timestamp) + KICK, PRICE, 0, _players(), 0);
-        uint256 t = r.doMint(id, KANE);
+        uint256 t = r.doMint(id, KANE, _proof(KANE));
         // a second honest card so a double refund would have funds to steal
         tok.mint(alice, PRICE);
         vm.prank(alice);
         tok.approve(address(h), PRICE);
         vm.prank(alice);
-        h.mint(id, KANE);
+        h.mint(id, KANE, _proof(KANE));
         vm.prank(settler);
         h.voidMatch(id);
 
@@ -859,7 +875,7 @@ contract BallIsFlatTest is Test {
         wif.mint(address(r), 10 * PRICE);
         r.approve(address(wif), type(uint256).max);
         r.arm(Reenterer.Mode.Mint, id, MODRIC);
-        r.doMint(id, KANE);
+        r.doMint(id, KANE, _proof(KANE));
         assertTrue(r.attempted());
         assertEq(bytes4(r.lastError()), ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
         assertEq(bif.balanceOf(address(r)), 1);
@@ -869,10 +885,10 @@ contract BallIsFlatTest is Test {
     function test_Reentrancy_FinalizeDuringClaim() public {
         (BallIsFlat h, HookToken tok, Reenterer r) = _hookSetup();
         uint256 a = h.listMatch(uint64(block.timestamp) + KICK, PRICE, 0, _players(), 0);
-        uint256 t = r.doMint(a, KANE);
+        uint256 t = r.doMint(a, KANE, _proof(KANE));
         vm.warp(block.timestamp + KICK);
         vm.prank(settler);
-        h.propose(a, _one(KANE), "u");
+        h.propose(a, _one(KANE), _proofs(_one(KANE)), "u");
         vm.warp(block.timestamp + WINDOW);
         h.finalize(a);
         tok.setHooked(address(r), true);
@@ -899,14 +915,15 @@ contract BallIsFlatTest is Test {
             wif.mint(holders[i], price);
             vm.startPrank(holders[i]);
             wif.approve(address(h), price);
-            tokens[i] = h.mint(id, ps[uint256(keccak256(abi.encode(seed, i))) % 3]);
+            uint32 pick = ps[uint256(keccak256(abi.encode(seed, i))) % 3];
+            tokens[i] = h.mint(id, pick, _proof(pick));
             vm.stopPrank();
         }
         // winners: KANE, or KANE+MODRIC tie, by seed
         uint32[] memory winners = seed % 2 == 0 ? _one(KANE) : _two(KANE, MODRIC);
         vm.warp(block.timestamp + KICK);
         vm.prank(settler);
-        h.propose(id, winners, "u");
+        h.propose(id, winners, _proofs(winners), "u");
         vm.warp(block.timestamp + WINDOW);
         uint256 treasuryBefore = wif.balanceOf(owner);
         uint256 deadBefore = wif.balanceOf(DEAD);
@@ -955,7 +972,7 @@ contract BallIsFlatTest is Test {
             wif.mint(u, price);
             vm.startPrank(u);
             wif.approve(address(bif), price);
-            tokens[i] = bif.mint(id, KANE);
+            tokens[i] = bif.mint(id, KANE, _proof(KANE));
             vm.stopPrank();
         }
         vm.prank(settler);
@@ -967,5 +984,172 @@ contract BallIsFlatTest is Test {
             assertEq(wif.balanceOf(u), price);
         }
         assertEq(wif.balanceOf(address(bif)), 0);
+    }
+
+    // ------------------------------------------------------------------ squads (merkle root)
+
+    function _ascending(uint256 n, uint256 seed) internal pure returns (uint32[] memory ids) {
+        ids = new uint32[](n);
+        uint32 next = uint32(seed % 1000);
+        for (uint256 i; i < n; ++i) {
+            next += uint32(1 + (uint256(keccak256(abi.encode(seed, i))) % 50));
+            ids[i] = next;
+        }
+    }
+
+    function testFuzz_Squad_EveryPlayerProvesAndOutsiderFails(uint256 n, uint256 seed) public {
+        n = bound(n, 1, 60);
+        uint32[] memory ids = _ascending(n, seed);
+        uint256 id = bif.listMatch(uint64(block.timestamp) + KICK, PRICE, 0, ids, 0);
+        assertEq(bif.matchInfo(id).playersRoot, Squad.root(ids));
+        for (uint256 i; i < n; ++i) {
+            assertTrue(bif.inSquad(id, ids[i], Squad.proof(ids, ids[i])));
+        }
+        uint32 outsider = ids[n - 1] + 1;
+        assertFalse(bif.inSquad(id, outsider, Squad.proof(ids, ids[0])));
+        assertFalse(bif.inSquad(id, outsider, new bytes32[](0)));
+    }
+
+    function test_Squad_ListingCostIsFlatInSquadSize() public {
+        uint64 kickoff = uint64(block.timestamp) + KICK;
+        uint256 before = gasleft();
+        bif.listMatch(kickoff, PRICE, 0, _ascending(20, 1), 0);
+        uint256 twenty = before - gasleft();
+        before = gasleft();
+        bif.listMatch(kickoff, PRICE, 0, _ascending(60, 2), 0);
+        uint256 sixty = before - gasleft();
+        // only hashing and calldata grow with the squad; storage is one root per match
+        assertLt(sixty, 400_000);
+        assertLt(sixty - twenty, 120_000);
+    }
+
+    function test_Mint_ProofOfAnotherPlayerReverts() public {
+        uint256 id = _list();
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.UnknownPlayer.selector, id, KANE));
+        bif.mint(id, KANE, _proof(MODRIC));
+    }
+
+    function test_Propose_ProofsMustMatchWinners() public {
+        uint256 id = _list();
+        _mint(alice, id, KANE);
+        vm.warp(block.timestamp + KICK);
+        vm.startPrank(settler);
+        vm.expectRevert(BallIsFlat.InvalidWinners.selector);
+        bif.propose(id, _one(KANE), new bytes32[][](0), "u");
+        bytes32[][] memory wrong = new bytes32[][](1);
+        wrong[0] = _proof(SAKA);
+        vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.UnknownPlayer.selector, id, KANE));
+        bif.propose(id, _one(KANE), wrong, "u");
+        bif.propose(id, _one(KANE), _proofs(_one(KANE)), "u");
+        vm.stopPrank();
+    }
+
+    // ------------------------------------------------------------------ listMatches
+
+    function test_ListMatches_ListsInOrderAndChainsRollover() public {
+        IBallIsFlat.MatchListing[] memory batch = new IBallIsFlat.MatchListing[](3);
+        uint64 kickoff = uint64(block.timestamp) + KICK;
+        for (uint256 i; i < 3; ++i) {
+            batch[i] = IBallIsFlat.MatchListing({
+                kickoff: kickoff + uint64(i),
+                price: PRICE,
+                nextMatch: i, // 0 for the first, then the one listed just before it
+                maxPerPlayer: 10,
+                playerIds: _players()
+            });
+        }
+        assertEq(bif.listMatches(batch), 1);
+        assertEq(bif.matchCount(), 3);
+        assertEq(bif.matchInfo(3).nextMatch, 2);
+        assertEq(bif.matchInfo(2).kickoff, kickoff + 1);
+        assertEq(bif.matchInfo(1).maxPerPlayer, 10);
+    }
+
+    function test_ListMatches_EmptyAndAccessControl() public {
+        vm.expectRevert(BallIsFlat.InvalidListing.selector);
+        bif.listMatches(new IBallIsFlat.MatchListing[](0));
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger));
+        bif.listMatches(new IBallIsFlat.MatchListing[](0));
+    }
+
+    // ------------------------------------------------------------------ setPlayers
+
+    function test_SetPlayers_LateCallUpMintsAndDroppedPlayerKeepsCards() public {
+        uint256 id = _list();
+        _mint(alice, id, SAKA);
+        uint32[] memory squad = new uint32[](3);
+        squad[0] = KANE;
+        squad[1] = MODRIC;
+        squad[2] = 11; // late call-up, SAKA dropped
+        vm.expectEmit(true, false, false, true);
+        emit IBallIsFlat.PlayersUpdated(id, Squad.root(squad), squad);
+        bif.setPlayers(id, squad);
+
+        vm.prank(bob);
+        bif.mint(id, 11, Squad.proof(squad, 11));
+        vm.prank(carol);
+        vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.UnknownPlayer.selector, id, SAKA));
+        bif.mint(id, SAKA, _proof(SAKA));
+        assertEq(bif.cardsOn(id, SAKA), 1);
+        assertEq(bif.matchInfo(id).pot, 2 * PRICE);
+    }
+
+    function test_SetPlayers_OwnerOnlyAndBeforeKickoff() public {
+        uint256 id = _list();
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger));
+        bif.setPlayers(id, _players());
+        vm.warp(block.timestamp + KICK);
+        vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.TradingClosed.selector, id));
+        bif.setPlayers(id, _players());
+        vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.TradingClosed.selector, 77));
+        bif.setPlayers(77, _players());
+    }
+
+    // ------------------------------------------------------------------ metadata
+
+    function test_TokenURI_EmptyUntilSetThenBasePlusId() public {
+        uint256 id = _list();
+        uint256 t = _mint(alice, id, KANE);
+        assertEq(bif.tokenURI(t), "");
+        assertEq(bif.contractURI(), "");
+        vm.expectEmit(false, false, false, false);
+        emit BallIsFlat.ContractURIUpdated();
+        vm.expectEmit(false, false, false, true);
+        emit IERC4906.BatchMetadataUpdate(1, t);
+        bif.setMetadataURIs("https://api.example/cards/", "https://api.example/collection");
+        assertEq(bif.tokenURI(t), string.concat("https://api.example/cards/", vm.toString(t)));
+        assertEq(bif.contractURI(), "https://api.example/collection");
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, 999));
+        bif.tokenURI(999);
+    }
+
+    function test_SetMetadataURIs_OwnerOnly() public {
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger));
+        bif.setMetadataURIs("a", "b");
+    }
+
+    function test_Metadata_OpenAndSettleEmitRefresh() public {
+        uint256 id = _list();
+        uint256 t = _mint(alice, id, KANE);
+        vm.prank(alice);
+        vm.expectEmit(false, false, false, true);
+        emit IERC4906.MetadataUpdate(t);
+        bif.open(t);
+        _propose(id, _one(KANE));
+        vm.warp(block.timestamp + WINDOW);
+        vm.expectEmit(false, false, false, true);
+        emit IERC4906.BatchMetadataUpdate(1, t);
+        bif.finalize(id);
+    }
+
+    function test_SupportsInterface_ERC721AndERC4906() public view {
+        assertTrue(bif.supportsInterface(0x80ac58cd)); // ERC-721
+        assertTrue(bif.supportsInterface(0x780e9d63)); // ERC-721 Enumerable
+        assertTrue(bif.supportsInterface(0x49064906)); // ERC-4906
+        assertFalse(bif.supportsInterface(0xffffffff));
     }
 }

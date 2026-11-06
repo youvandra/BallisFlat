@@ -76,8 +76,8 @@ contract Reenterer is ITokenHook, IERC721Receiver {
         delete lastError;
     }
 
-    function doMint(uint256 matchId, uint32 playerId) external returns (uint256) {
-        return bif.mint(matchId, playerId);
+    function doMint(uint256 matchId, uint32 playerId, bytes32[] calldata proof) external returns (uint256) {
+        return bif.mint(matchId, playerId, proof);
     }
 
     function doClaim(uint256 tokenId) external returns (uint256) {
@@ -111,7 +111,7 @@ contract Reenterer is ITokenHook, IERC721Receiver {
         bytes memory data;
         if (mode == Mode.Claim) data = abi.encodeCall(IBallIsFlat.claim, (arg));
         else if (mode == Mode.Refund) data = abi.encodeCall(IBallIsFlat.refund, (arg));
-        else if (mode == Mode.Mint) data = abi.encodeCall(IBallIsFlat.mint, (arg, argPlayer));
+        else if (mode == Mode.Mint) data = abi.encodeCall(IBallIsFlat.mint, (arg, argPlayer, new bytes32[](0)));
         else if (mode == Mode.Buy) data = abi.encodeCall(IBallIsFlat.buy, (arg, type(uint256).max));
         else if (mode == Mode.Open) data = abi.encodeCall(IBallIsFlat.open, (arg));
         else data = abi.encodeCall(IBallIsFlat.finalize, (arg));
@@ -122,8 +122,10 @@ contract Reenterer is ITokenHook, IERC721Receiver {
 
 /// Contract wallet that cannot receive ERC-721s.
 contract NoReceiver {
-    function mint(IBallIsFlat bif, address token, uint256 matchId, uint32 playerId) external {
+    function mint(IBallIsFlat bif, address token, uint256 matchId, uint32 playerId, bytes32[] calldata proof)
+        external
+    {
         IERC20(token).approve(address(bif), type(uint256).max);
-        bif.mint(matchId, playerId);
+        bif.mint(matchId, playerId, proof);
     }
 }

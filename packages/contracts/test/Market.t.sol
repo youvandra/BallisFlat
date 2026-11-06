@@ -6,6 +6,7 @@ import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.so
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {BallIsFlat} from "../src/BallIsFlat.sol";
 import {IBallIsFlat} from "../src/IBallIsFlat.sol";
+import {Squad} from "./Squad.sol";
 import {MockWIF, HookToken, Reenterer} from "./mocks/Mocks.sol";
 
 /// Opening cards, the per-player cap and the sealed-card market.
@@ -46,10 +47,22 @@ contract MarketTest is Test {
     // ------------------------------------------------------------------ helpers
 
     function _players() internal pure returns (uint32[] memory p) {
+        // strictly ascending, as listMatch requires
         p = new uint32[](3);
-        p[0] = KANE;
-        p[1] = MODRIC;
-        p[2] = SAKA;
+        p[0] = SAKA;
+        p[1] = KANE;
+        p[2] = MODRIC;
+    }
+
+    function _proof(uint32 player) internal pure returns (bytes32[] memory) {
+        return Squad.proof(_players(), player);
+    }
+
+    function _proofs(uint32[] memory winners) internal pure returns (bytes32[][] memory out) {
+        out = new bytes32[][](winners.length);
+        for (uint256 i; i < winners.length; ++i) {
+            out[i] = _proof(winners[i]);
+        }
     }
 
     function _one(uint32 a) internal pure returns (uint32[] memory w) {
@@ -63,7 +76,7 @@ contract MarketTest is Test {
 
     function _mint(address who, uint256 matchId, uint32 player) internal returns (uint256) {
         vm.prank(who);
-        return bif.mint(matchId, player);
+        return bif.mint(matchId, player, _proof(player));
     }
 
     /// alice mints a KANE card on a fresh match and lists it at ASK.
@@ -77,7 +90,7 @@ contract MarketTest is Test {
     function _settle(uint256 matchId, uint32 winner) internal {
         vm.warp(bif.matchInfo(matchId).kickoff);
         vm.prank(settler);
-        bif.propose(matchId, _one(winner), "https://www.fotmob.com/match/1");
+        bif.propose(matchId, _one(winner), _proofs(_one(winner)), "https://www.fotmob.com/match/1");
         vm.warp(block.timestamp + WINDOW);
         bif.finalize(matchId);
     }
@@ -161,7 +174,7 @@ contract MarketTest is Test {
         assertEq(bif.remaining(id, KANE), 0);
         vm.prank(carol);
         vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.PlayerSoldOut.selector, id, KANE));
-        bif.mint(id, KANE);
+        bif.mint(id, KANE, _proof(KANE));
         // the cap is per player: carol can still pick someone else
         _mint(carol, id, MODRIC);
         assertEq(bif.remaining(id, MODRIC), 1);
@@ -178,17 +191,18 @@ contract MarketTest is Test {
             wif.mint(u, PRICE);
             vm.startPrank(u);
             wif.approve(address(bif), PRICE);
-            bif.mint(id, KANE);
+            bif.mint(id, KANE, _proof(KANE));
             vm.stopPrank();
         }
         assertEq(bif.cardsOn(id, KANE), 12);
         assertEq(bif.remaining(id, KANE), type(uint32).max);
     }
 
-    function test_Remaining_UnknownPlayerOrMatchIsZero() public {
+    function test_Remaining_UnlistedMatchIsZero_SquadNotChecked() public {
         uint256 id = _list(5);
-        assertEq(bif.remaining(id, 99), 0);
         assertEq(bif.remaining(42, KANE), 0);
+        // remaining does not take a proof, so an id outside the squad reads as the cap; mint still refuses it.
+        assertEq(bif.remaining(id, 99), 5);
     }
 
     // ------------------------------------------------------------------ list / cancel
@@ -298,7 +312,7 @@ contract MarketTest is Test {
         assertEq(bif.cardOf(id, bob), 0);
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.AlreadyHasCard.selector, id, t));
-        bif.mint(id, MODRIC);
+        bif.mint(id, MODRIC, _proof(MODRIC));
         // the buyer may still mint his own card and hold two of this match
         uint256 own = _mint(bob, id, MODRIC);
         assertEq(bif.cardOf(id, bob), own);
@@ -488,7 +502,7 @@ contract MarketTest is Test {
     /// Seller's token hook fires while it is paid and tries to buy the same card again.
     function test_Reentrancy_BuyViaSellerTokenHook() public {
         (BallIsFlat h, HookToken tok, Reenterer r, uint256 id) = _hookSetup();
-        uint256 t = r.doMint(id, KANE);
+        uint256 t = r.doMint(id, KANE, _proof(KANE));
         r.doList(t, ASK);
         tok.setHooked(address(r), true);
         r.arm(Reenterer.Mode.Buy, t, 0);
@@ -504,7 +518,7 @@ contract MarketTest is Test {
     /// Seller tries to open the card while it is being paid, so the buyer would get an opened card.
     function test_Reentrancy_OpenViaSellerTokenHook() public {
         (BallIsFlat h, HookToken tok, Reenterer r, uint256 id) = _hookSetup();
-        uint256 t = r.doMint(id, KANE);
+        uint256 t = r.doMint(id, KANE, _proof(KANE));
         r.doList(t, ASK);
         tok.setHooked(address(r), true);
         r.arm(Reenterer.Mode.Open, t, 0);
@@ -519,7 +533,7 @@ contract MarketTest is Test {
     function test_Reentrancy_BuyerERC721Receiver() public {
         (BallIsFlat h,, Reenterer r, uint256 id) = _hookSetup();
         vm.prank(alice);
-        uint256 t = h.mint(id, KANE);
+        uint256 t = h.mint(id, KANE, _proof(KANE));
         vm.prank(alice);
         h.listForSale(t, ASK);
         r.arm(Reenterer.Mode.Open, t, 0);
@@ -539,7 +553,7 @@ contract MarketTest is Test {
         uint256 id = h.listMatch(uint64(block.timestamp) + KICK, PRICE, 0, _players(), 0);
         vm.startPrank(alice);
         wif.approve(address(h), type(uint256).max);
-        uint256 t = h.mint(id, KANE);
+        uint256 t = h.mint(id, KANE, _proof(KANE));
         h.listForSale(t, price);
         vm.stopPrank();
         wif.mint(bob, price);

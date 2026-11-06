@@ -42,7 +42,17 @@ interface IBallIsFlat {
         uint256 burned; // set at finalize
         uint256 payPool; // pot - burned, set at finalize
         uint256 nextMatch; // where an uncalled pot rolls (0 = treasury)
+        bytes32 playersRoot; // merkle root of the squad, computed on chain from the listed player ids
         string sourceUrl; // rating source for the proposed result
+    }
+
+    /// One match for listMatches. playerIds strictly ascending (it also rules out duplicates).
+    struct MatchListing {
+        uint64 kickoff;
+        uint256 price;
+        uint256 nextMatch;
+        uint32 maxPerPlayer;
+        uint32[] playerIds;
     }
 
     struct CardInfo {
@@ -52,7 +62,12 @@ interface IBallIsFlat {
     }
 
     // ---------- events ----------
-    event MatchListed(uint256 indexed matchId, uint64 kickoff, uint256 price, uint256 nextMatch, uint32[] playerIds);
+    /// The squad lives in this event and its root in storage: anyone can rebuild the tree and a proof.
+    event MatchListed(
+        uint256 indexed matchId, uint64 kickoff, uint256 price, uint256 nextMatch, bytes32 playersRoot, uint32[] playerIds
+    );
+    /// Squad changed before kickoff (late call-up, injury). Cards already minted keep counting.
+    event PlayersUpdated(uint256 indexed matchId, bytes32 playersRoot, uint32[] playerIds);
     event CardMinted(uint256 indexed matchId, uint32 indexed playerId, uint256 indexed tokenId, address owner, uint32 serial);
     event ResultProposed(uint256 indexed matchId, uint32[] winners, string sourceUrl);
     event ResultCorrected(uint256 indexed matchId, uint32[] winners, string sourceUrl);
@@ -79,7 +94,7 @@ interface IBallIsFlat {
     error NotListed(uint256 matchId);
     error MintClosed(uint256 matchId);
     error AlreadyHasCard(uint256 matchId, uint256 tokenId);
-    error UnknownPlayer(uint256 matchId, uint32 playerId);
+    error UnknownPlayer(uint256 matchId, uint32 playerId); // not in the squad (proof fails)
     error NotSettler();
     error TooEarly();
     error WrongStatus(uint256 matchId, Status status);
@@ -104,7 +119,6 @@ interface IBallIsFlat {
     function matchCount() external view returns (uint256); // ids are 1..matchCount
     function matchInfo(uint256 matchId) external view returns (MatchInfo memory);
     function stateOf(uint256 matchId) external view returns (State);
-    function playersOf(uint256 matchId) external view returns (uint32[] memory);
     function winnersOf(uint256 matchId) external view returns (uint32[] memory);
     function cardsOn(uint256 matchId, uint32 playerId) external view returns (uint32);
     /// tokenId of the wallet's card for this match, 0 if none (token ids start at 1).
@@ -113,7 +127,8 @@ interface IBallIsFlat {
     /// Amount a card would receive on claim right now (0 if not claimable).
     function claimable(uint256 tokenId) external view returns (uint256);
     /// Cards still mintable on this player: type(uint32).max when the match is unlimited, 0 for an
-    /// unknown player. Burned cards keep counting against the cap.
+    /// unlisted match. Squad membership is not checked here (that needs a proof). Burned cards keep
+    /// counting against the cap.
     function remaining(uint256 matchId, uint32 playerId) external view returns (uint32);
     function isOpened(uint256 tokenId) external view returns (bool);
     /// The live listing, or (0, 0) when there is none or it can no longer be bought (opened, seller
@@ -121,8 +136,9 @@ interface IBallIsFlat {
     function listingOf(uint256 tokenId) external view returns (address seller, uint256 price);
 
     // ---------- fan ----------
-    /// Pulls `price` $WIF via allowance, mints one card. Reverts after kickoff or on a second card.
-    function mint(uint256 matchId, uint32 playerId) external returns (uint256 tokenId);
+    /// Pulls `price` $WIF via allowance, mints one card. `proof` shows playerId is in the squad
+    /// (see playersRoot). Reverts after kickoff or on a second card.
+    function mint(uint256 matchId, uint32 playerId, bytes32[] calldata proof) external returns (uint256 tokenId);
     /// Burns a winning card of a finalized match and pays payPool / winningCards.
     function claim(uint256 tokenId) external returns (uint256 amount);
     /// Burns a card of a voided match and returns its price.
@@ -145,10 +161,12 @@ interface IBallIsFlat {
     function finalize(uint256 matchId) external;
 
     // ---------- settler ----------
-    /// After kickoff. Several ids = tie, the pot splits across all their cards.
-    function propose(uint256 matchId, uint32[] calldata winners, string calldata sourceUrl) external;
+    /// After kickoff. Several ids = tie, the pot splits across all their cards. proofs[i] proves winners[i].
+    function propose(uint256 matchId, uint32[] calldata winners, bytes32[][] calldata proofs, string calldata sourceUrl)
+        external;
     /// During the dispute window only; restarts nothing.
-    function correct(uint256 matchId, uint32[] calldata winners, string calldata sourceUrl) external;
+    function correct(uint256 matchId, uint32[] calldata winners, bytes32[][] calldata proofs, string calldata sourceUrl)
+        external;
     /// Before finalize. rolledIn moves on to nextMatch; cards become refundable for their price.
     function voidMatch(uint256 matchId) external;
 
@@ -160,6 +178,12 @@ interface IBallIsFlat {
         uint32[] calldata playerIds,
         uint32 maxPerPlayer
     ) external returns (uint256 matchId);
+    /// Lists several matches in one transaction, in order; a later entry may roll into an earlier one.
+    function listMatches(MatchListing[] calldata listings) external returns (uint256 firstMatchId);
+    /// Replaces the squad of an Open match (before kickoff).
+    function setPlayers(uint256 matchId, uint32[] calldata playerIds) external;
+    /// Metadata: tokenURI = baseURI + tokenId (ERC-4906 events on change); contractURI per ERC-7572.
+    function setMetadataURIs(string calldata baseURI, string calldata contractURI) external;
     function setSettler(address settler) external;
     function setMintPaused(bool paused) external;
 }

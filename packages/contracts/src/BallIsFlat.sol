@@ -7,6 +7,11 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import {Hashes} from "@openzeppelin/contracts/utils/cryptography/Hashes.sol";
+import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IBallIsFlat} from "./IBallIsFlat.sol";
 
 /// @title Ball is Flat
@@ -26,7 +31,15 @@ import {IBallIsFlat} from "./IBallIsFlat.sol";
 ///        buy time, so listings expire on their own. Active listings are found from events
 ///        (CardListed by matchId) and checked with `listingOf`; there is no on-chain index.
 ///      - Buying a card does not touch `cardOf`: the one-mint-per-wallet slot stays with the minter.
-contract BallIsFlat is IBallIsFlat, ERC721Enumerable, Ownable, ReentrancyGuard {
+///      - Squads: the contract stores one merkle root per match, computed here from the listed player ids
+///        (strictly ascending), so listing costs the same for 20 or 60 players and the root always matches
+///        the ids in MatchListed / PlayersUpdated. Tree (mirrored in packages/core/src/squad.ts): leaf =
+///        keccak256(bytes.concat(keccak256(abi.encode(playerId)))), parents hash their two children with
+///        commutative keccak, an odd node at the end of a level moves up unchanged. Proofs verify with
+///        OpenZeppelin MerkleProof.
+///      - Metadata: tokenURI = baseURI + tokenId, served by the Ball is Flat API from on-chain state.
+///        ERC-4906 events tell marketplaces to refresh when a card opens or its match settles.
+contract BallIsFlat is IBallIsFlat, IERC4906, ERC721Enumerable, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
@@ -37,6 +50,7 @@ contract BallIsFlat is IBallIsFlat, ERC721Enumerable, Ownable, ReentrancyGuard {
     error InvalidBurnBps();
     error InvalidListing();
     error InvalidWinners();
+    error InvalidSquad();
 
     address public immutable override wif;
     uint16 public immutable override burnBps;
@@ -47,11 +61,11 @@ contract BallIsFlat is IBallIsFlat, ERC721Enumerable, Ownable, ReentrancyGuard {
     bool public mintPaused;
     uint256 public override matchCount;
     uint256 private _nextTokenId = 1;
+    string private _baseTokenURI;
+    string private _contractURI;
 
     mapping(uint256 => MatchInfo) private _matches;
-    mapping(uint256 => uint32[]) private _players;
     mapping(uint256 => uint32[]) private _winners;
-    mapping(uint256 => mapping(uint32 => bool)) private _isPlayer;
     /// matchId => playerId => winner round in which the player was named (see _winnerRound).
     mapping(uint256 => mapping(uint32 => uint256)) private _winnerMark;
     /// Bumped on every propose/correct so stale winner marks are ignored without clearing them.
@@ -70,6 +84,8 @@ contract BallIsFlat is IBallIsFlat, ERC721Enumerable, Ownable, ReentrancyGuard {
 
     event SettlerSet(address indexed settler);
     event MintPausedSet(bool paused);
+    /// ERC-7572: the collection's metadata moved.
+    event ContractURIUpdated();
 
     modifier onlySettler() {
         if (msg.sender != settler) revert NotSettler();
@@ -108,10 +124,6 @@ contract BallIsFlat is IBallIsFlat, ERC721Enumerable, Ownable, ReentrancyGuard {
         return State.None;
     }
 
-    function playersOf(uint256 matchId) external view returns (uint32[] memory) {
-        return _players[matchId];
-    }
-
     function winnersOf(uint256 matchId) external view returns (uint32[] memory) {
         return _winners[matchId];
     }
@@ -138,7 +150,7 @@ contract BallIsFlat is IBallIsFlat, ERC721Enumerable, Ownable, ReentrancyGuard {
     }
 
     function remaining(uint256 matchId, uint32 playerId) external view returns (uint32) {
-        if (!_isPlayer[matchId][playerId]) return 0;
+        if (_matches[matchId].status == Status.None) return 0;
         uint32 cap = _matches[matchId].maxPerPlayer;
         if (cap == 0) return type(uint32).max;
         return cap - _cardsOn[matchId][playerId];
@@ -155,16 +167,36 @@ contract BallIsFlat is IBallIsFlat, ERC721Enumerable, Ownable, ReentrancyGuard {
         return (l.seller, l.price);
     }
 
+    /// The card's metadata on the Ball is Flat API; empty until the owner sets a base URI.
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        _requireOwned(tokenId);
+        return bytes(_baseTokenURI).length == 0 ? "" : string.concat(_baseTokenURI, Strings.toString(tokenId));
+    }
+
+    /// ERC-7572 collection metadata.
+    function contractURI() external view returns (string memory) {
+        return _contractURI;
+    }
+
+    /// True when playerId is in the match's squad. Same check mint and propose use.
+    function inSquad(uint256 matchId, uint32 playerId, bytes32[] calldata proof) public view returns (bool) {
+        return MerkleProof.verifyCalldata(proof, _matches[matchId].playersRoot, _leaf(playerId));
+    }
+
     // =====================================================================
     // fan
     // =====================================================================
 
-    function mint(uint256 matchId, uint32 playerId) external nonReentrant returns (uint256 tokenId) {
+    function mint(uint256 matchId, uint32 playerId, bytes32[] calldata proof)
+        external
+        nonReentrant
+        returns (uint256 tokenId)
+    {
         if (mintPaused) revert MintPaused();
         MatchInfo storage m = _matches[matchId];
         if (m.status != Status.Listed) revert NotListed(matchId);
         if (block.timestamp >= m.kickoff) revert MintClosed(matchId);
-        if (!_isPlayer[matchId][playerId]) revert UnknownPlayer(matchId, playerId);
+        if (!inSquad(matchId, playerId, proof)) revert UnknownPlayer(matchId, playerId);
         uint256 existing = _cardOf[matchId][msg.sender];
         if (existing != 0) revert AlreadyHasCard(matchId, existing);
         if (m.maxPerPlayer != 0 && _cardsOn[matchId][playerId] >= m.maxPerPlayer) {
@@ -217,6 +249,7 @@ contract BallIsFlat is IBallIsFlat, ERC721Enumerable, Ownable, ReentrancyGuard {
         _opened[tokenId] = true;
         _clearListing(tokenId);
         emit CardOpened(tokenId, _cardInfo[tokenId].matchId, msg.sender);
+        emit MetadataUpdate(tokenId);
     }
 
     // =====================================================================
@@ -293,6 +326,7 @@ contract BallIsFlat is IBallIsFlat, ERC721Enumerable, Ownable, ReentrancyGuard {
         }
 
         emit MatchFinalized(matchId, winningCards, burned, payPool, rolledTo);
+        _refreshAllMetadata();
 
         if (burned > 0) IERC20(wif).safeTransfer(DEAD, burned);
         if (treasuryTo != address(0)) IERC20(wif).safeTransfer(treasuryTo, payPool);
@@ -302,11 +336,14 @@ contract BallIsFlat is IBallIsFlat, ERC721Enumerable, Ownable, ReentrancyGuard {
     // settler
     // =====================================================================
 
-    function propose(uint256 matchId, uint32[] calldata winners, string calldata sourceUrl) external onlySettler {
+    function propose(uint256 matchId, uint32[] calldata winners, bytes32[][] calldata proofs, string calldata sourceUrl)
+        external
+        onlySettler
+    {
         MatchInfo storage m = _matches[matchId];
         if (m.status != Status.Listed) revert WrongStatus(matchId, m.status);
         if (block.timestamp < m.kickoff) revert TooEarly();
-        _setWinners(matchId, winners);
+        _setWinners(matchId, winners, proofs);
         m.status = Status.Proposed;
         // forge-lint: disable-next-line(unsafe-typecast)
         m.proposedAt = uint64(block.timestamp);
@@ -314,11 +351,14 @@ contract BallIsFlat is IBallIsFlat, ERC721Enumerable, Ownable, ReentrancyGuard {
         emit ResultProposed(matchId, winners, sourceUrl);
     }
 
-    function correct(uint256 matchId, uint32[] calldata winners, string calldata sourceUrl) external onlySettler {
+    function correct(uint256 matchId, uint32[] calldata winners, bytes32[][] calldata proofs, string calldata sourceUrl)
+        external
+        onlySettler
+    {
         MatchInfo storage m = _matches[matchId];
         if (m.status != Status.Proposed) revert WrongStatus(matchId, m.status);
         if (block.timestamp >= uint256(m.proposedAt) + disputeWindow) revert WindowClosed(matchId);
-        _setWinners(matchId, winners);
+        _setWinners(matchId, winners, proofs);
         m.sourceUrl = sourceUrl;
         emit ResultCorrected(matchId, winners, sourceUrl);
     }
@@ -330,6 +370,7 @@ contract BallIsFlat is IBallIsFlat, ERC721Enumerable, Ownable, ReentrancyGuard {
         if (m.status != Status.Listed && m.status != Status.Proposed) revert WrongStatus(matchId, m.status);
         m.status = Status.Voided;
         emit MatchVoided(matchId);
+        _refreshAllMetadata();
 
         uint256 carried = m.rolledIn;
         if (carried > 0) {
@@ -349,26 +390,30 @@ contract BallIsFlat is IBallIsFlat, ERC721Enumerable, Ownable, ReentrancyGuard {
         uint32[] calldata playerIds,
         uint32 maxPerPlayer
     ) external onlyOwner returns (uint256 matchId) {
-        if (kickoff <= block.timestamp || price == 0 || playerIds.length == 0) {
-            revert InvalidListing();
-        }
-        if (nextMatch > matchCount) revert InvalidListing();
+        return _listMatch(kickoff, price, nextMatch, playerIds, maxPerPlayer);
+    }
 
-        matchId = ++matchCount;
-        for (uint256 i; i < playerIds.length; ++i) {
-            uint32 p = playerIds[i];
-            if (_isPlayer[matchId][p]) revert InvalidListing();
-            _isPlayer[matchId][p] = true;
+    function listMatches(MatchListing[] calldata listings) external onlyOwner returns (uint256 firstMatchId) {
+        if (listings.length == 0) revert InvalidListing();
+        firstMatchId = matchCount + 1;
+        for (uint256 i; i < listings.length; ++i) {
+            MatchListing calldata l = listings[i];
+            _listMatch(l.kickoff, l.price, l.nextMatch, l.playerIds, l.maxPerPlayer);
         }
-        _players[matchId] = playerIds;
+    }
 
-        MatchInfo storage m = _matches[matchId];
-        m.kickoff = kickoff;
-        m.price = price;
-        m.nextMatch = nextMatch;
-        m.maxPerPlayer = maxPerPlayer;
-        m.status = Status.Listed;
-        emit MatchListed(matchId, kickoff, price, nextMatch, playerIds);
+    function setPlayers(uint256 matchId, uint32[] calldata playerIds) external onlyOwner {
+        if (!_tradingOpen(matchId)) revert TradingClosed(matchId);
+        bytes32 root = squadRoot(playerIds);
+        _matches[matchId].playersRoot = root;
+        emit PlayersUpdated(matchId, root, playerIds);
+    }
+
+    function setMetadataURIs(string calldata baseURI_, string calldata contractURI_) external onlyOwner {
+        _baseTokenURI = baseURI_;
+        _contractURI = contractURI_;
+        emit ContractURIUpdated();
+        _refreshAllMetadata();
     }
 
     function setSettler(address settler_) external onlyOwner {
@@ -404,13 +449,67 @@ contract BallIsFlat is IBallIsFlat, ERC721Enumerable, Ownable, ReentrancyGuard {
         return round != 0 && _winnerMark[matchId][playerId] == round;
     }
 
-    /// Validates (non-empty, listed, no duplicates) and stores the winner set.
-    function _setWinners(uint256 matchId, uint32[] calldata winners) internal {
-        if (winners.length == 0) revert InvalidWinners();
+    /// Merkle root of a squad: the tree described in the contract notes. Ids must be strictly ascending.
+    function squadRoot(uint32[] calldata playerIds) public pure returns (bytes32) {
+        uint256 n = playerIds.length;
+        if (n == 0) revert InvalidSquad();
+        bytes32[] memory level = new bytes32[](n);
+        for (uint256 i; i < n; ++i) {
+            if (i > 0 && playerIds[i] <= playerIds[i - 1]) revert InvalidSquad();
+            level[i] = _leaf(playerIds[i]);
+        }
+        while (n > 1) {
+            uint256 half = (n + 1) / 2;
+            for (uint256 i; i < half; ++i) {
+                uint256 left = 2 * i;
+                level[i] = left + 1 < n ? Hashes.commutativeKeccak256(level[left], level[left + 1]) : level[left];
+            }
+            n = half;
+        }
+        return level[0];
+    }
+
+    function _leaf(uint32 playerId) internal pure returns (bytes32) {
+        return keccak256(bytes.concat(keccak256(abi.encode(playerId))));
+    }
+
+    function _listMatch(
+        uint64 kickoff,
+        uint256 price,
+        uint256 nextMatch,
+        uint32[] calldata playerIds,
+        uint32 maxPerPlayer
+    ) internal returns (uint256 matchId) {
+        if (kickoff <= block.timestamp || price == 0 || playerIds.length == 0) {
+            revert InvalidListing();
+        }
+        if (nextMatch > matchCount) revert InvalidListing();
+        bytes32 root = squadRoot(playerIds);
+
+        matchId = ++matchCount;
+        MatchInfo storage m = _matches[matchId];
+        m.kickoff = kickoff;
+        m.price = price;
+        m.nextMatch = nextMatch;
+        m.maxPerPlayer = maxPerPlayer;
+        m.playersRoot = root;
+        m.status = Status.Listed;
+        emit MatchListed(matchId, kickoff, price, nextMatch, root, playerIds);
+    }
+
+    /// Marketplaces re-read every card. Used when a match settles or the metadata host moves.
+    function _refreshAllMetadata() internal {
+        if (_nextTokenId > 1) emit BatchMetadataUpdate(1, _nextTokenId - 1);
+    }
+
+    /// Validates (non-empty, in the squad, no duplicates) and stores the winner set.
+    function _setWinners(uint256 matchId, uint32[] calldata winners, bytes32[][] calldata proofs) internal {
+        if (winners.length == 0 || proofs.length != winners.length) revert InvalidWinners();
         uint256 round = ++_winnerRound[matchId];
+        bytes32 root = _matches[matchId].playersRoot;
         for (uint256 i; i < winners.length; ++i) {
             uint32 p = winners[i];
-            if (!_isPlayer[matchId][p]) revert UnknownPlayer(matchId, p);
+            if (!MerkleProof.verifyCalldata(proofs[i], root, _leaf(p))) revert UnknownPlayer(matchId, p);
             if (_winnerMark[matchId][p] == round) revert InvalidWinners();
             _winnerMark[matchId][p] = round;
         }
@@ -445,7 +544,7 @@ contract BallIsFlat is IBallIsFlat, ERC721Enumerable, Ownable, ReentrancyGuard {
         super._increaseBalance(account, amount);
     }
 
-    function supportsInterface(bytes4 interfaceId) public view override(ERC721Enumerable) returns (bool) {
-        return super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721Enumerable, IERC165) returns (bool) {
+        return interfaceId == bytes4(0x49064906) || super.supportsInterface(interfaceId);
     }
 }
