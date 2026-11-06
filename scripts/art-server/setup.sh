@@ -14,7 +14,7 @@ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 
-uv venv --python 3.12 .venv
+uv venv --python 3.12 --allow-existing .venv
 # shellcheck disable=SC1091
 source .venv/bin/activate
 uv pip install -r requirements.txt

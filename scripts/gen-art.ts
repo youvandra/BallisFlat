@@ -23,6 +23,7 @@
 
 import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { request as httpRequest } from "node:http";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BedrockRuntimeClient, ConverseCommand, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
@@ -160,6 +161,22 @@ const rubric = `You check one generated illustration of a football player that w
 7. The whole body is inside the frame (head, hands and boots not cut off).
 Ignore the background and the colours. Reply with only JSON: {"pass": true|false, "problems": ["short reason", ...]}`;
 
+/** Second look for the open-weight judge, one yes/no question per failure it lets through. */
+const strictQuestions: [string, string][] = [
+  [
+    "Look at the person's head. Can you see any facial feature at all: eyes, eyebrows, nose, mouth, lips, beard or skin shading on the face? Answer only yes or no.",
+    "face visible",
+  ],
+  [
+    "Look at the shirt, shorts, socks and boots. Is there any logo, crest, badge, swoosh, sponsor, number or letters anywhere on them? Answer only yes or no.",
+    "logo or mark on the kit",
+  ],
+  [
+    "Does this image look like a photograph or a realistic 3D render rather than a flat vector illustration? Answer only yes or no.",
+    "looks like a photo",
+  ],
+];
+
 type Verdict = { pass: boolean; problems: string[] };
 type Aspect = "4:5" | "1:1";
 
@@ -237,15 +254,33 @@ function bedrockBackend(bedrock: BedrockRuntimeClient): ArtBackend {
 
 /** Our own GPU box (scripts/art-server/server.py). One request at a time, generous timeout for model loads. */
 function gpuBackend(url: string, model: string): ArtBackend {
-  async function post(path: string, body: object): Promise<Record<string, unknown>> {
-    const response = await fetch(`${url}${path}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(600_000),
+  // node:http instead of fetch: fetch gives up after 300 s without response headers, and the first call
+  // after a model switch reads 16+ GB from disk. One request runs at a time; 20 minutes is the hard stop.
+  function post(path: string, body: object): Promise<Record<string, unknown>> {
+    const payload = JSON.stringify(body);
+    return new Promise((resolvePost, rejectPost) => {
+      const request = httpRequest(
+        `${url}${path}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload) },
+        },
+        (response) => {
+          const chunks: Buffer[] = [];
+          response.on("data", (chunk: Buffer) => chunks.push(chunk));
+          response.on("end", () => {
+            const text = Buffer.concat(chunks).toString();
+            if ((response.statusCode ?? 500) >= 400)
+              rejectPost(new Error(`${path} ${response.statusCode}: ${text.slice(0, 200)}`));
+            else resolvePost(JSON.parse(text) as Record<string, unknown>);
+          });
+          response.on("error", rejectPost);
+        },
+      );
+      request.setTimeout(1_200_000, () => request.destroy(new Error(`${path} timed out after 20 minutes`)));
+      request.on("error", rejectPost);
+      request.end(payload);
     });
-    if (!response.ok) throw new Error(`${path} ${response.status}: ${(await response.text()).slice(0, 200)}`);
-    return (await response.json()) as Record<string, unknown>;
   }
   return {
     async draw(text, negative, seed, aspect) {
@@ -253,8 +288,16 @@ function gpuBackend(url: string, model: string): ArtBackend {
       return typeof body.image === "string" ? Buffer.from(body.image, "base64") : null;
     },
     async judge(bytes, check) {
-      const body = await post("/judge", { image: bytes.toString("base64"), rubric: check });
-      return readVerdict(String(body.text ?? ""));
+      const image = bytes.toString("base64");
+      const verdict = readVerdict(String((await post("/judge", { image, rubric: check })).text ?? ""));
+      if (!verdict.pass) return verdict;
+      // A 7B judge is lenient on a whole rubric at once and on pass/fail JSON; it answers direct yes/no
+      // questions well. Any "yes" fails the image.
+      for (const [question, problem] of strictQuestions) {
+        const answer = String((await post("/judge", { image, rubric: question })).text ?? "").trim();
+        if (/^\W*yes/i.test(answer)) return { pass: false, problems: [problem] };
+      }
+      return verdict;
     },
     async cutout(bytes) {
       const body = await post("/cutout", { image: bytes.toString("base64") });

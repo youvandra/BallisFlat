@@ -6,7 +6,7 @@ Open-weight stand-ins for the three Bedrock models the art pipeline used:
   cutout  BiRefNet background removal, returns a transparent PNG
 
 Binds to 127.0.0.1 only: reach it through an SSH tunnel. One request runs at a time, and only one drawing
-model sits on the GPU (switching models unloads the other), so a 48 GB L40S holds everything.
+model sits on the GPU (switching models unloads the other), so a 48 GB L40S holds everything; on a 24 GB card SD3.5 and its T5 load in 4-bit so all three fit.
 
   HF_TOKEN=... uvicorn server:app --host 127.0.0.1 --port 8188
 """
@@ -59,7 +59,30 @@ def drawing_pipeline(name: str):
     if name == "sd35":
         from diffusers import StableDiffusion3Pipeline
 
-        pipe = StableDiffusion3Pipeline.from_pretrained(DRAW_MODELS[name], torch_dtype=torch.bfloat16)
+        small = torch.cuda.get_device_properties(0).total_memory < 40e9
+        extra = {}
+        if small:
+            # 24 GB card: transformer and T5 in 4-bit (~4.5 GB + ~3 GB), so drawing, judge and cutout all stay on
+            # the GPU together. T5 stays: CLIP alone stops at 77 tokens and drops the "no face" half of the prompt.
+            from diffusers import BitsAndBytesConfig as DiffusersBnb
+            from diffusers import SD3Transformer2DModel
+            from transformers import BitsAndBytesConfig as TransformersBnb
+            from transformers import T5EncoderModel
+
+            nf4 = dict(load_in_4bit=True, bnb_4bit_quant_type="nf4", bnb_4bit_compute_dtype=torch.bfloat16)
+            extra["transformer"] = SD3Transformer2DModel.from_pretrained(
+                DRAW_MODELS[name],
+                subfolder="transformer",
+                quantization_config=DiffusersBnb(**nf4),
+                torch_dtype=torch.bfloat16,
+            )
+            extra["text_encoder_3"] = T5EncoderModel.from_pretrained(
+                DRAW_MODELS[name],
+                subfolder="text_encoder_3",
+                quantization_config=TransformersBnb(**nf4),
+                torch_dtype=torch.bfloat16,
+            )
+        pipe = StableDiffusion3Pipeline.from_pretrained(DRAW_MODELS[name], torch_dtype=torch.bfloat16, **extra)
     elif name == "flux":
         from diffusers import FluxPipeline
 
@@ -74,6 +97,12 @@ def drawing_pipeline(name: str):
 
 def judge_model():
     if state["judge"] is None:
+        if torch.cuda.get_device_properties(0).total_memory < 40e9 and state["draw"] is not None:
+            # 32 GB RAM boxes: the offloaded drawing model fills RAM and the judge then pages in from disk for
+            # an hour. Drop it once; the judge lives on the GPU afterwards, and the next draw reloads cleanly.
+            state["draw"], state["draw_name"] = None, None
+            gc.collect()
+            torch.cuda.empty_cache()
         from transformers import AutoProcessor, BitsAndBytesConfig, Qwen2_5_VLForConditionalGeneration
 
         state["judge"] = Qwen2_5_VLForConditionalGeneration.from_pretrained(
@@ -152,6 +181,7 @@ def draw(request: DrawRequest):
                 height=height,
                 num_inference_steps=28,
                 guidance_scale=3.5,
+                max_sequence_length=256,
                 generator=generator,
             ).images[0]
     return {"image": image_to_b64(image, "JPEG")}
