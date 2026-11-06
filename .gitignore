@@ -1,0 +1,19 @@
+node_modules
+dist
+.env
+.env.local
+playwright-report
+test-results
+*.tsbuildinfo
+.DS_Store
+# Working files that stay on disk only
+CLAUDE.md
+.claude/
+video/
+scripts/.art-preview/
+apps/web/public/_refs/
+
+# Internal strategy and handoff notes
+NEXT.md
+docs/IDEA-SCORECARD.md
+docs/PITCH-SCRIPT.md

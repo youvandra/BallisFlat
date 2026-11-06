@@ -1,0 +1,39 @@
+{
+  "name": "ball-is-flat",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w apps/web",
+    "build": "npm run build -w apps/web",
+    "typecheck": "tsc -b",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "guard:tokens": "node scripts/check-design-tokens.mjs apps/web/src --allow apps/web/src/framer",
+    "guard:dupes": "jscpd apps/web/src packages/core/src packages/config/src --min-tokens 60 --threshold 3 --ignore \"**/*.test.*,**/src/framer/**\" --silent",
+    "guard:dead": "knip",
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run guard:tokens && npm run guard:design && npm run guard:dupes && npm run build",
+    "kit-check": "node scripts/kit-check.mjs .",
+    "guard:design": "node scripts/check-design-rules.mjs apps/web/src --skip apps/web/src/framer",
+    "chain:local": "anvil --chain-id 4663 --port 8545 --silent",
+    "deploy:local": "node scripts/deploy.ts --network local",
+    "dev:local": "VITE_DATA_MODE=chain VITE_NETWORK=local VITE_RPC_URL=http://127.0.0.1:8545 VITE_DEV_ACCOUNT=0x70997970C51812dc3A010C7d01b50e0d17dc79C8 npm run dev -w apps/web"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1163.0",
+    "@aws-sdk/client-s3": "^3.1163.0",
+    "@aws-sdk/client-sts": "^3.1163.0",
+    "@biomejs/biome": "2.6.4",
+    "@playwright/test": "1.64.1",
+    "jscpd": "5.4.2",
+    "knip": "6.44.1",
+    "sharp": "^0.35.5",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}
