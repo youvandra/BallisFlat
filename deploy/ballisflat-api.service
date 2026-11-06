@@ -1,0 +1,19 @@
+# /etc/systemd/system/ballisflat-api.service — Ponder indexer + Hono API on 127.0.0.1:42069.
+# One supervisor only (systemd). Do not also run it under pm2 or docker.
+[Unit]
+Description=Ball is Flat indexer and API
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/srv/ballisflat/repo/apps/indexer
+EnvironmentFile=/etc/ballisflat/api.env
+ExecStart=/usr/bin/npx ponder start --hostname 127.0.0.1 --port 42069 --schema ${DATABASE_SCHEMA} --views-schema ballisflat
+Restart=always
+RestartSec=5
+MemoryMax=1500M
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target
