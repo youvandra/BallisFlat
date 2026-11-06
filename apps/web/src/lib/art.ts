@@ -1,6 +1,7 @@
 // Card art, all drawn here as SVG from the fixture data. Match covers are riso prints of the two flags and
-// a halftone ball, with no text; player art is drawn here as an SVG: the team colour as a halftone screen and the shirt number printed
+// the BIF match ball, with no text; player art is drawn here as an SVG: the team colour as a halftone screen and the shirt number printed
 // twice, pink over cyan, off register. No photos, no likeness.
+import { ballSvg } from "@app/config/ball";
 import { flagShapes } from "@app/config/flags";
 import { artKey, matchArt, playerArt } from "@app/config/player-art";
 import { useEffect, useSyncExternalStore } from "react";
@@ -65,7 +66,7 @@ type CoverTeam = Pick<Team, "code" | "colour">;
 /**
  * A fixture cover as a two-ink riso print of both flags, no text: the home flag fills the left of a slanted
  * seam and the away flag the right, each printed through a halftone screen with a faint off-register copy,
- * and a halftone ball sits on the seam. "card" is square (sleeves, the deck); "wide" is 2:1 (list tiles).
+ * and the BIF match ball sits on the seam. "card" is square (sleeves, the deck); "wide" is 2:1 (list tiles).
  */
 function coverSvg(home: CoverTeam, away: CoverTeam, shape: CoverShape): string {
   const ink = palette();
@@ -74,26 +75,7 @@ function coverSvg(home: CoverTeam, away: CoverTeam, shape: CoverShape): string {
   const h = wide ? 512 : 1024;
   const cx = w / 2;
   const cy = h / 2;
-  const r = wide ? 92 : 124;
-  const k = r / 220;
-  const pentagon = (x: number, y: number, size: number) =>
-    Array.from({ length: 5 }, (_, i) => {
-      const a = (Math.PI * 2 * i) / 5 - Math.PI / 2;
-      return `${(x + size * Math.cos(a)).toFixed(1)},${(y + size * Math.sin(a)).toFixed(1)}`;
-    }).join(" ");
-  const patches = [
-    [0, 0, 44],
-    [0, -112, 30],
-    [-98, -42, 30],
-    [98, -42, 30],
-    [-62, 88, 30],
-    [62, 88, 30],
-  ]
-    .map(
-      ([dx = 0, dy = 0, size = 0]) =>
-        `<polygon points="${pentagon(cx + dx * k, cy + dy * k, size * k)}" fill="${ink.mat}"/>`,
-    )
-    .join("");
+  const r = wide ? 120 : 175;
   // The seam leans like the dock and the card stacks: top 60% across, bottom 40% across.
   const top = w * 0.6;
   const bottom = w * 0.4;
@@ -107,7 +89,6 @@ function coverSvg(home: CoverTeam, away: CoverTeam, shape: CoverShape): string {
 <defs>
 <pattern id="dots" width="11" height="11" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><circle cx="5.5" cy="5.5" r="4.9" fill="white"/></pattern>
 <mask id="screen"><rect width="${w}" height="${h}" fill="url(#dots)"/></mask>
-<pattern id="fine" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(15)"><circle cx="3.5" cy="3.5" r="2.4" fill="${ink.ink}"/></pattern>
 <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0"/></filter>
 </defs>
 <rect width="${w}" height="${h}" fill="${ink.mat}"/>
@@ -115,12 +96,8 @@ ${half("home", home, `0,0 ${top},0 ${bottom},${h} 0,${h}`, -7)}
 ${half("away", away, `${top},0 ${w},0 ${w},${h} ${bottom},${h}`, 7)}
 <line x1="${top}" y1="0" x2="${bottom}" y2="${h}" stroke="${ink.mat}" stroke-width="14"/>
 <line x1="${top + 9}" y1="0" x2="${bottom + 9}" y2="${h}" stroke="${ink.cyan}" stroke-width="3" opacity="0.8"/>
-<circle cx="${cx + 6}" cy="${cy + 5}" r="${r}" fill="${ink.pink}" opacity="0.55"/>
-<circle cx="${cx}" cy="${cy}" r="${r}" fill="${ink.mat}"/>
-<circle cx="${cx}" cy="${cy}" r="${r - 4}" fill="url(#fine)"/>
-${patches}
-<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${ink.cyan}" stroke-width="5"/>
 <rect width="${w}" height="${h}" filter="url(#grain)" opacity="0.35"/>
+${ballSvg(cx, cy, r, { pink: ink.pink, cyan: ink.cyan, mat: ink.mat })}
 </svg>`;
 }
 
