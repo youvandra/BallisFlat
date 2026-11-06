@@ -33,6 +33,8 @@ Football runs several matches every few days, so the calendar brings people back
 
 The single settler is the open trust assumption. The dispute window and the published source are what keep it honest during this event.
 
+Full diagram, match lifecycle and code map: [`docs/architecture.md`](docs/architecture.md).
+
 ## How it's made
 
 Solidity 0.8.24 contract on Foundry with OpenZeppelin 5 (`ERC721Enumerable`, `SafeERC20`, `ReentrancyGuard`, `Ownable`). Payout math lives once in TypeScript (`packages/core`) and is shared by the app and the tests, so the "×N if he wins" number on screen matches the contract. The web app is Vite 8 + React 19 + wagmi/viem on chain 4663, with TanStack Query and Tailwind 4. Its tokens and components are measured from the Framer landing so the app and the landing read as one product. Player and match art is generated (faceless cut-out figures, no player likeness) and served from CloudFront.
