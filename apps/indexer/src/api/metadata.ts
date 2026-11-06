@@ -1,7 +1,6 @@
 // ERC-721 metadata for a card (tokenURI points here) and its image. The image is drawn as SVG from on-chain
 // state plus the off-chain names, so a card shows its real state (sealed, opened, won, claimed) in any wallet
 // or marketplace. A sealed card keeps the pick hidden, like the pack in the app.
-import { artKey, playerArt } from "@app/config/player-art";
 
 export type CardView = {
   tokenId: bigint;
@@ -24,10 +23,17 @@ export type CardView = {
   slug: string;
 };
 
-const art = playerArt;
-
 function esc(text: string): string {
   return text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+}
+
+/** "UEFA Nations League · MD5": the season drops off and the line stays clear of the status pill. */
+export function footLine(card: Pick<CardView, "competition" | "matchday">): string {
+  const competition = card.competition.replace(/\s+\d{4}(-\d{2,4})?$/, "").trim();
+  const day = card.matchday > 0 ? ` · MD${card.matchday}` : " · Warm-up";
+  const room = 28 - day.length;
+  const name = competition.length > room ? `${competition.slice(0, room - 1).trimEnd()}…` : competition;
+  return `${name}${day}`;
 }
 
 export function cardStatus(card: CardView): string {
@@ -49,7 +55,8 @@ export function metadataJson(card: CardView, baseUrl: string, appUrl: string) {
     description: sealed
       ? `A sealed man-of-the-match pick for ${title} (${card.competition}). Open it in Ball is Flat to reveal the player.`
       : `Man-of-the-match pick: ${card.playerName} for ${title} (${card.competition}). Burn a winning card in Ball is Flat to take its share of the $WIF pot.`,
-    image: `${baseUrl}/cards/${card.tokenId}/image.svg`,
+    image: `${baseUrl}/cards/${card.tokenId}/image.png`,
+    animation_url: `${baseUrl}/cards/${card.tokenId}/image.svg`,
     external_url: `${appUrl}/m/${card.slug}`,
     attributes: [
       { trait_type: "Match", value: title },
@@ -69,18 +76,20 @@ export function metadataJson(card: CardView, baseUrl: string, appUrl: string) {
   };
 }
 
-/** A 600x840 card face in the app's riso look: halftone, pink and cyan offset, player cut-out or number. */
-export function cardSvg(card: CardView): string {
+/**
+ * A 600x840 card face in the app's riso look: halftone, pink and cyan offset, player cut-out or number.
+ * `picture` must be a data URI (see art.ts): an SVG shown as an image cannot load other URLs.
+ */
+export function cardSvg(card: CardView, picture: string | null = null): string {
   const status = cardStatus(card);
   const sealed = !card.opened && card.state === "live";
   const title = `${card.home} v ${card.away}`.toUpperCase();
-  const picture = art[artKey(card.teamCode, card.playerName)];
   const kit = /^#[0-9a-f]{6}$/i.test(card.teamColour) ? card.teamColour : "#ff4fa3";
   const face = sealed
     ? `<text x="300" y="470" text-anchor="middle" font-size="220" font-weight="900" fill="#ff4fa3" opacity=".9">?</text>
        <text x="300" y="560" text-anchor="middle" font-size="30" font-weight="700" fill="#f4efe6" letter-spacing="6">SEALED PICK</text>`
     : picture
-      ? `<image href="${esc(picture)}" x="70" y="170" width="460" height="460" preserveAspectRatio="xMidYMid meet"/>`
+      ? `<image href="${picture.startsWith("data:image/") ? picture : ""}" x="70" y="170" width="460" height="460" preserveAspectRatio="xMidYMid meet"/>`
       : `<text x="306" y="520" text-anchor="middle" font-size="300" font-weight="900" fill="#3fe0ff" opacity=".85">${card.playerNumber}</text>
          <text x="294" y="510" text-anchor="middle" font-size="300" font-weight="900" fill="#ff4fa3" opacity=".85">${card.playerNumber}</text>
          <text x="300" y="515" text-anchor="middle" font-size="300" font-weight="900" fill="#f4efe6">${card.playerNumber}</text>`;
@@ -105,7 +114,7 @@ export function cardSvg(card: CardView): string {
   ${face}
   <rect x="48" y="680" width="504" height="2" fill="#f4efe6" opacity=".25"/>
   <text x="48" y="728" font-size="26" fill="#f4efe6">${esc(title)}</text>
-  <text x="48" y="768" font-size="20" fill="#f4efe6" opacity=".6">${esc(card.competition)} · MD${card.matchday}</text>
+  <text x="48" y="768" font-size="20" fill="#f4efe6" opacity=".6">${esc(footLine(card))}</text>
   <rect x="${552 - 16 * status.length - 36}" y="736" width="${16 * status.length + 36}" height="44" rx="22" fill="${tone}"/>
   <text x="${552 - (16 * status.length + 36) / 2}" y="766" text-anchor="middle" font-size="20" fill="#141416">${esc(status.toUpperCase())}</text>
   <text x="300" y="812" text-anchor="middle" font-size="16" fill="#f4efe6" opacity=".5" letter-spacing="4">BALL IS FLAT</text>

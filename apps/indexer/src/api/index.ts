@@ -8,8 +8,10 @@ import { squadProof } from "@app/core/squad";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { and, desc, eq, graphql, inArray } from "ponder";
+import sharp from "sharp";
 import type { Hex } from "viem";
 import { getAddress, isAddress } from "viem";
+import { artUrlFor, inlineArt } from "./art";
 import { type CardView, cardSvg, metadataJson } from "./metadata";
 import {
   AdminError,
@@ -271,12 +273,31 @@ async function cardView(tokenId: bigint): Promise<CardView | null> {
   };
 }
 
-app.get("/cards/:id/image.svg", async (c) => {
-  const id = parseBigint(c.req.param("id"));
+/** The card face with its illustration inlined; null when the card does not exist. */
+async function cardFace(id: bigint | null): Promise<string | null> {
   const view = id === null ? null : await cardView(id);
-  if (!view) return fail(404, "no such card");
-  return new Response(cardSvg(view), {
+  if (!view) return null;
+  // A sealed card never shows its player, so it never needs the art.
+  const sealed = !view.opened && view.state === "live";
+  const url = sealed ? null : artUrlFor(view.teamCode, view.playerName);
+  return cardSvg(view, url ? await inlineArt(url) : null);
+}
+
+app.get("/cards/:id/image.svg", async (c) => {
+  const svg = await cardFace(parseBigint(c.req.param("id")));
+  if (!svg) return fail(404, "no such card");
+  return new Response(svg, {
     headers: { "content-type": "image/svg+xml", "cache-control": "public, max-age=60" },
+  });
+});
+
+/** PNG of the same face, for wallets and marketplaces that do not show SVG. */
+app.get("/cards/:id/image.png", async (c) => {
+  const svg = await cardFace(parseBigint(c.req.param("id")));
+  if (!svg) return fail(404, "no such card");
+  const png = await sharp(Buffer.from(svg), { density: 144 }).resize(600, 840).png().toBuffer();
+  return new Response(new Uint8Array(png), {
+    headers: { "content-type": "image/png", "cache-control": "public, max-age=60" },
   });
 });
 
