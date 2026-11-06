@@ -1,0 +1,14 @@
+{
+  "name": "@app/config",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./abi/*": "./src/abi/*.ts",
+    "./chain": "./src/chain.ts",
+    "./constants": "./src/constants.ts",
+    "./deployments": "./src/deployments.ts",
+    "./fixtures": "./src/fixtures.ts",
+    "./fixtures.types": "./src/fixtures.types.ts",
+    "./player-art": "./src/player-art.ts"
+  }
+}
