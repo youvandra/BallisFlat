@@ -23,7 +23,7 @@ function dockStopFor(pathname: string): DockStop {
 export function LaunchDock() {
   return (
     <div className="dock-bar">
-      <nav aria-label="Launch" className="dock dock-solo">
+      <nav aria-label="Launch" className="dock">
         <Link to="/matches" className="dock-item" aria-current="page">
           <span className="t-body-strong inline-flex items-center gap-2">
             <Rocket size={16} strokeWidth={2.25} aria-hidden />
