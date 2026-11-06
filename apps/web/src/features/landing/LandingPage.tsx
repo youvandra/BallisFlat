@@ -2,11 +2,13 @@ import { ArrowRight, RotateCw } from "lucide-react";
 import { Link } from "react-router";
 import { CardBackStack } from "../../components/playmat/CardBackStack";
 import { PackRip, ProjectCascade, SkillStack } from "../../components/playmat/framer";
+import { positionNames } from "../../components/playmat/PlayerHoloCard";
 import { Zone } from "../../components/playmat/Zone";
 import { Notice } from "../../components/ui/Notice";
 import { TextButton } from "../../components/ui/TextButton";
 import { usePhone } from "../../hooks/use-phone";
-import { matchArtUrl, useCoverArtReady } from "../../lib/art";
+import { matchArtUrl, playerArtUrl, playerIllustration, useCoverArtReady } from "../../lib/art";
+import { surname } from "../../lib/format";
 import { matchdayLabel } from "../../lib/game/fixtures";
 import { type MatchView, useBoard } from "../../lib/game/queries";
 import { houseRules, playSteps, skillProps } from "../../lib/game/rules";
@@ -41,6 +43,21 @@ export function LandingPage() {
   // The Framer deck holds six cards: the Nations League fixtures, the warm-up plays no part.
   const visible = (board.data ?? []).filter((view) => !view.fixture.warmUp).slice(0, 6);
   const field = visible[0];
+  // The sample card in the landing pack: Harry Kane, whose illustration is the reference for every card.
+  const sample = (() => {
+    if (!field) return null;
+    const player =
+      field.fixture.players.find((p) => p.name === "Harry Kane") ??
+      field.fixture.players.find((p) => p.position === "FW") ??
+      field.fixture.players[0];
+    if (!player) return null;
+    const team = player.side === "home" ? field.fixture.home : field.fixture.away;
+    return {
+      player,
+      team,
+      image: playerIllustration(player, team) ?? playerArtUrl(player, team),
+    };
+  })();
 
   return (
     <div className="playmat">
@@ -101,10 +118,14 @@ export function LandingPage() {
                 resetLabel="Seal it again"
                 showReset={false}
                 cardRarityLabel="MVP"
-                cardImage={{ src: matchArtUrl(field.fixture.slug), alt: sleeveCodes(field.fixture) }}
-                cardName="Your pick"
+                cardImage={{
+                  src: sample?.image ?? matchArtUrl(field.fixture.slug),
+                  alt: sample ? `${sample.player.name}, sample card` : sleeveCodes(field.fixture),
+                }}
+                cardName={sample ? surname(sample.player.name) : "Your pick"}
+                cardSubName={sample?.player.name}
                 cardNumber="001/100"
-                cardType="Man of the match card"
+                cardType={sample ? positionNames[sample.player.position] : "Man of the match card"}
                 cardYear={sleeveCodes(field.fixture)}
                 canvasState="peek"
                 ink={ink.mat}
