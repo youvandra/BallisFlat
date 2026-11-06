@@ -27,8 +27,10 @@ import {
   writeContract,
 } from "wagmi/actions";
 import { injected, mock } from "wagmi/connectors";
+import { type ApiCard, api, apiUrl, big } from "../api";
 import { env } from "../env";
 import { chain, contractAddress, deployBlock, wifAddress } from "./chain";
+import { fixtureById } from "./fixtures";
 import {
   type Account,
   type Address,
@@ -157,8 +159,10 @@ export class ChainGameClient implements GameClient {
     return matchStates[Number(state)] ?? "None";
   }
 
-  /** The squad lives in events: the listing, then any later squad update. The newest one wins. */
+  /** The squad as listed on chain: from the API's board, else from the listing and update events. */
   async playersOf(matchId: number): Promise<number[]> {
+    const fromBoard = apiUrl ? fixtureById(matchId) : undefined;
+    if (fromBoard) return fromBoard.players.map((player) => player.id).sort((a, b) => a - b);
     const range = { address: contractAddress, fromBlock: deployBlock, toBlock: "latest" } as const;
     const args = { matchId: BigInt(matchId) };
     const [listed, updated] = await Promise.all([
@@ -170,6 +174,10 @@ export class ChainGameClient implements GameClient {
   }
 
   private async proofFor(matchId: number, playerId: number): Promise<Hex[]> {
+    if (apiUrl) {
+      const body = await api<{ proof: Hex[] }>(`/api/matches/${matchId}/proof/${playerId}`).catch(() => null);
+      if (body) return body.proof;
+    }
     const proof = squadProof(await this.playersOf(matchId), playerId);
     if (!proof) throw new GameError("UnknownPlayer");
     return proof;
@@ -208,6 +216,23 @@ export class ChainGameClient implements GameClient {
    * (CardClaimed / CardRefunded events). `cardOf` is not used here: it keys on the original minter.
    */
   async cardsOf(wallet: Address): Promise<OwnedCard[]> {
+    if (apiUrl) {
+      const cards = await api<ApiCard[]>(`/api/wallets/${wallet}/cards`);
+      return cards.map((card) => ({
+        tokenId: big(card.tokenId),
+        matchId: Number(card.matchId),
+        playerId: card.playerId,
+        serial: card.serial,
+        mintedAt: Number(card.mintedAt),
+        mintHash: card.mintTx,
+        opened: card.opened || card.state !== "live",
+        listing: card.listingPrice ? { price: big(card.listingPrice) } : null,
+        burned:
+          card.state === "live" || !card.burnTx
+            ? null
+            : { kind: card.state, amount: big(card.payout), hash: card.burnTx },
+      }));
+    }
     const count = await readContract(config, { ...contract, functionName: "balanceOf", args: [wallet] });
     const heldIds = await Promise.all(
       Array.from({ length: Number(count) }, (_, index) =>
@@ -288,6 +313,25 @@ export class ChainGameClient implements GameClient {
    * amount or CardRefunded once the card is burned. Not yet run against the deployment.
    */
   async ledger(): Promise<LedgerCard[]> {
+    if (apiUrl) {
+      type Row = {
+        tokenId: string;
+        matchId: string;
+        playerId: number;
+        minter: Address;
+        state: string;
+        payout: string;
+      };
+      const rows = await api<Row[]>("/api/ledger");
+      return rows.map((row) => ({
+        tokenId: big(row.tokenId),
+        matchId: Number(row.matchId),
+        playerId: row.playerId,
+        owner: row.minter,
+        claimed: row.state === "claimed" ? big(row.payout) : null,
+        refunded: row.state === "refunded",
+      }));
+    }
     const range = { address: contractAddress, fromBlock: deployBlock, toBlock: "latest" } as const;
     const [mintedLogs, claimedLogs, refundedLogs] = await Promise.all([
       publicClient.getContractEvents({ ...range, abi: ballIsFlatAbi, eventName: "CardMinted" }),
@@ -453,6 +497,25 @@ export class ChainGameClient implements GameClient {
    * `listingOf` (the only source of truth) keeps the live ones.
    */
   async listings(matchId: number): Promise<Listing[]> {
+    if (apiUrl) {
+      type Row = {
+        tokenId: string;
+        matchId: string;
+        playerId: number;
+        serial: number;
+        seller: Address;
+        price: string;
+      };
+      const rows = await api<Row[]>(`/api/matches/${matchId}/listings`);
+      return rows.map((row) => ({
+        tokenId: big(row.tokenId),
+        matchId: Number(row.matchId),
+        playerId: row.playerId,
+        serial: row.serial,
+        seller: row.seller,
+        price: big(row.price),
+      }));
+    }
     const logs = await publicClient.getContractEvents({
       address: contractAddress,
       abi: ballIsFlatAbi,

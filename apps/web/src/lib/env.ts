@@ -9,6 +9,9 @@ const schema = z.object({
   VITE_RPC_URL: z._default(z.url(), "https://rpc.mainnet.chain.robinhood.com"),
   // Which record in packages/config/src/deployments.json chain mode reads.
   VITE_NETWORK: z._default(z.enum(["mainnet", "local"]), "mainnet"),
+  // The Ball is Flat API (apps/indexer). Chain mode reads fixtures, squads, cards, listings and the
+  // leaderboard from it; without it the app falls back to the bundled fixtures and direct event scans.
+  VITE_API_URL: z.optional(z.url()),
   // Local only: an unlocked anvil account the app signs with instead of a browser wallet.
   VITE_DEV_ACCOUNT: z.optional(z.string().check(z.regex(/^0x[0-9a-fA-F]{40}$/))),
 });

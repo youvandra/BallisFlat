@@ -101,6 +101,42 @@ app.get("/api/fixtures/:slug", async (c) => {
 
 app.get("/api/teams", async () => json(await teams(), 200, 60));
 
+/**
+ * Everything the board needs in one request: listed fixtures with team details and the squad as listed on
+ * chain (names and numbers from the off-chain rows). The app loads this once at start.
+ */
+app.get("/api/board", async () => {
+  const [fixtures, teamList] = await Promise.all([listFixtures(), teams()]);
+  const listed = fixtures.filter((f) => f.matchId !== null);
+  const rows = listed.length
+    ? await db
+        .select()
+        .from(schema.match)
+        .where(
+          inArray(
+            schema.match.id,
+            listed.map((f) => BigInt(f.matchId as string)),
+          ),
+        )
+    : [];
+  const onchain = new Map(rows.map((row) => [row.id.toString(), row]));
+  const teamBy = new Map(teamList.map((t) => [t.code, t]));
+  const board = await Promise.all(
+    listed.map(async (f) => {
+      const row = onchain.get(f.matchId as string);
+      const ids = new Set(row?.playerIds ?? []);
+      const squad = (await squadOf(f.slug)).filter((p) => ids.has(p.playerId));
+      return {
+        ...f,
+        home: teamBy.get(f.homeCode),
+        away: teamBy.get(f.awayCode),
+        squad,
+      };
+    }),
+  );
+  return json(board, 200, 15);
+});
+
 /** Proof for mint/propose, built from the squad as listed on chain. */
 app.get("/api/matches/:id/proof/:playerId", async (c) => {
   const id = parseBigint(c.req.param("id"));
@@ -117,12 +153,35 @@ app.get("/api/wallets/:address/cards", async (c) => {
   const address = c.req.param("address");
   if (!isAddress(address)) return fail(400, "bad address");
   const owner = getAddress(address).toLowerCase() as Hex;
-  const cards = await db
-    .select()
+  const rows = await db
+    .select({ card: schema.card, listing: schema.listing })
     .from(schema.card)
+    .leftJoin(schema.listing, eq(schema.listing.tokenId, schema.card.tokenId))
     .where(eq(schema.card.owner, owner))
     .orderBy(desc(schema.card.tokenId));
-  return json(cards);
+  return json(
+    rows.map(({ card, listing }) => ({
+      ...card,
+      // a stored listing only counts while this wallet still sells the sealed card
+      listingPrice: listing && listing.seller === card.owner && !card.opened ? listing.price : null,
+    })),
+  );
+});
+
+/** Every card ever minted, credited to its minter: the leaderboard's public record. */
+app.get("/api/ledger", async () => {
+  const rows = await db
+    .select({
+      tokenId: schema.card.tokenId,
+      matchId: schema.card.matchId,
+      playerId: schema.card.playerId,
+      minter: schema.card.minter,
+      state: schema.card.state,
+      payout: schema.card.payout,
+    })
+    .from(schema.card)
+    .orderBy(schema.card.tokenId);
+  return json(rows, 200, 5);
 });
 
 app.get("/api/wallets/:address", async (c) => {
