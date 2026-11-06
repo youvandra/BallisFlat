@@ -1,0 +1,1640 @@
+/*
+ * Design tokens: the only place colours, type, radius, shadow, spacing and motion are defined.
+ * Every value below is read from the Framer landing:
+ * colour styles, text presets per breakpoint, and the measured
+ * frames of the Playmat Layout template (RUX6SQRfT), Riso Backdrop (QVHnfmw0w), Masthead (iz_oxBMfc),
+ * Dock (j2DqtmR34), Submit (HO7zLUvHC) and the page breakpoints. Node ids are noted next to the values.
+ *
+ * Framer breakpoints: desktop >= 1200px, tablet 810-1199px, phone < 810px.
+ */
+@import "tailwindcss";
+
+@theme static {
+  --color-*: initial;
+  --breakpoint-*: initial;
+  --breakpoint-narrow: 540px; /* small phones: fact rows go two by two */
+  --breakpoint-tab: 810px;
+  --breakpoint-desk: 1200px;
+
+  /* Framer colour styles */
+  --color-mat: #141416; /* Mat */
+  --color-card: #1e1e23; /* Card */
+  --color-ink: #f2f2ee; /* Ink */
+  --color-graphite: rgb(242 242 238 / 0.62); /* Graphite */
+  --color-line: rgb(63 224 255 / 0.4); /* Line */
+  --color-line-soft: rgb(242 242 238 / 0.12); /* Line Soft */
+  --color-note: #ffe800; /* Note */
+  --color-pink: #ff4fa3; /* Pink */
+  --color-cyan: #3fe0ff; /* Ink 2 */
+  --color-white: #ffffff; /* Submit label, Dock active label */
+  --color-on-ink: #141416; /* text on pink, cyan and note fills */
+
+  /* Submit / Error: the one state colour Framer defines */
+  --color-error-fill: rgb(220 60 60 / 0.1);
+  --color-error-line: rgb(220 60 60 / 0.5);
+
+  /* Type */
+  --font-display: "Unbounded", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+
+  /* Radius (Framer frames) */
+  --radius-dot: 100px;
+  --radius-note: 6px; /* Sticky Note */
+  --radius-swatch: 3px; /* Legend swatch vnKovtIz8 */
+  --radius-input: 12px;
+  --radius-card: 14px; /* Result */
+  --radius-sleeve: 16px; /* Project Card, Pager cards */
+  --radius-zone: 18px;
+  --radius-drawer: 24px; /* Contact Drawer */
+  --radius-field: 28px; /* Zone Field */
+  --radius-pill: 100px;
+
+  /* Hard offset shadows: a second print pass */
+  --shadow-dock: 4px 4px 0 0 var(--color-pink);
+  --shadow-result: 4px 4px 0 0 var(--color-cyan);
+  --shadow-result-pink: 4px 4px 0 0 var(--color-pink);
+  --shadow-sleeve: 5px 5px 0 0 var(--color-cyan);
+  --shadow-sleeve-hover: 7px 7px 0 0 var(--color-cyan);
+  /* design-rules: allow (Framer Sleeve foil sheen, verbatim from the Work page card) */
+  --sheen-1: rgb(201 167 255 / 0.18);
+  /* design-rules: allow (Framer Sleeve foil sheen, verbatim from the Work page card) */
+  --sheen-2: rgb(201 167 255 / 0.2);
+  --shadow-quote: 5px 5px 0 0 var(--color-pink);
+  --shadow-drawer: 8px 8px 0 0 var(--color-cyan);
+  --shadow-submit: 3px 3px 0 0 var(--color-cyan);
+
+  /* Card proportions: Holo Card intrinsic 300 x 430, Case Sleeve 260 x 390 */
+  --aspect-card: 300 / 430;
+  --aspect-sleeve: 260 / 390;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-exit: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --ease-dot: cubic-bezier(0.42, 0, 0.58, 1);
+}
+
+:root {
+  color-scheme: dark;
+  --dur-instant: 100ms;
+  --dur-fast: 150ms;
+  --dur-base: 200ms;
+  --dur-slow: 300ms;
+
+  /* Text presets, desktop values (>= 1200px) */
+  --t-display: 56px; /* Display NjuFMGfaE */
+  --t-heading: 30px; /* Heading fAiqZ50bx */
+  --t-title: 18px; /* Title fXmEZpb3F */
+  --t-stat: 34px; /* Stat KHZiYz4uP */
+  --t-body: 15px; /* Body ADP1mlLeQ, Body Strong Ub8wkSasy */
+  --t-small: 13px; /* Small XX6NLY3mC */
+  --t-zone: 12px; /* Zone dUANXuZMU */
+  --t-wordmark: 18px; /* Masthead name QP1uVBgQt */
+  --t-folio: 11px; /* Backdrop folio UrIGeGheI */
+  --t-overprint: 300px; /* Backdrop overprint S1G6LpXrm */
+  --t-input: 15px; /* form inputs */
+  --t-card-back: 10px; /* Binder card back "BF" */
+
+  /* Playmat layout (page breakpoints WQLkyLRf1, SmGdGpPwd, zXqSEnnGz) */
+  --screen-pad: 95px 40px 96px 40px;
+  --screen-gap: 24px;
+  --playmat-gap: 32px;
+  --col-side: 240px;
+  --col-case: 320px;
+  --col-gap: 26px;
+  --masthead-pad: 28px 40px 0 40px;
+  --dock-bottom: 24px;
+  --dock-inset: auto;
+  /* Dock height (5px padding + 42px items + borders) plus its bottom offset and 24px of air */
+  --dock-clear: calc(55px + var(--dock-bottom) + 24px);
+
+  /* Riso Backdrop variants (Default AfCN2Sz3I, Quiet skhdPn63x, Compact cgCcc9MIH) */
+  --riso-pink-size: 800px;
+  --riso-cyan-size: 820px;
+  --riso-pink-opacity: 0.6;
+  --riso-cyan-opacity: 0.5;
+  --riso-ink2-opacity: 0.34;
+  --riso-pinktext-opacity: 0.46;
+  --riso-offset-x: 18px;
+  --riso-offset-y: 16px;
+  --riso-grain-opacity: 0.7;
+
+  /* Assets the backdrop masks with (Framer image fills, served by framerusercontent.com) */
+  --asset-halftone-pink: url("https://framerusercontent.com/images/kafSHdmPitHnjsJYjiIP3PO6O8.png");
+  --asset-halftone-cyan: url("https://framerusercontent.com/images/Nmarvtc4fzAEDdYbSi759L98GUA.png");
+  --asset-grain: url("https://framerusercontent.com/images/nkqhv6LNPcFOuQkMSEfVGUloY.png");
+}
+
+/* Tablet 810-1199px (Bg86Nusl3, kBfTOSici, UPduzXGg1) */
+@media (max-width: 1199.98px) {
+  :root {
+    --t-display: 46px;
+    --t-heading: 26px;
+    --t-title: 17px;
+    --t-stat: 30px;
+    --t-body: 12px;
+    --t-small: 10px;
+    --t-zone: 10px;
+    --screen-pad: 83px 28px 92px 28px;
+    --screen-gap: 20px;
+    --playmat-gap: 22px;
+    --col-side: 230px;
+    --col-case: 280px;
+    --masthead-pad: 24px 28px 0 28px;
+  }
+}
+
+/* Phone < 810px (VoKMtczta, CZoDHNOsr) */
+@media (max-width: 809.98px) {
+  :root {
+    --t-display: 36px;
+    --t-heading: 24px;
+    --t-title: 16px;
+    --t-stat: 28px;
+    --t-overprint: 200px;
+    --screen-pad: 84px 16px calc(var(--dock-clear) + env(safe-area-inset-bottom)) 16px;
+    --playmat-gap: 30px;
+    --col-gap: 30px;
+    --masthead-pad: 20px 16px 0 16px;
+    --dock-bottom: 14px;
+    --dock-inset: 12px;
+    --riso-pink-size: 520px;
+    --riso-cyan-size: 520px;
+    --riso-pink-opacity: 0.35;
+    --riso-cyan-opacity: 0.32;
+    --riso-ink2-opacity: 0.14;
+    --riso-pinktext-opacity: 0.2;
+    --riso-offset-x: 10px;
+    --riso-offset-y: 10px;
+  }
+}
+
+@layer base {
+  html {
+    background: var(--color-mat);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "cv03", "cv04", "cv09", "cv11";
+  }
+
+  /* One focus ring everywhere, cyan. Important so it also wins over the Framer components' inline
+     `all: unset` styles. */
+  :focus-visible {
+    outline: 2px solid var(--color-cyan) !important;
+    outline-offset: 3px !important;
+  }
+
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
+  .num,
+  td,
+  output {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* ---------- Text presets ---------- */
+  .t-display {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--t-display);
+    line-height: 1em;
+    letter-spacing: -0.045em;
+    color: var(--color-ink);
+  }
+  .t-heading {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--t-heading);
+    line-height: 1.08em;
+    letter-spacing: -0.035em;
+    color: var(--color-ink);
+  }
+  .t-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--t-title);
+    line-height: 1.2em;
+    letter-spacing: -0.02em;
+    color: var(--color-ink);
+  }
+  .t-stat {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--t-stat);
+    line-height: 1em;
+    letter-spacing: -0.04em;
+    color: var(--color-ink);
+  }
+  .t-body {
+    font-family: var(--font-sans);
+    font-weight: 400;
+    font-size: var(--t-body);
+    line-height: 1.55em;
+    color: var(--color-graphite);
+  }
+  .t-body-strong {
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: var(--t-body);
+    line-height: 1.45em;
+    letter-spacing: -0.01em;
+    color: var(--color-ink);
+  }
+  .t-small {
+    font-family: var(--font-sans);
+    font-weight: 400;
+    font-size: var(--t-small);
+    line-height: 1.4em;
+    color: var(--color-graphite);
+  }
+  .t-zone {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--t-zone);
+    line-height: 1.4em;
+    letter-spacing: -0.01em;
+    color: var(--color-pink);
+  }
+  /* A Holo Card narrower than 190px (two across on a phone) drops its position row and tightens up, so
+     the name, the art and the payout footer all fit. Important beats the component's inline styles. */
+  @container (max-width: 190px) {
+    .holo-front {
+      gap: 6px !important;
+      padding: 8px 8px 10px !important;
+    }
+    .holo-type {
+      display: none !important;
+    }
+    .holo-art {
+      min-height: 28% !important;
+    }
+  }
+
+  /* The flipped back: below 180px the results row steps aside and the hint shrinks to its arrow, so the
+     title, the result line and the source link always fit (HoloTradingCard.tsx scales the rest). */
+  @container (max-width: 179px) {
+    .holo-back-results,
+    .holo-back-hint {
+      display: none !important;
+    }
+  }
+
+  /* Shirt number over the card art (ShirtNumber.tsx): the SVG box is the ink box, so centring it centres
+     the digits. Screen blend like the landing's riso print. */
+  .shirt-number {
+    display: block;
+    width: 74%;
+    height: 56%;
+    overflow: visible;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 100px;
+  }
+  /* A player's cut-out figure on the card art, printed off register: cyan up-left, pink down-right. */
+  .player-cutout {
+    position: absolute;
+    inset: 6% 4% 0;
+    width: 92%;
+    height: 94%;
+    object-fit: contain;
+    object-position: center bottom;
+    transform: scale(1.18);
+    transform-origin: center 70%;
+    filter: drop-shadow(-3px -2px 0 var(--color-cyan)) drop-shadow(3px 2px 0 var(--color-pink));
+  }
+  /* Over an illustration the number sits small in the top-left corner, clear of the figure. */
+  .shirt-number.shirt-number-corner {
+    position: absolute;
+    top: 8%;
+    left: 7%;
+    width: 24%;
+    height: 18%;
+  }
+  .shirt-number text {
+    mix-blend-mode: screen;
+  }
+  .shirt-number-cyan {
+    fill: var(--color-cyan);
+  }
+  .shirt-number-pink {
+    fill: var(--color-pink);
+    opacity: 0.92;
+  }
+
+  /* Badge (Discipline Badge YB1nn0ddN): pill, 4px 10px, Small text in Mat on Pink; cyan and Note fills too */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    background: var(--color-pink);
+    font-family: var(--font-sans);
+    font-weight: 400;
+    font-size: var(--t-small);
+    line-height: 1.4em;
+    color: var(--color-mat);
+    white-space: nowrap;
+  }
+  .badge-cyan {
+    background: var(--color-cyan);
+  }
+  .badge-note {
+    background: var(--color-note);
+  }
+  /* Legend swatch (Chip vnKovtIz8): 12 x 17, radius 3 */
+  .swatch {
+    display: inline-block;
+    flex: none;
+    width: 12px;
+    height: 17px;
+    border-radius: var(--radius-swatch);
+  }
+  /* The card you hold: the pink hard print behind it (cards never get a border) */
+  .card-mine {
+    border-radius: var(--radius-sleeve);
+    box-shadow: 4px 4px 0 0 var(--color-pink);
+  }
+
+  /* Icon-only buttons (Rules, Sound, Disconnect, Close): a plain Ink icon, no fill */
+  .icon-button {
+    display: inline-grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    flex: none;
+    border-radius: var(--radius-pill);
+    color: var(--color-ink);
+    cursor: pointer;
+    transition: opacity var(--dur-fast);
+  }
+  @media (max-width: 809.98px) {
+    .icon-button {
+      width: 34px;
+      height: 34px;
+    }
+  }
+  .icon-button:hover {
+    opacity: 0.7;
+  }
+
+  /* Text link (fvu5zS5cG): Body Strong Ink with a 14px icon, gap 6 */
+  .text-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: var(--t-body);
+    line-height: 1.45em;
+    letter-spacing: -0.01em;
+    color: var(--color-ink);
+    cursor: pointer;
+    transition: opacity var(--dur-fast);
+  }
+  .text-link:hover {
+    opacity: 0.7;
+  }
+
+  /* Notice: a Card panel (radius 14, hard cyan print); a warning prints pink; an error is Submit / Error */
+  .notice {
+    padding: 10px 14px;
+    border-radius: var(--radius-card);
+    background: var(--color-card);
+    box-shadow: var(--shadow-result);
+  }
+  .notice-warn {
+    box-shadow: var(--shadow-result-pink);
+  }
+  .notice-danger {
+    border: 1px solid var(--color-error-line);
+    background: var(--color-error-fill);
+    box-shadow: none;
+  }
+
+  /* Sealed pack in the binder and on the board: the pack foil as a flat riso print */
+  /* A sealed pack in the binder flips to its actions (BinderSlot FlipPack), like the Holo Card. */
+  .flip-pack {
+    perspective: 1200px;
+    aspect-ratio: var(--aspect-card);
+    width: 100%;
+  }
+  .flip-pack-inner {
+    position: relative;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .flip-pack[data-flipped="true"] .flip-pack-inner {
+    transform: rotateY(180deg);
+  }
+  .flip-pack-face {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    text-align: inherit;
+    backface-visibility: hidden;
+    cursor: pointer;
+  }
+  /* The focus ring follows the card's corners instead of drawing a square box around a rounded card:
+     the pack's 16px here, the Holo Card's 20px below. */
+  .flip-pack-face {
+    border-radius: var(--radius-sleeve);
+  }
+  .aspect-card > [role="button"]:focus-visible {
+    border-radius: 20px; /* design-rules: allow (Holo Card radius, HoloTradingCard.tsx) */
+  }
+  .flip-pack-back {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 18px;
+    border-radius: var(--radius-sleeve);
+    background: var(--color-card);
+    box-shadow: var(--shadow-result);
+    transform: rotateY(180deg);
+    cursor: default;
+  }
+  .flip-pack-pill {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    padding: 4px 9px;
+    border-radius: var(--radius-pill);
+    background: var(--color-mat);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--t-small);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .flip-pack-inner {
+      transition: none;
+    }
+  }
+  .pack-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    aspect-ratio: var(--aspect-card);
+    width: 100%;
+    padding: 16px 12px;
+    overflow: hidden;
+    border-radius: var(--radius-sleeve);
+    background:
+      radial-gradient(circle at 30% 25%, rgb(255 79 163 / 0.55), transparent 55%),
+      radial-gradient(circle at 75% 80%, rgb(63 224 255 / 0.45), transparent 55%), var(--color-card);
+    box-shadow: var(--shadow-result);
+    text-align: center;
+  }
+  .pack-tile::before,
+  .pack-tile::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 10px;
+    background: repeating-linear-gradient(90deg, var(--color-mat) 0 6px, transparent 6px 12px);
+    opacity: 0.6;
+  }
+  .pack-tile::before {
+    top: 0;
+  }
+  .pack-tile::after {
+    bottom: 0;
+  }
+
+  /* Pack loader (PackLoader.tsx): shake, tear the top strip, a card rises, loop. Frame 0 and 100 are the
+     still pack, so reduced motion (one 1ms run) lands on it. */
+  .pack-loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 28px 0;
+  }
+  .pack-loader-screen {
+    min-height: 100dvh;
+    background: radial-gradient(circle, rgb(255 79 163 / 0.16) 1.4px, transparent 1.8px) 0 0 / 9px 9px;
+  }
+  .pack-loader-rig {
+    position: relative;
+    width: 74px;
+    height: 112px;
+  }
+  .pack-loader-pack {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: var(--radius-note);
+    background:
+      radial-gradient(circle at 30% 25%, rgb(255 79 163 / 0.75), transparent 60%),
+      radial-gradient(circle at 75% 80%, rgb(63 224 255 / 0.6), transparent 60%), var(--color-card);
+    box-shadow: 4px 4px 0 0 var(--color-pink);
+    animation: pack-shake 2.4s var(--ease-in-out) infinite;
+  }
+  .pack-loader-strip {
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    top: -2px;
+    height: 16px;
+    background: repeating-linear-gradient(90deg, var(--color-ink) 0 5px, var(--color-cyan) 5px 10px);
+    transform-origin: 0 100%;
+    animation: pack-tear 2.4s var(--ease-out) infinite;
+  }
+  .pack-loader-mark {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: -0.04em;
+    color: var(--color-white);
+  }
+  .pack-loader-card {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    top: 8px;
+    height: 88px;
+    border-radius: 6px;
+    background:
+      radial-gradient(circle, var(--color-pink) 1.2px, transparent 1.6px) 0 0 / 6px 6px,
+      var(--color-card);
+    opacity: 0;
+    animation: card-rise 2.4s var(--ease-out) infinite;
+  }
+  @keyframes pack-shake {
+    0%,
+    100% {
+      transform: none;
+    }
+    8%,
+    24% {
+      transform: rotate(-3deg);
+    }
+    16%,
+    32% {
+      transform: rotate(3deg);
+    }
+    40% {
+      transform: none;
+    }
+  }
+  @keyframes pack-tear {
+    0%,
+    40% {
+      transform: none;
+      opacity: 1;
+    }
+    55% {
+      transform: translate(10px, -14px) rotate(-14deg);
+      opacity: 0;
+    }
+    92% {
+      transform: translate(10px, -14px) rotate(-14deg);
+      opacity: 0;
+    }
+    100% {
+      transform: none;
+      opacity: 1;
+    }
+  }
+  @keyframes card-rise {
+    0%,
+    48% {
+      transform: none;
+      opacity: 0;
+    }
+    70%,
+    86% {
+      transform: translateY(-54px) rotate(-4deg);
+      opacity: 1;
+    }
+    100% {
+      transform: none;
+      opacity: 0;
+    }
+  }
+
+  /* Landing Field: the empty slot a match starts with ("No Card Yet") */
+  .empty-slot {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    aspect-ratio: var(--aspect-card);
+    overflow: hidden;
+    border: 2px dashed var(--color-cyan);
+    border-radius: var(--radius-zone);
+    background: var(--color-mat);
+    text-align: center;
+  }
+  .empty-slot::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--slot-art) center / cover no-repeat;
+    opacity: 0.16;
+    filter: grayscale(1);
+  }
+  .empty-slot > * {
+    position: relative;
+  }
+  .empty-slot-mark {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 64px;
+    line-height: 1;
+    color: var(--color-cyan);
+    text-shadow: 4px 4px 0 var(--color-pink);
+  }
+
+  /* Fixtures grid on the Matches page (Work page zXqSEnnGz): two Project Cards across, 20px apart */
+  .grid-fixtures {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 24px 20px;
+    align-items: stretch;
+  }
+  @media (max-width: 809.98px) {
+    .grid-fixtures {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  /* Project Card (Work page): Card fill, 8px padding, radius 16, 12px gap, hard 5px cyan print */
+  .project-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: 100%;
+    padding: 8px;
+    border-radius: var(--radius-sleeve);
+    background: var(--color-card);
+    box-shadow: var(--shadow-sleeve);
+    transition: box-shadow 0.2s var(--ease-out);
+  }
+  /* The Framer Sleeve: the hard cyan print grows from 5px to 7px on hover, no translate. */
+  .project-card:hover {
+    box-shadow: var(--shadow-sleeve-hover);
+  }
+  .project-card-art {
+    position: relative;
+    display: block;
+    flex: none;
+    height: 300px;
+    padding: 10px;
+    border-radius: 10px; /* design-rules: allow (Project Card image, Work page) */
+    background: var(--color-mat) center / cover no-repeat;
+    overflow: clip;
+  }
+  /* The two foil sheens over the Sleeve's art: transparent until the card is hovered. */
+  .project-card-art::before,
+  .project-card-art::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.35s var(--ease-out);
+  }
+  .project-card-art::before {
+    background: linear-gradient(
+      115deg,
+      transparent 30%,
+      rgb(255 255 255 / 0.28) 45%,
+      var(--sheen-1) 52%,
+      transparent 65%
+    );
+  }
+  .project-card-art::after {
+    background: linear-gradient(
+      115deg,
+      transparent 30%,
+      rgb(255 255 255 / 0.3) 45%,
+      var(--sheen-2) 52%,
+      transparent 65%
+    );
+  }
+  .project-card:hover .project-card-art::before,
+  .project-card:hover .project-card-art::after {
+    opacity: 1;
+  }
+  /* The status and Matchday pills share one row over the art: never overlapping, the Matchday badge
+     keeps the right edge and drops under the status when the card is too narrow for both. */
+  .project-card-pills {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .project-card-badge {
+    margin-left: auto;
+    padding: 5px 9px;
+    border-radius: var(--radius-pill);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--t-zone);
+    line-height: 1.4em;
+    letter-spacing: -0.01em;
+    color: var(--color-mat);
+    white-space: nowrap;
+  }
+  /* The status badge beside the Matchday badge takes the same print, so the two pills match. */
+  .project-card-pills .badge {
+    padding: 5px 9px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--t-zone);
+    letter-spacing: -0.01em;
+  }
+  .project-card-text {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    padding: 0 10px 10px;
+  }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--dock-clear) + 8px);
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: min(440px, calc(100vw - 24px));
+    padding: 10px 10px 10px 16px;
+    border-radius: var(--radius-card);
+    background: var(--color-card);
+    box-shadow: var(--shadow-result);
+    transform: translateX(-50%);
+  }
+
+  /* Random packs teaser (roadmap): three small packs in their tier foils, greyed as not yet playable */
+  .tier-pack {
+    display: grid;
+    place-items: center;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 56px;
+    aspect-ratio: 0.62;
+    border-radius: var(--radius-note);
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 7.5px;
+    letter-spacing: -0.02em;
+    color: var(--color-on-ink);
+  }
+  .tier-silver {
+    background: linear-gradient(150deg, var(--color-ink), var(--color-graphite));
+  }
+  .tier-gold {
+    background: linear-gradient(150deg, var(--color-note), var(--color-pink));
+  }
+  .tier-diamond {
+    background: linear-gradient(150deg, var(--color-cyan), var(--color-pink));
+  }
+
+  /* ---------- Riso Backdrop (QVHnfmw0w) ---------- */
+  .riso {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .riso[data-variant="quiet"] {
+    --riso-pink-opacity: 0.32;
+    --riso-cyan-opacity: 0.3;
+    --riso-ink2-opacity: 0.12;
+    --riso-pinktext-opacity: 0.16;
+  }
+  @media (max-width: 809.98px) {
+    /* The phone breakpoint always uses the Compact variant. */
+    .riso[data-variant] {
+      --riso-pink-opacity: 0.35;
+      --riso-cyan-opacity: 0.32;
+      --riso-ink2-opacity: 0.14;
+      --riso-pinktext-opacity: 0.2;
+    }
+  }
+  .riso-halftone {
+    position: absolute;
+    mask-mode: luminance;
+    mask-size: cover;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-size: cover;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+  }
+  .riso-halftone-pink {
+    left: -200px;
+    top: -160px;
+    width: var(--riso-pink-size);
+    height: var(--riso-pink-size);
+    background: var(--color-pink);
+    opacity: var(--riso-pink-opacity);
+    mask-image: var(--asset-halftone-pink);
+    -webkit-mask-image: var(--asset-halftone-pink);
+  }
+  .riso-halftone-cyan {
+    right: -220px;
+    bottom: -240px;
+    width: var(--riso-cyan-size);
+    height: var(--riso-cyan-size);
+    background: var(--color-cyan);
+    opacity: var(--riso-cyan-opacity);
+    mask-image: var(--asset-halftone-cyan);
+    -webkit-mask-image: var(--asset-halftone-cyan);
+  }
+  .riso-overprint {
+    position: relative;
+    flex: none;
+    width: 2400px;
+  }
+  .riso-overprint p {
+    margin: 0;
+    width: 100%;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: var(--t-overprint);
+    line-height: 1em;
+    letter-spacing: -0.06em;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .riso-overprint .ink2 {
+    position: relative;
+    color: var(--color-cyan);
+    opacity: var(--riso-ink2-opacity);
+  }
+  .riso-overprint .pink {
+    position: absolute;
+    left: var(--riso-offset-x);
+    top: var(--riso-offset-y);
+    color: var(--color-pink);
+    opacity: var(--riso-pinktext-opacity);
+  }
+  /* Corner marks: a 28px football in one 1.5px cyan line (FootballMark.tsx), in place of the crosshairs. */
+  .riso-reg {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    color: var(--color-cyan);
+  }
+  .riso-reg-tl {
+    left: 4px;
+    top: 4px;
+  }
+  .riso-reg-tr {
+    right: 4px;
+    top: 4px;
+  }
+  .riso-reg-bl {
+    left: 4px;
+    bottom: 4px;
+  }
+  .riso-reg-br {
+    right: 4px;
+    bottom: 4px;
+  }
+  .riso-folio {
+    position: absolute;
+    left: 56px;
+    bottom: 20px;
+    margin: 0;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: var(--t-folio);
+    line-height: 1.3em;
+    color: var(--color-pink);
+  }
+  @media (max-width: 809.98px) {
+    .riso-reg,
+    .riso-folio {
+      display: none;
+    }
+  }
+  .riso-grain {
+    position: absolute;
+    inset: 0;
+    background: var(--asset-grain) center / cover no-repeat;
+    opacity: var(--riso-grain-opacity);
+  }
+
+  /* ---------- Playmat Layout (RUX6SQRfT) ---------- */
+  .screen {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--screen-gap);
+    width: 100%;
+    height: 100vh;
+    padding: var(--screen-pad);
+    overflow: hidden;
+  }
+  .route-loader {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 20;
+    padding: 0 18px;
+    border: 1.5px solid var(--color-cyan);
+    border-radius: var(--radius-card);
+    background: var(--color-mat);
+    box-shadow: var(--shadow-dock);
+  }
+  .playmat {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: var(--playmat-gap);
+    flex: 1 1 0;
+    min-height: 0;
+    width: 100%;
+  }
+  .playmat-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--col-gap);
+    min-height: 0;
+    min-width: 0;
+  }
+  .playmat-col > * {
+    width: 100%;
+  }
+  .col-side {
+    flex: none;
+    width: var(--col-side);
+  }
+  .col-case {
+    flex: none;
+    width: var(--col-case);
+  }
+  .col-fill {
+    flex: 1 1 0;
+  }
+  @media (max-width: 809.98px) {
+    .screen {
+      height: auto;
+      overflow: visible;
+    }
+    .playmat {
+      flex-direction: column;
+      flex: none;
+    }
+    .playmat-col,
+    .col-side,
+    .col-case,
+    .col-fill {
+      flex: none;
+      width: 100%;
+    }
+    .phone-first {
+      order: -1;
+    }
+    .desk-only {
+      display: none !important;
+    }
+  }
+  /* The tablet case page has two columns (kBfTOSici); extras on a third column step aside there. */
+  @media (min-width: 810px) and (max-width: 1199.98px) {
+    .hide-tablet {
+      display: none !important;
+    }
+  }
+  @media (min-width: 810px) {
+    .phone-only {
+      display: none !important;
+    }
+  }
+
+  /* Zone: a print area with crop marks and a label chip (Zone Projects JdSF3ZoTz) */
+  .zone {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border: 1px solid transparent;
+    border-radius: var(--radius-zone);
+  }
+  /* The eight crop marks (Crop Mark frames: 16 x 2 and 2 x 16, Ink 2) sit unclipped on the corners. */
+  .zone::before {
+    --crop: var(--color-cyan);
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(var(--crop), var(--crop)), linear-gradient(var(--crop), var(--crop)),
+      linear-gradient(var(--crop), var(--crop)), linear-gradient(var(--crop), var(--crop)),
+      linear-gradient(var(--crop), var(--crop)), linear-gradient(var(--crop), var(--crop)),
+      linear-gradient(var(--crop), var(--crop)), linear-gradient(var(--crop), var(--crop));
+    background-repeat: no-repeat;
+    background-size:
+      16px 2px,
+      2px 16px,
+      16px 2px,
+      2px 16px,
+      16px 2px,
+      2px 16px,
+      16px 2px,
+      2px 16px;
+    background-position:
+      top left,
+      top left,
+      top right,
+      top right,
+      bottom left,
+      bottom left,
+      bottom right,
+      bottom right;
+  }
+  .zone-fill {
+    flex: 1 1 0;
+  }
+  .zone-field {
+    border-radius: var(--radius-field);
+  }
+  .zone-label {
+    position: absolute;
+    top: -9px;
+    left: 18px;
+    z-index: 2;
+    margin: 0;
+    padding: 0 6px;
+    background: var(--color-mat);
+  }
+
+  /* Masthead (iz_oxBMfc) inside the Masthead Bar (Ihj4etE1m) */
+  .masthead-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 3;
+    padding: var(--masthead-pad);
+    pointer-events: none;
+  }
+  .masthead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    pointer-events: auto;
+  }
+  .wordmark {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--t-wordmark);
+    letter-spacing: -0.02em;
+    color: var(--color-ink);
+    line-height: 1.2em;
+  }
+  .live-dot {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-radius: var(--radius-dot);
+    background: var(--color-pink);
+    animation: live-dot 1.2s var(--ease-dot) infinite alternate;
+  }
+  @keyframes live-dot {
+    to {
+      opacity: 0.3;
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Dock (j2DqtmR34) inside the Dock Bar (y8uI4B1Qg) */
+  .dock-bar {
+    position: fixed;
+    left: var(--dock-inset);
+    right: var(--dock-inset);
+    bottom: var(--dock-bottom);
+    z-index: 10;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+  }
+  @media (min-width: 810px) {
+    .dock-bar {
+      left: 0;
+      right: 0;
+    }
+  }
+  .dock {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 5px;
+    border: 1.5px solid var(--color-cyan);
+    border-radius: var(--radius-pill);
+    background: var(--color-mat);
+    box-shadow: var(--shadow-dock);
+    pointer-events: auto;
+  }
+  @media (max-width: 809.98px) {
+    .dock {
+      flex: 1 1 0;
+    }
+  }
+  .dock-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border-radius: var(--radius-pill);
+    white-space: nowrap;
+    /* Only the hover scale animates: the active fill snaps, so it never lags behind the route. */
+    transition: transform 0.4s cubic-bezier(0.34, 1.3, 0.64, 1);
+  }
+  @media (max-width: 809.98px) {
+    .dock {
+      justify-content: space-between;
+    }
+    .dock-item {
+      padding: 10px 11px;
+    }
+  }
+  /* The landing's one-button bar hugs its button and stays centred on a phone too. */
+  @media (max-width: 809.98px) {
+    .dock-solo {
+      flex: none;
+    }
+  }
+  .dock-item:hover {
+    transform: scale(1.1);
+  }
+  .dock-item[aria-current="page"] {
+    background: var(--color-pink);
+  }
+  .dock-item[aria-current="page"] > * {
+    color: var(--color-white);
+  }
+
+  /* Wallet pill in the masthead: a Dock-style container (Mat, 1.5px cyan, pill, pink hard print) */
+  .wallet-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 6px 0 14px;
+    border: 1.5px solid var(--color-cyan);
+    border-radius: var(--radius-pill);
+    background: var(--color-mat);
+    box-shadow: var(--shadow-dock);
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: var(--t-body);
+    line-height: 1.45em;
+    letter-spacing: -0.01em;
+    color: var(--color-ink);
+    white-space: nowrap;
+  }
+
+  /* Submit (HO7zLUvHC): the pink pill every primary action uses */
+  .submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 22px;
+    border-radius: var(--radius-pill);
+    background: var(--color-pink);
+    box-shadow: var(--shadow-submit);
+    color: var(--color-white);
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: var(--t-body);
+    line-height: 1.45em;
+    letter-spacing: -0.01em;
+    text-align: center;
+    transition:
+      opacity 0.2s cubic-bezier(0.44, 0, 0.56, 1),
+      transform 0.1s var(--ease-out);
+  }
+  /* Every other control answers the pointer (chips, dock, icon buttons, links); the pill did not. Same
+     0.2s opacity ease the Submit already declares. */
+  .submit:hover:not(:disabled) {
+    opacity: 0.85;
+  }
+  .submit:active {
+    transform: translate(2px, 2px);
+  }
+  .submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .submit-tall {
+    min-height: 50px;
+  }
+  /* Secondary (404 ZQ6UGv9gO): Card fill, Ink label, pink hard print */
+  .submit-quiet {
+    background: var(--color-card);
+    box-shadow: 3px 3px 0 0 var(--color-pink);
+    color: var(--color-ink);
+  }
+  /* On a Card surface (sheet, panel, card back) a Card fill vanishes and only the print shows, so the
+     secondary pill and a notice take the Mat fill there. */
+  :is(.drawer, .result, .flip-pack-back, .surface-card) :is(.submit-quiet, .notice:not(.notice-danger)) {
+    background: var(--color-mat);
+  }
+
+  /* Result box (Case page Results) */
+  .result {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 18px;
+    border-radius: var(--radius-card);
+    background: var(--color-card);
+    box-shadow: var(--shadow-result);
+  }
+
+  /* Results grid on the case page (min column 125px there; 150px here, the column is narrower), gap 18px */
+  .grid-results {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 18px;
+  }
+  /* Squad grid of Holo Cards: four across at 1280, two on a phone */
+  .grid-squad {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 20px 18px;
+  }
+  /* Binder grid of Holo Cards, like the Work page sleeves: three across at 1280, two on a phone */
+  .grid-binder {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 28px 20px;
+  }
+  @media (max-width: 809.98px) {
+    .grid-squad,
+    .grid-binder {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px 12px;
+    }
+  }
+
+  /* Leaderboard podium: three Result cards, first place raised in the middle. Its column is narrow on a
+     tablet, so the podium follows its own width: one card per row under 560px, and from 260px each card
+     reads as a row (the total left, the wallet right). */
+  .podium-wrap {
+    container-type: inline-size;
+  }
+  .podium {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+    gap: 16px;
+  }
+  .podium-1st {
+    order: 2;
+  }
+  .podium-2nd {
+    order: 1;
+    margin-top: 32px;
+  }
+  .podium-3rd {
+    order: 3;
+    margin-top: 32px;
+  }
+  .podium-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .podium-total {
+    display: flex;
+    flex-direction: column;
+    padding-top: 8px;
+  }
+  .podium-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-top: 10px;
+    border-top: 1px solid var(--color-line-soft);
+  }
+  @container (max-width: 559.98px) {
+    .podium {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .podium > * {
+      order: 0;
+      margin-top: 0;
+    }
+  }
+  @container (min-width: 260px) and (max-width: 559.98px) {
+    .podium-body {
+      flex-direction: row;
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+    .podium-total {
+      padding-top: 0;
+    }
+    .podium-meta {
+      padding-top: 0;
+      border-top: 0;
+      text-align: right;
+    }
+  }
+
+  /* The end of a scrolling column: room so the last row clears the zone's rounded edge. On a phone the
+     page scrolls and .screen keeps the dock clearance. */
+  .page-end {
+    padding-bottom: 48px;
+  }
+
+  /* Segmented control (tabs, filters, sorts): the Dock j2DqtmR34 inline. Mat, 1.5px cyan, pill, 5px padding,
+     2px gap, pink hard print; items 10px 18px Body Strong; the active item is Pink with white text. */
+  .seg {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    max-width: 100%;
+    padding: 5px;
+    border: 1.5px solid var(--color-cyan);
+    border-radius: var(--radius-pill);
+    background: var(--color-mat);
+    box-shadow: var(--shadow-dock);
+  }
+  .seg-item {
+    padding: 10px 18px;
+    border-radius: var(--radius-pill);
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: var(--t-body);
+    line-height: 1.45em;
+    letter-spacing: -0.01em;
+    color: var(--color-ink);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .seg-item[aria-pressed="true"],
+  .seg-item[aria-selected="true"] {
+    background: var(--color-pink);
+    color: var(--color-white);
+  }
+  .seg-fill {
+    display: flex;
+  }
+  .seg-fill > .seg-item {
+    flex: 1 1 0;
+    text-align: center;
+  }
+
+  /* Filter chips: the quiet counterpart of the Dock-style segmented control. No heavy border or hard print,
+     Small text, a 1px Line Soft ring; the active chip is a Pink fill. Reads as a filter, not a navbar. */
+  .chips {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+  }
+  .chip {
+    padding: 7px 14px;
+    border: 1px solid var(--color-line-soft);
+    border-radius: var(--radius-pill);
+    background: transparent;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: var(--t-small);
+    line-height: 1.4em;
+    color: var(--color-graphite);
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      color 0.15s var(--ease-out),
+      border-color 0.15s var(--ease-out),
+      background-color 0.15s var(--ease-out);
+  }
+  .chip:hover {
+    color: var(--color-ink);
+    border-color: var(--color-line);
+  }
+  .chip[aria-pressed="true"] {
+    border-color: var(--color-pink);
+    background: var(--color-pink);
+    color: var(--color-white);
+  }
+
+  /* Contact Drawer: the confirm sheet */
+  .drawer {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 24px 24px 20px 24px;
+    border-radius: var(--radius-drawer);
+    background: var(--color-card);
+    box-shadow: var(--shadow-drawer);
+    color: var(--color-ink);
+  }
+
+  .drawer-scroll {
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  /* Binder card backs in the Archive zone (Bvt8_FBk_) */
+  .card-back {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    width: 60px;
+    height: 86px;
+    border-radius: var(--radius-note);
+  }
+  .card-back-shadow {
+    left: 10px;
+    top: 16px;
+    background: var(--color-cyan);
+    transform: rotate(-10deg);
+  }
+  .card-back-a {
+    left: 4px;
+    top: 10px;
+    border: 2px solid var(--color-cyan);
+    background: var(--color-pink);
+    transform: rotate(-10deg);
+  }
+  .card-back-b {
+    left: 26px;
+    top: 6px;
+    border: 2px solid var(--color-cyan);
+    background: var(--color-pink);
+    transform: rotate(4deg);
+  }
+  .card-back span {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: var(--t-card-back);
+    letter-spacing: -0.04em;
+    color: var(--color-white);
+  }
+
+  /* Mat Art (tKdQRZD3K): the circle printed on the Field */
+  .mat-art {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: grid;
+    place-items: center;
+    width: 520px;
+    height: 520px;
+    border: 1px solid var(--color-line-soft);
+    border-radius: 100%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  .mat-art::after {
+    content: "";
+    width: 360px;
+    height: 360px;
+    border: 1px dashed var(--color-line-soft);
+    border-radius: 100%;
+  }
+  @media (max-width: 809.98px) {
+    .mat-art {
+      width: 320px;
+      height: 320px;
+    }
+    .mat-art::after {
+      width: 220px;
+      height: 220px;
+    }
+  }
+
+  /* Inner scroll area of a tall zone (Scroll frame in the Case page), scrollbar hidden */
+  .zone-scroll {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+    border-radius: var(--radius-zone);
+  }
+  .zone-scroll::-webkit-scrollbar {
+    display: none;
+  }
+  /* Phone: zones hug their content and the page scrolls instead of the zone. */
+  @media (max-width: 809.98px) {
+    .zone-fill,
+    .zone-scroll {
+      flex: none;
+    }
+    .zone-scroll {
+      overflow: visible;
+    }
+  }
+
+  /* Form input (Contact Form inputs) */
+  .field-input {
+    height: 42px;
+    width: 100%;
+    padding: 13px 14px;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-input);
+    background: var(--color-mat);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--t-input);
+    line-height: 1.3em;
+  }
+  /* A select drawn as the Framer input, with its own chevron in Ink */
+  .select-input {
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-right: 34px;
+    appearance: none;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--color-ink) 50%),
+      linear-gradient(135deg, var(--color-ink) 50%, transparent 50%);
+    background-position:
+      calc(100% - 18px) 50%,
+      calc(100% - 13px) 50%;
+    background-size: 5px 5px;
+    background-repeat: no-repeat;
+    cursor: pointer;
+  }
+  .field-input::placeholder {
+    color: var(--color-graphite);
+  }
+  .field-input:focus {
+    border-color: var(--color-ink);
+    outline: none;
+  }
+
+  .skeleton {
+    background: var(--color-card);
+    border-radius: var(--radius-card);
+  }
+
+  /* Sticky Note (Contact page) */
+  .sticky-note {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 30px;
+    border-radius: var(--radius-note);
+    background: var(--color-note);
+    box-shadow: var(--shadow-sleeve);
+    transform: rotate(-3deg);
+  }
+}
+
+/* Reduced motion: keep feedback, drop travel and loops. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/* Failsafe set by motion.ts: anything animated becomes visible after 1.6 s. */
+html.motion-failsafe [data-reveal] {
+  opacity: 1 !important;
+  transform: none !important;
+}

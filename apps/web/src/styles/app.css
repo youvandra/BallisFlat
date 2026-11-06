@@ -1,0 +1,85 @@
+@import "./tokens.css";
+
+body {
+  min-height: 100dvh;
+}
+
+/* Cards that are gone (claimed or refunded) stay as a ghost record. This is the end state of the
+   burn animation, so a card that never animates still lands here. */
+.ghost {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+
+/* Claim: the card squashes flat (the ball is flat), burns at the edges, then the ghost remains. */
+@keyframes squash-burn {
+  0% {
+    transform: scale(1, 1);
+    opacity: 1;
+    filter: none;
+    box-shadow: none;
+  }
+  28% {
+    transform: scale(1.12, 0.1);
+    opacity: 1;
+    filter: none;
+  }
+  55% {
+    transform: scale(0.95, 0.08);
+    opacity: 1;
+    filter: brightness(1.8) saturate(1.6);
+    box-shadow:
+      0 0 0 3px var(--color-note),
+      0 0 0 7px var(--color-pink);
+  }
+  70% {
+    transform: scale(0.2, 0.04);
+    opacity: 0;
+    filter: brightness(2);
+  }
+  71% {
+    transform: scale(0.96);
+    opacity: 0;
+    filter: grayscale(1);
+    box-shadow: none;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.5;
+    filter: grayscale(1);
+  }
+}
+
+.burn-claim {
+  animation: squash-burn 1.6s var(--ease-in-out) both;
+  transform-origin: center 60%;
+}
+
+/* Confirm drawer: slides in from the right like the Contact Drawer's appear effect. */
+@keyframes drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+}
+
+.drawer-dialog[open] .drawer {
+  animation: drawer-in 0.45s var(--ease-out) both;
+}
+
+@media (max-width: 809.98px) {
+  .drawer-dialog[open] .drawer {
+    animation-name: sheet-up;
+  }
+}
+
+.drawer-dialog::backdrop {
+  background: rgb(20 20 22 / 0.72);
+}
