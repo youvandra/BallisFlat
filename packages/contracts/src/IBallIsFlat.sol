@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity 0.8.28;
 
 /// @title Ball is Flat — man of the match pick cards paid in $WIF.
 /// @notice One card per wallet per match. Cards are ERC-721. The pot is split pari-mutuel between the
