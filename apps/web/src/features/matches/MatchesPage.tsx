@@ -3,8 +3,8 @@ import { useMemo } from "react";
 import { Link } from "react-router";
 import { CardBackStack } from "../../components/playmat/CardBackStack";
 import { SummonCard } from "../../components/playmat/framer";
+import { MatchCard } from "../../components/playmat/MatchCard";
 import { PackLoader } from "../../components/playmat/PackLoader";
-import { ProjectCard } from "../../components/playmat/ProjectCard";
 import { Zone } from "../../components/playmat/Zone";
 import { Badge } from "../../components/ui/Badge";
 import { Notice } from "../../components/ui/Notice";
@@ -16,7 +16,6 @@ import { facts } from "../../lib/game/facts";
 import { competitionOf, matchdayLabel, matchName, playerOf, shownKickoff } from "../../lib/game/fixtures";
 import { useOpenedSet } from "../../lib/game/opened";
 import { type BinderCard, type MatchView, useAccount, useBoard, useMyCards } from "../../lib/game/queries";
-import { sleeveNumber, sleeveTone } from "../../lib/game/sleeve";
 import { type CardStatus, cardStatus, matchPhase } from "../../lib/game/status";
 import { palette } from "../../lib/palette";
 
@@ -172,35 +171,32 @@ export function MatchesPage() {
               <ul className="grid-fixtures" aria-label={`${rows.length} matches`}>
                 {rows.map(({ view, card, status }) => (
                   <li key={view.fixture.slug}>
-                    <ProjectCard
+                    <MatchCard
                       to={`/m/${view.fixture.slug}`}
                       testId={`match-${view.fixture.slug}`}
                       label={`${matchName(view.fixture)}, ${formatKickoff(shownKickoff(view.fixture, view.info.kickoff))}, ${status}`}
                       image={matchArtUrl(view.fixture.slug)}
-                      imageAlt={matchName(view.fixture)}
-                      title={matchName(view.fixture)}
-                      number={sleeveNumber(view.fixture)}
-                      type={categoryOf(view)}
-                      badge={matchdayLabel(view.fixture)}
-                      badgeTone={sleeveTone(view.fixture)}
-                      corner={
+                      status={
                         <Badge tone={loud.has(status) ? "pink" : "cyan"} testId="match-status">
                           {status}
                         </Badge>
                       }
-                      extra={
-                        <>
-                          <span className="t-small num">
-                            {formatKickoff(shownKickoff(view.fixture, view.info.kickoff))}
-                            {view.state === "Open" ? ` · in ${formatCountdown(view.info.kickoff - now)}` : ""}
-                          </span>
-                          <span className="t-small num">
-                            Pot {formatWif(view.info.pot)} $WIF · {view.info.cards} cards
-                          </span>
-                          {/* Its own line: appended to the pot line it wrapped and left "#37" alone. */}
-                          {card ? <span className="t-small num">Your card #{card.serial}</span> : null}
-                        </>
-                      }
+                      kicker={`${matchdayLabel(view.fixture)} · ${categoryOf(view)}`}
+                      title={matchName(view.fixture)}
+                      headline={`Pot ${formatWif(view.info.pot)} $WIF`}
+                      rows={[
+                        {
+                          label: "Kickoff",
+                          value: formatKickoff(shownKickoff(view.fixture, view.info.kickoff)),
+                        },
+                        ...(view.state === "Open"
+                          ? [{ label: "Picks close in", value: formatCountdown(view.info.kickoff - now) }]
+                          : []),
+                        { label: "Pot", value: `${formatWif(view.info.pot)} $WIF` },
+                        { label: "Cards", value: String(view.info.cards) },
+                        ...(card ? [{ label: "Your card", value: `#${card.serial}` }] : []),
+                      ]}
+                      cta={view.state === "Open" && !card ? "Pick a Player" : "Open Match"}
                     />
                   </li>
                 ))}
