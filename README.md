@@ -24,7 +24,7 @@ Football runs several matches every few days, so the calendar brings people back
 | Power | Who | Limit |
 |---|---|---|
 | Move pot funds | Nobody directly | $WIF leaves only through `claim` (winning card burned), `refund` (voided match), the burn, or a rollover into the next match |
-| Receive an uncalled pot | Owner (treasury) | Only when no later match is still open to roll into; after renouncing ownership it goes to the dead address |
+| Receive an uncalled pot | Nobody | It rolls into the next open match, or is burned when there is none |
 | List matches, set settler, pause new mints | Owner | Pausing stops mints only; claims and refunds always work |
 | Post and correct the result | Settler (one key, disclosed on the site) | Only during the dispute window; every result carries its source URL |
 | Void a match | Settler or owner | Only before finalize; every card then refunds its full price |

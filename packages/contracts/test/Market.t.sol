@@ -149,20 +149,17 @@ contract MarketTest is Test {
         bif.open(99);
     }
 
-    function test_Open_StaysOpenedAfterTransfer() public {
+    function test_Transfer_OpenedCardIsLocked() public {
         uint256 id = _list(0);
         uint256 t = _mint(alice, id, KANE);
         vm.startPrank(alice);
         bif.open(t);
+        vm.expectRevert(abi.encodeWithSelector(BallIsFlat.CardLocked.selector, t));
         bif.transferFrom(alice, bob, t);
         vm.stopPrank();
+        assertEq(bif.ownerOf(t), alice);
         assertTrue(bif.isOpened(t));
-        vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.AlreadyOpened.selector, t));
-        bif.listForSale(t, ASK);
     }
-
-    // ------------------------------------------------------------------ per-player cap
 
     function test_Cap_RevertsAtCapPlusOne() public {
         uint256 id = _list(2);
@@ -380,36 +377,38 @@ contract MarketTest is Test {
         assertEq(before - wif.balanceOf(bob), ASK / 2);
     }
 
-    function test_Buy_StaleListingAfterTransferReverts() public {
+    function test_Transfer_LockedLeavesListingBuyable() public {
         (, uint256 t) = _listed();
-        vm.expectEmit(true, false, false, false);
-        emit IBallIsFlat.ListingCancelled(t);
         vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(BallIsFlat.CardLocked.selector, t));
         bif.transferFrom(alice, carol, t);
-        _assertNoListing(t);
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(BallIsFlat.CardLocked.selector, t));
+        bif.safeTransferFrom(alice, carol, t);
+        // the listing survives the failed transfer and the sale goes through the market
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.NotForSale.selector, t));
         bif.buy(t, ASK);
+        assertEq(bif.ownerOf(t), bob);
+        _assertNoListing(t);
         // the old seller cannot cancel or relist; the new owner can list
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.NotForSale.selector, t));
         bif.cancelListing(t);
-        vm.prank(carol);
+        vm.prank(bob);
         bif.listForSale(t, ASK);
-        (address s,) = bif.listingOf(t);
-        assertEq(s, carol);
+        (address s_,) = bif.listingOf(t);
+        assertEq(s_, bob);
     }
 
-    function test_Buy_TransferBackDoesNotRevive() public {
-        (, uint256 t) = _listed();
+    function test_Transfer_ApprovedOperatorIsLocked() public {
+        uint256 id = _list(0);
+        uint256 t = _mint(alice, id, KANE);
         vm.prank(alice);
-        bif.transferFrom(alice, carol, t);
+        bif.setApprovalForAll(carol, true);
         vm.prank(carol);
-        bif.transferFrom(carol, alice, t);
-        _assertNoListing(t);
-        vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.NotForSale.selector, t));
-        bif.buy(t, ASK);
+        vm.expectRevert(abi.encodeWithSelector(BallIsFlat.CardLocked.selector, t));
+        bif.transferFrom(alice, carol, t);
+        assertEq(bif.ownerOf(t), alice);
     }
 
     function test_Buy_OwnCardReverts() public {

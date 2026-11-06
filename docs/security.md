@@ -18,7 +18,7 @@ vector in Solidity and in `packages/core/src/squad.test.ts`.
 |---|---|
 | timestamp | By design: kickoff, dispute window and trading close are wall-clock rules measured in hours; a few seconds of sequencer drift change nothing |
 | incorrect-equality (`status == None`, `cap == 0`) | Enum and zero checks, not balance equality |
-| uninitialized-local (`rolledTo`, `treasuryTo`, `winningCards`) | Zero is the intended starting value |
+| uninitialized-local (`rolledTo`, `burnPool`, `winningCards`) | Zero is the intended starting value |
 | shadowing-local (`setSettler(address settler)` in the interface) | Parameter name only |
 
 **Aderyn** (Cyfrin): 0 high, 8 low, all reviewed:
@@ -39,4 +39,5 @@ vector in Solidity and in `packages/core/src/squad.test.ts`.
 - One settler key posts the top-rated player with a source URL; a wrong result can be corrected inside the
   2-hour dispute window, and the owner or settler can void a match before finalize (full refunds).
 - The owner can pause new mints only. No proxy, no upgrade, no sweep.
-- Uncalled pots with no open match to roll into go to the owner as treasury.
+- Uncalled pots with no open match to roll into are burned; no key ever receives pot funds.
+- Cards cannot be transferred wallet to wallet (`CardLocked`); the only way a card changes hands is `buy`, which charges the sale burn and is closed for opened cards and after kickoff.

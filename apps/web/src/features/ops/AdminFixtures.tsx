@@ -221,7 +221,7 @@ function Unlisted({ fixture }: { fixture: ApiFixture }) {
           onChange={(event) => setNextMatch(event.target.value)}
           className="field-input"
         >
-          <option value="0">Treasury (no match)</option>
+          <option value="0">Burn (No Match)</option>
           {later.map((view) => (
             <option key={view.fixture.id} value={view.fixture.id}>
               #{view.fixture.id} {view.fixture.slug}

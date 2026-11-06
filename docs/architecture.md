@@ -82,13 +82,13 @@ stateDiagram-v2
 
 ### Rollover
 
-On finalize with no winning card, the pay pool is added to `nextMatch` while that match is still Listed or Proposed. When there is no such match, it goes to the treasury, which is `owner()`, or the dead address once ownership is renounced.
+On finalize with no winning card, the pay pool is added to `nextMatch` while that match is still Listed or Proposed. When there is no such match, it is burned to the dead address. Cards move between wallets only through `buy`; `transferFrom` and `safeTransferFrom` revert with `CardLocked`.
 
 ## Trust model
 
 | Power | Holder | What limits it |
 |---|---|---|
-| Take $WIF out of a pot | Nobody | Funds leave only by claim, refund, the burn, rollover, or the treasury fallback above |
+| Take $WIF out of a pot | Nobody | Funds leave only by claim, refund, the burn, or rollover |
 | List matches, pause new mints, swap settler | Owner | Pausing blocks `mint` only; claim and refund can never be paused |
 | Post and correct the result | Settler | Window of 2h, source URL stored on chain, anyone can read it before finalize |
 | Void a match | Settler or owner | Only before finalize; refunds are full price |

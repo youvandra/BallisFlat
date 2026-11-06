@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {Script, console2} from "forge-std/Script.sol";
 import {BallIsFlat} from "../src/BallIsFlat.sol";
 
-/// Deploys BallIsFlat. The broadcasting key becomes the owner (treasury).
+/// Deploys BallIsFlat. The broadcasting key becomes the owner.
 /// Env: WIF_ADDRESS, SETTLER_ADDRESS (required); BURN_BPS (default 1000), DISPUTE_WINDOW (default 7200),
 /// SALE_BURN_BPS (default 500, burned from every market sale).
 contract Deploy is Script {

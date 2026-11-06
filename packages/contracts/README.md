@@ -40,24 +40,28 @@ Alongside, from mint until kickoff: `open` (one-way reveal), and the sealed-card
 - **Finalize:** `burned = pot * burnBps / 10000` goes to `0x…dEaD`; `payPool = pot - burned`.
   `winningCards` is the sum of `cardsOn(winner)` over all winners (a tie names several players).
 - **Rollover:** with zero winning cards, `payPool` is added to `nextMatch.rolledIn` and `nextMatch.pot`
-  when that match is still Listed or Proposed; otherwise (nextMatch 0, Finalized or Voided) it goes to
-  the treasury (`owner()`, or `0x…dEaD` if ownership was renounced).
+  when that match is still Listed or Proposed; otherwise (nextMatch 0, Finalized or Voided) it is
+  burned to `0x…dEaD`.
 - **Void:** settler or owner, while Listed or Proposed. Every card refunds exactly its `price`. The
-  match's `rolledIn` moves on to its own `nextMatch` with the same treasury fallback.
+  match's `rolledIn` moves on to its own `nextMatch` and is burned when it cannot.
 
 ## Design decisions
 
+- **Cards are locked to the market.** `transferFrom` / `safeTransferFrom` revert with
+  `CardLocked(tokenId)`, approved operators included. A card changes hands only through `buy`, so the
+  sale burn always applies and an opened card or a card past kickoff never moves. Mint and burn
+  (claim, refund) are unaffected.
 - **One card per wallet per match, by original minter.** `cardOf(matchId, wallet)` is set at mint
-  and never cleared. Transferring a card away does not free the wallet to mint again, and `cardOf`
-  keeps returning the minted token id after transfer, claim or refund. The UI should use `ownerOf`
+  and never cleared. Selling a card does not free the wallet to mint again, and `cardOf`
+  keeps returning the minted token id after a sale, claim or refund. The UI should use `ownerOf`
   / `tokenOfOwnerByIndex` for "cards I hold" and `cardOf` for "did I already pick".
-- **Claim follows the current owner.** A transferred winning card is claimed by whoever holds it.
+- **Claim follows the current owner.** A bought winning card is claimed by whoever holds it.
   An approved operator cannot claim or refund; only the owner can.
 - **Rounding dust stays in the contract.** Each claim pays `floor(payPool / winningCards)`; at most
   `winningCards - 1` wei per match is left behind. There is deliberately no sweep, so no key can move
   pot funds.
 - **`MatchFinalized.rolledTo`** is the match id the uncalled pot rolled into; `0` means either the
-  pot went to the treasury (`winningCards == 0`) or nothing rolled (`winningCards > 0`).
+  pot was burned (`winningCards == 0`) or nothing rolled (`winningCards > 0`).
 - **Market buyers do not get a mint slot.** `cardOf` stays with the minter; a buyer can still mint one
   card of their own, and can hold any number of bought cards of the same match. Claims and refunds pay
   whoever holds the card (a refund pays the mint `price`, not what the buyer paid).
@@ -78,14 +82,14 @@ Alongside, from mint until kickoff: `open` (one-way reveal), and the sealed-card
 ## Trust model
 
 - **Owner** (deployer key): lists matches, pauses new mints (never claims or refunds), replaces the
-  settler, can void a match before finalize, and receives uncalled pots that cannot roll forward.
+  settler, and can void a match before finalize. It never receives pot funds.
   If the owner key leaks, the attacker can void open matches (cards get refunded in full) and list
   fake matches; it cannot take pot funds of a finalized match or change a result.
 - **Settler** (one key, disclosed on the site): proposes the winner with a rating source URL and
   can correct it during the dispute window (2 h at launch). If it leaks, it can post a wrong
   result; the owner can void during the window, which refunds every card.
 - **Anyone** can finalize once the window has passed. Funds leave only via claim (winning holder),
-  refund (voided match), the burn address, and the treasury rollover fallback.
+  refund (voided match) and the burn address.
 - **Market:** no key can touch a sale. `saleBurnBps` is immutable (set at deploy), so the fee a seller
   agreed to cannot change under a live listing. Buyers are protected from a price raise by `maxPrice`.
 - No upgrades, no proxy.
@@ -128,7 +132,7 @@ export SETTLER_ADDRESS=0x...
 forge script script/Deploy.s.sol:Deploy --rpc-url $RPC_URL --account <keystore> --broadcast
 ```
 
-The broadcasting account becomes the owner and treasury.
+The broadcasting account becomes the owner.
 
 ## Listing a match
 

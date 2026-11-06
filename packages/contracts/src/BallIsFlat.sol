@@ -17,13 +17,17 @@ import {IBallIsFlat} from "./IBallIsFlat.sol";
 /// @title Ball is Flat
 /// @notice Man of the match pick cards paid in $WIF. See IBallIsFlat for the lifecycle.
 /// @dev Design notes:
-///      - One card per wallet per match is tracked by the ORIGINAL MINTER. Transferring a card away
+///      - One card per wallet per match is tracked by the ORIGINAL MINTER. Selling a card away
 ///        does not let the same wallet mint a second card, and `cardOf` keeps returning the minted
-///        token id even after a transfer, claim or refund.
+///        token id even after a sale, claim or refund.
+///      - Cards move only by mint, burn (claim/refund) and `buy`. transferFrom / safeTransferFrom
+///        revert with CardLocked, so the sale burn cannot be skipped and an opened card or a card past
+///        kickoff can never change hands.
 ///      - Claim pays floor(payPool / winningCards). The remainder (at most winningCards - 1 wei) stays
 ///        in this contract forever. There is deliberately no sweep: nobody but a winning card holder
 ///        (and the burn address) can move pot funds.
-///      - Treasury = owner(). If ownership was renounced, treasury-bound $WIF goes to the dead address.
+///      - A pot nobody called that cannot roll forward (no next match, or it is already finalized or
+///        voided) is burned. No key ever receives pot funds.
 ///      - No upgrades. The owner can list matches, pause new mints, swap the settler, and void a match
 ///        before it is finalized. Claims and refunds can never be paused.
 ///      - Market: listings hold no escrow. A listing is cleared on every transfer, burn and open, so a
@@ -51,6 +55,7 @@ contract BallIsFlat is IBallIsFlat, IERC4906, ERC721Enumerable, Ownable, Reentra
     error InvalidListing();
     error InvalidWinners();
     error InvalidSquad();
+    error CardLocked(uint256 tokenId);
 
     address public immutable override wif;
     uint16 public immutable override burnBps;
@@ -320,16 +325,17 @@ contract BallIsFlat is IBallIsFlat, IERC4906, ERC721Enumerable, Ownable, Reentra
         m.payPool = payPool;
 
         uint256 rolledTo;
-        address treasuryTo;
+        bool burnPool;
         if (winningCards == 0 && payPool > 0) {
-            (rolledTo, treasuryTo) = _rollForward(m.nextMatch, payPool);
+            rolledTo = _rollForward(m.nextMatch, payPool);
+            burnPool = rolledTo == 0;
         }
 
         emit MatchFinalized(matchId, winningCards, burned, payPool, rolledTo);
         _refreshAllMetadata();
 
         if (burned > 0) IERC20(wif).safeTransfer(DEAD, burned);
-        if (treasuryTo != address(0)) IERC20(wif).safeTransfer(treasuryTo, payPool);
+        if (burnPool) IERC20(wif).safeTransfer(DEAD, payPool);
     }
 
     // =====================================================================
@@ -374,8 +380,7 @@ contract BallIsFlat is IBallIsFlat, IERC4906, ERC721Enumerable, Ownable, Reentra
 
         uint256 carried = m.rolledIn;
         if (carried > 0) {
-            (, address treasuryTo) = _rollForward(m.nextMatch, carried);
-            if (treasuryTo != address(0)) IERC20(wif).safeTransfer(treasuryTo, carried);
+            if (_rollForward(m.nextMatch, carried) == 0) IERC20(wif).safeTransfer(DEAD, carried);
         }
     }
 
@@ -516,25 +521,26 @@ contract BallIsFlat is IBallIsFlat, IERC4906, ERC721Enumerable, Ownable, Reentra
         _winners[matchId] = winners;
     }
 
-    /// Adds `amount` to nextMatch's pot when it can still pay out, otherwise returns the treasury
-    /// address the caller must transfer to. Returns the match id rolled into (0 = treasury).
-    function _rollForward(uint256 nextMatch, uint256 amount) internal returns (uint256 rolledTo, address treasuryTo) {
+    /// Adds `amount` to nextMatch's pot when it can still pay out and returns its id. Returns 0 when
+    /// it cannot; the caller then burns `amount`.
+    function _rollForward(uint256 nextMatch, uint256 amount) internal returns (uint256 rolledTo) {
         if (nextMatch != 0) {
             MatchInfo storage n = _matches[nextMatch];
             if (n.status == Status.Listed || n.status == Status.Proposed) {
                 n.rolledIn += amount;
                 n.pot += amount;
-                return (nextMatch, address(0));
+                return nextMatch;
             }
         }
-        address o = owner();
-        treasuryTo = o == address(0) ? DEAD : o;
     }
 
     // ---------- ERC721Enumerable plumbing ----------
 
-    /// Every transfer and burn clears the token's listing, so a listing never outlives its seller.
+    /// Wallet-to-wallet moves only happen inside `buy` (internal _safeTransfer passes auth = 0);
+    /// transferFrom and safeTransferFrom pass the caller as auth and revert. Every sale and burn
+    /// clears the token's listing, so a listing never outlives its seller.
     function _update(address to, uint256 tokenId, address auth) internal override(ERC721Enumerable) returns (address) {
+        if (auth != address(0) && to != address(0)) revert CardLocked(tokenId);
         address from = super._update(to, tokenId, auth);
         if (from != address(0)) _clearListing(tokenId);
         return from;

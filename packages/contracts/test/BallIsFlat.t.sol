@@ -212,17 +212,15 @@ contract BallIsFlatTest is Test {
         bif.mint(id, MODRIC, _proof(MODRIC));
     }
 
-    function test_Mint_TransferAwayStillBlocksSecondMint() public {
+    function test_Transfer_WalletToWalletReverts() public {
         uint256 id = _list();
         uint256 t = _mint(alice, id, KANE);
         vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(BallIsFlat.CardLocked.selector, t));
         bif.transferFrom(alice, bob, t);
-        vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.AlreadyHasCard.selector, id, t));
-        bif.mint(id, MODRIC, _proof(MODRIC));
-        // the receiver of a card can still mint their own
-        _mint(bob, id, SAKA);
-        assertEq(bif.balanceOf(bob), 2);
+        assertEq(bif.ownerOf(t), alice);
+        assertEq(bif.cardOf(id, alice), t);
+        assertEq(bif.cardOf(id, bob), 0);
     }
 
     function test_Mint_OneCardPerMatchNotGlobal() public {
@@ -538,20 +536,18 @@ contract BallIsFlatTest is Test {
         bif.claim(t);
     }
 
-    function test_Claim_TransferThenNewOwnerClaims() public {
+    function test_Claim_WinningCardCannotBeTransferred() public {
         uint256 id = _list();
         uint256 t = _mint(alice, id, KANE);
         _settle(id, _one(KANE));
         vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(BallIsFlat.CardLocked.selector, t));
         bif.safeTransferFrom(alice, bob, t);
+        uint256 before = wif.balanceOf(alice);
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.NotCardOwner.selector, t));
-        bif.claim(t);
-        uint256 before = wif.balanceOf(bob);
-        vm.prank(bob);
         uint256 amt = bif.claim(t);
         assertEq(amt, bif.matchInfo(id).payPool);
-        assertEq(wif.balanceOf(bob), before + amt);
+        assertEq(wif.balanceOf(alice), before + amt);
     }
 
     function test_Claim_TieSplitsAcrossTwoPlayers() public {
@@ -621,39 +617,44 @@ contract BallIsFlatTest is Test {
         assertEq(bif.claimable(nt), (PRICE + 900e18) * 9 / 10);
     }
 
-    function test_Rollover_ToTreasuryWhenNextFinalized() public {
+    function test_Rollover_BurnedWhenNextFinalized() public {
         uint256 next = _list();
         uint256 id = _list(next);
         _mint(alice, id, KANE);
         _settle(next, _one(KANE)); // next is finalized first
-        uint256 before = wif.balanceOf(owner);
+        uint256 ownerBefore = wif.balanceOf(owner);
+        uint256 before = wif.balanceOf(DEAD);
         _settle(id, _one(MODRIC));
-        assertEq(wif.balanceOf(owner), before + 900e18);
+        assertEq(wif.balanceOf(DEAD), before + PRICE, "10% burn plus the uncalled 90%");
+        assertEq(wif.balanceOf(owner), ownerBefore, "owner never receives pot funds");
         assertEq(bif.matchInfo(next).rolledIn, 0);
         assertEq(wif.balanceOf(address(bif)), 0);
     }
 
-    function test_Rollover_ToTreasuryWhenNextVoided() public {
+    function test_Rollover_BurnedWhenNextVoided() public {
         uint256 next = _list();
         uint256 id = _list(next);
         _mint(alice, id, KANE);
         vm.prank(settler);
         bif.voidMatch(next);
-        uint256 before = wif.balanceOf(owner);
+        uint256 ownerBefore = wif.balanceOf(owner);
+        uint256 before = wif.balanceOf(DEAD);
         _settle(id, _one(MODRIC));
-        assertEq(wif.balanceOf(owner), before + 900e18);
+        assertEq(wif.balanceOf(DEAD), before + PRICE);
+        assertEq(wif.balanceOf(owner), ownerBefore);
     }
 
-    function test_Rollover_ToTreasuryWhenNoNextMatch() public {
+    function test_Rollover_BurnedWhenNoNextMatch() public {
         uint256 id = _list();
         _mint(alice, id, KANE);
-        uint256 before = wif.balanceOf(owner);
+        uint256 ownerBefore = wif.balanceOf(owner);
         _settle(id, _one(MODRIC));
-        assertEq(wif.balanceOf(owner), before + 900e18);
-        assertEq(wif.balanceOf(DEAD), 100e18);
+        assertEq(wif.balanceOf(owner), ownerBefore);
+        assertEq(wif.balanceOf(DEAD), PRICE);
+        assertEq(wif.balanceOf(address(bif)), 0);
     }
 
-    function test_Rollover_TreasuryIsDeadAfterRenounce() public {
+    function test_Rollover_BurnedAfterRenounce() public {
         uint256 id = _list();
         _mint(alice, id, KANE);
         bif.renounceOwnership();
@@ -749,17 +750,19 @@ contract BallIsFlatTest is Test {
         assertEq(wif.balanceOf(address(bif)), 900e18);
     }
 
-    function test_Void_MovesRolledInToTreasuryWhenNextDone() public {
+    function test_Void_BurnsRolledInWhenNextDone() public {
         uint256 third = _list();
         uint256 second = _list(third);
         uint256 first = _list(second);
         _mint(alice, first, KANE);
         _settle(first, _one(MODRIC));
         _settle(third, _one(KANE)); // third done, second can no longer forward
-        uint256 before = wif.balanceOf(owner);
+        uint256 ownerBefore = wif.balanceOf(owner);
+        uint256 before = wif.balanceOf(DEAD);
         vm.prank(settler);
         bif.voidMatch(second);
-        assertEq(wif.balanceOf(owner), before + 900e18);
+        assertEq(wif.balanceOf(DEAD), before + 900e18);
+        assertEq(wif.balanceOf(owner), ownerBefore);
         assertEq(wif.balanceOf(address(bif)), 0);
     }
 
@@ -925,7 +928,6 @@ contract BallIsFlatTest is Test {
         vm.prank(settler);
         h.propose(id, winners, _proofs(winners), "u");
         vm.warp(block.timestamp + WINDOW);
-        uint256 treasuryBefore = wif.balanceOf(owner);
         uint256 deadBefore = wif.balanceOf(DEAD);
         h.finalize(id);
 
@@ -933,7 +935,8 @@ contract BallIsFlatTest is Test {
         uint256 pot = price * nCards;
         assertEq(m.pot, pot);
         assertEq(m.burned + m.payPool, pot);
-        assertEq(wif.balanceOf(DEAD) - deadBefore, m.burned);
+        // an uncalled pot (no next match here) is burned with the burn share
+        assertEq(wif.balanceOf(DEAD) - deadBefore, m.winningCards == 0 ? pot : m.burned);
 
         uint256 claimed;
         for (uint256 i; i < nCards; ++i) {
@@ -954,7 +957,6 @@ contract BallIsFlatTest is Test {
         if (m.winningCards == 0) {
             assertEq(claimed, 0);
             assertEq(dust, 0);
-            assertEq(wif.balanceOf(owner) - treasuryBefore, m.payPool, "uncalled pot to treasury");
         } else {
             assertEq(claimed + m.burned + dust, pot, "conservation");
             assertLt(dust, m.winningCards, "dust below one wei per winning card");

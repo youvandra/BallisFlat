@@ -139,13 +139,16 @@ export function ResultPanel({ view, now }: { view: MarketView; now: number }) {
         <Winners view={view} />
         <div className="flex flex-col gap-3">
           <h2 className="t-title">
-            Nobody called it. {formatWif(info.payPool)} $WIF moved to{" "}
+            Nobody called it. {formatWif(info.payPool)} $WIF{" "}
             {next ? (
-              <Link to={`/m/${next.slug}`} className="text-link">
-                {matchName(next)} <ArrowRight size={14} strokeWidth={2} aria-hidden />
-              </Link>
+              <>
+                moved to{" "}
+                <Link to={`/m/${next.slug}`} className="text-link">
+                  {matchName(next)} <ArrowRight size={14} strokeWidth={2} aria-hidden />
+                </Link>
+              </>
             ) : (
-              "the treasury"
+              "was burned"
             )}
             .
           </h2>

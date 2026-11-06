@@ -484,7 +484,7 @@ export class MockGameClient implements GameClient {
 
   private rollTo(nextMatchId: number, amount: bigint): void {
     const next = this.state.matches.find((candidate) => candidate.id === nextMatchId);
-    // Mirrors the contract: no next match, or one already settled, sends the pot to the treasury.
+    // Mirrors the contract: no next match, or one already settled, burns the pot.
     if (!next || next.status === "Finalized" || next.status === "Voided") return;
     next.rolledIn = (BigInt(next.rolledIn) + amount).toString();
   }

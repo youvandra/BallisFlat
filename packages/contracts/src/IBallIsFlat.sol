@@ -41,7 +41,7 @@ interface IBallIsFlat {
         uint256 rolledIn; // added from earlier uncalled pots
         uint256 burned; // set at finalize
         uint256 payPool; // pot - burned, set at finalize
-        uint256 nextMatch; // where an uncalled pot rolls (0 = treasury)
+        uint256 nextMatch; // where an uncalled pot rolls (0 = burned)
         bytes32 playersRoot; // merkle root of the squad, computed on chain from the listed player ids
         string sourceUrl; // rating source for the proposed result
     }
@@ -157,7 +157,7 @@ interface IBallIsFlat {
 
     // ---------- anyone ----------
     /// After proposedAt + disputeWindow: burns burnBps of the pot; with zero winning cards the rest
-    /// rolls into nextMatch.rolledIn (or treasury when nextMatch is 0 or already finalized/voided).
+    /// rolls into nextMatch.rolledIn (or is burned when nextMatch is 0 or already finalized/voided).
     function finalize(uint256 matchId) external;
 
     // ---------- settler ----------

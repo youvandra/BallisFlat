@@ -21,6 +21,7 @@ const appSentences: Record<string, string> = {
   MintPaused: "New picks are paused for now. Claims still work.",
   PlayerSoldOut: "Every card on this player is taken. Pick another player.",
   AlreadyOpened: "This pack is already open.",
+  CardLocked: "Cards only change hands through the market.",
   NotForSale: "This card is not for sale.",
   TradingClosed: "Trading on this match closed at kickoff.",
   PriceAboveMax: "The price went up before your purchase. Nothing was charged.",

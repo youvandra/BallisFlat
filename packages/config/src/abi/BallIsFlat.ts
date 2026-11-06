@@ -1788,6 +1788,17 @@ export const ballIsFlatAbi = [
   },
   {
     type: "error",
+    name: "CardLocked",
+    inputs: [
+      {
+        name: "tokenId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+  },
+  {
+    type: "error",
     name: "ERC721EnumerableForbiddenBatchMint",
     inputs: [],
   },
