@@ -621,11 +621,13 @@ export class ChainGameClient implements GameClient {
     });
   }
 
+  /** Posts the result, or corrects it while the dispute window is open (the contract's `correct`). */
   propose(matchId: number, winners: number[], sourceUrl: string): Promise<TxReceipt> {
     return guard(async () => {
+      const proposed = (await this.stateOf(matchId)) === "Proposed";
       const hash = await writeContract(config, {
         ...contract,
-        functionName: "propose",
+        functionName: proposed ? "correct" : "propose",
         args: [
           BigInt(matchId),
           winners,
@@ -637,6 +639,38 @@ export class ChainGameClient implements GameClient {
       await this.confirm(hash);
       return { hash };
     });
+  }
+
+  /** Owner only: lists one match and returns its id from the MatchListed event. */
+  listMatch(listing: {
+    kickoff: number;
+    price: bigint;
+    nextMatch: number;
+    maxPerPlayer: number;
+    playerIds: number[];
+  }): Promise<TxReceipt & { matchId: number }> {
+    return guard(async () => {
+      const hash = await writeContract(config, {
+        ...contract,
+        functionName: "listMatch",
+        args: [
+          BigInt(listing.kickoff),
+          listing.price,
+          BigInt(listing.nextMatch),
+          listing.playerIds,
+          listing.maxPerPlayer,
+        ],
+        chainId: chain.id,
+      });
+      const receipt = await this.confirm(hash);
+      const [listed] = parseEventLogs({ abi: ballIsFlatAbi, eventName: "MatchListed", logs: receipt.logs });
+      return { hash, matchId: Number(listed?.args.matchId ?? 0n) };
+    });
+  }
+
+  async isOwner(address: Address): Promise<boolean> {
+    const owner = await readContract(config, { ...contract, functionName: "owner" });
+    return owner.toLowerCase() === address.toLowerCase();
   }
 
   voidMatch(matchId: number): Promise<TxReceipt> {
