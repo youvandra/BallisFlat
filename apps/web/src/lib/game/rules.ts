@@ -38,7 +38,7 @@ export const playSteps: Step[] = [
     tag: "Full time",
     power: `${windowHours}H`,
     icon: "Packaging",
-    text: `The top-rated player is posted with its source. ${windowHours === 2 ? "Two" : windowHours} hours to flag a mistake, then it is final.`,
+    text: `The top-rated player on FotMob is posted with the link. ${windowHours === 2 ? "Two" : windowHours} hours to flag a mistake, then it is final.`,
   },
   {
     name: "Claim",

@@ -115,7 +115,8 @@ To be filled after demand scan (KIT/17).
 | Judges accept a single settler with a dispute window | viability | State it plainly; NEAR TEE variant as the upgrade path |
 | Sports pick game is legal in the judges' eyes | viability | Rules allow games with $WIF; terms state no availability where prohibited |
 
-## Open questions
-- Card price: fixed 1,000 $WIF (about $1.40 on 5 Nov) or chosen per match?
-- Burn share: 10% of each pot?
-- Settlement source: rating provider vs a published Player of the Match where one exists.
+## Locked (2026-11-07)
+- Card price: 1,000 $WIF per match (set per listing, can change for later matches).
+- Burn share: 10% of each pot (constructor, immutable). Sale burn 5%. Cap 10 cards per player per match.
+- Dispute window: 2 hours (constructor, immutable).
+- Settlement source: the settler posts the highest FotMob player rating for the match with the FotMob match URL. Equal top ratings = tie, pot split. If FotMob shows no ratings, SofaScore, same rule. No API key.

@@ -10,7 +10,7 @@ A fan watching England v Croatia is sure Bellingham will run the match. That tak
 
 1. **Pick.** Each listed match shows both squads. Every player shows "×N if he wins", the share of the pot one card on him would take right now. One pick per wallet per match, closing at kickoff.
 2. **Mint.** The pick is an ERC-721 card paid in $WIF (1,000 $WIF per card). Every card adds its price to the match pot. The card arrives as a sealed pack you tear open.
-3. **Settle.** After full time the settler posts the top-rated player with a link to the published rating. A 2-hour dispute window follows, then anyone can finalize.
+3. **Settle.** After full time the settler posts the top-rated player with a link to the match's FotMob player ratings (SofaScore if FotMob has none). A 2-hour dispute window follows, then anyone can finalize.
 4. **Claim.** A winning card is burned to pay out pot × 90% ÷ winning cards. 10% of every pot goes to the dead address. A pot nobody called rolls into the next listed match, so the next game starts bigger.
 
 Sealed cards can be listed and bought before kickoff (at most 10 cards per player per match, 5% of each sale burned). An opened card can never be sold.
