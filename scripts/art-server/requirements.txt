@@ -1,0 +1,16 @@
+torch>=2.6
+torchvision>=0.21
+diffusers>=0.33
+transformers>=4.51
+accelerate>=1.6
+bitsandbytes>=0.45
+sentencepiece
+protobuf
+huggingface_hub>=0.30
+safetensors
+fastapi
+uvicorn
+pillow
+timm
+kornia
+einops

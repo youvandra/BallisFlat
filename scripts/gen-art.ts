@@ -10,10 +10,16 @@
 //   node scripts/gen-art.ts --limit 20                                 the first 20 missing
 //   node scripts/gen-art.ts                                            every missing player
 //   node scripts/gen-art.ts --matches                                  match cover art (one per fixture)
-//   flags: --force (redo existing), --tries N (default 4), --dry (print prompts only)
+//   flags: --force (redo existing), --tries N (default 4), --dry (print prompts only),
+//          --preview (keep results in scripts/.art-preview only: no S3 upload, no manifest change)
 //
 // Env: ART_BUCKET (private S3 bucket), ART_BASE_URL (the CloudFront origin serving its players/ prefix).
 // AWS credentials from ~/.aws. Every attempt costs Bedrock credit: spike with --only first.
+//
+// --backend gpu swaps the three Bedrock models for open weights on our own GPU box
+// (scripts/art-server/server.py: SD3.5 Large or FLUX.1-schnell, Qwen2.5-VL judge, BiRefNet cutout).
+// Reach it over an SSH tunnel and set ART_GPU_URL (default http://127.0.0.1:8188). --model sd35|flux
+// picks the drawing model (default sd35). Requests run one at a time; the box does the queueing.
 
 import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -47,6 +53,9 @@ const only = value("only")
   .map((item) => item.trim());
 const limit = Number(value("limit") ?? Number.POSITIVE_INFINITY);
 const tries = Number(value("tries") ?? 4);
+const backendName = value("backend") ?? "bedrock";
+const gpuModel = value("model") ?? "sd35";
+const gpuUrl = process.env.ART_GPU_URL ?? "http://127.0.0.1:8188";
 
 /** Kits as plain words: image models do not read hex. Colours only, no crests or sponsor marks. */
 const kits: Record<string, string> = {
@@ -151,74 +160,107 @@ const rubric = `You check one generated illustration of a football player that w
 7. The whole body is inside the frame (head, hands and boots not cut off).
 Ignore the background and the colours. Reply with only JSON: {"pass": true|false, "problems": ["short reason", ...]}`;
 
-/** Claude's verdict on one image. */
-async function judge(
-  bedrock: BedrockRuntimeClient,
-  bytes: Buffer,
-  check = rubric,
-): Promise<{ pass: boolean; problems: string[] }> {
-  const response = await routed(() =>
-    bedrock.send(
-      new ConverseCommand({
-        modelId: judgeModel,
-        messages: [
-          {
-            role: "user",
-            content: [{ image: { format: "jpeg", source: { bytes } } }, { text: check }],
-          },
-        ],
-        inferenceConfig: { maxTokens: 300 },
-      }),
-    ),
-  );
-  const text = response.output?.message?.content?.find((part) => "text" in part)?.text ?? "";
+type Verdict = { pass: boolean; problems: string[] };
+type Aspect = "4:5" | "1:1";
+
+/** The three model calls the pipeline needs. Bedrock and our own GPU box both provide them. */
+interface ArtBackend {
+  /** One image as JPEG, or null when a safety filter drops it. */
+  draw(text: string, negative: string, seed: number, aspect: Aspect): Promise<Buffer | null>;
+  judge(bytes: Buffer, check: string): Promise<Verdict>;
+  /** The figure on a transparent background, as PNG. */
+  cutout(bytes: Buffer): Promise<Buffer | null>;
+}
+
+/** The judge replies in prose around a JSON object; keep only the object. */
+function readVerdict(text: string): Verdict {
   const json = text.match(/\{[\s\S]*\}/)?.[0];
   if (!json) return { pass: false, problems: [`unreadable verdict: ${text.slice(0, 80)}`] };
-  const verdict = JSON.parse(json) as { pass?: boolean; problems?: string[] };
-  return { pass: verdict.pass === true, problems: verdict.problems ?? [] };
+  try {
+    const verdict = JSON.parse(json) as { pass?: boolean; problems?: string[] };
+    return { pass: verdict.pass === true, problems: verdict.problems ?? [] };
+  } catch {
+    return { pass: false, problems: [`unreadable verdict: ${json.slice(0, 80)}`] };
+  }
 }
 
-/** One Ultra image, or null when Bedrock's safety filter drops it. */
-async function draw(bedrock: BedrockRuntimeClient, text: string, seed: number): Promise<Buffer | null> {
-  const response = await routed(() =>
-    bedrock.send(
-      new InvokeModelCommand({
-        modelId: imageModel,
-        contentType: "application/json",
-        accept: "application/json",
-        body: JSON.stringify({
-          prompt: text,
-          negative_prompt: negative,
-          seed,
-          aspect_ratio: "4:5",
-          output_format: "jpeg",
+function bedrockBackend(bedrock: BedrockRuntimeClient): ArtBackend {
+  async function invoke(
+    modelId: string,
+    body: object,
+  ): Promise<{ images?: string[]; finish_reasons?: (string | null)[] }> {
+    const response = await routed(() =>
+      bedrock.send(
+        new InvokeModelCommand({
+          modelId,
+          contentType: "application/json",
+          accept: "application/json",
+          body: JSON.stringify(body),
         }),
-      }),
-    ),
-  );
-  const body = JSON.parse(new TextDecoder().decode(response.body)) as {
-    images?: string[];
-    finish_reasons?: (string | null)[];
+      ),
+    );
+    return JSON.parse(new TextDecoder().decode(response.body));
+  }
+  return {
+    async draw(text, negative, seed, aspect) {
+      const body = await invoke(imageModel, {
+        prompt: text,
+        negative_prompt: negative,
+        seed,
+        aspect_ratio: aspect,
+        output_format: "jpeg",
+      });
+      const image = body.images?.[0];
+      return image && !body.finish_reasons?.[0] ? Buffer.from(image, "base64") : null;
+    },
+    async judge(bytes, check) {
+      const response = await routed(() =>
+        bedrock.send(
+          new ConverseCommand({
+            modelId: judgeModel,
+            messages: [
+              { role: "user", content: [{ image: { format: "jpeg", source: { bytes } } }, { text: check }] },
+            ],
+            inferenceConfig: { maxTokens: 300 },
+          }),
+        ),
+      );
+      return readVerdict(response.output?.message?.content?.find((part) => "text" in part)?.text ?? "");
+    },
+    async cutout(bytes) {
+      const body = await invoke(cutoutModel, { image: bytes.toString("base64"), output_format: "png" });
+      const image = body.images?.[0];
+      return image ? Buffer.from(image, "base64") : null;
+    },
   };
-  const image = body.images?.[0];
-  return image && !body.finish_reasons?.[0] ? Buffer.from(image, "base64") : null;
 }
 
-/** The figure on a transparent background, as PNG. */
-async function cutout(bedrock: BedrockRuntimeClient, bytes: Buffer): Promise<Buffer | null> {
-  const response = await routed(() =>
-    bedrock.send(
-      new InvokeModelCommand({
-        modelId: cutoutModel,
-        contentType: "application/json",
-        accept: "application/json",
-        body: JSON.stringify({ image: bytes.toString("base64"), output_format: "png" }),
-      }),
-    ),
-  );
-  const body = JSON.parse(new TextDecoder().decode(response.body)) as { images?: string[] };
-  const image = body.images?.[0];
-  return image ? Buffer.from(image, "base64") : null;
+/** Our own GPU box (scripts/art-server/server.py). One request at a time, generous timeout for model loads. */
+function gpuBackend(url: string, model: string): ArtBackend {
+  async function post(path: string, body: object): Promise<Record<string, unknown>> {
+    const response = await fetch(`${url}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(600_000),
+    });
+    if (!response.ok) throw new Error(`${path} ${response.status}: ${(await response.text()).slice(0, 200)}`);
+    return (await response.json()) as Record<string, unknown>;
+  }
+  return {
+    async draw(text, negative, seed, aspect) {
+      const body = await post("/draw", { model, prompt: text, negative, seed, aspect });
+      return typeof body.image === "string" ? Buffer.from(body.image, "base64") : null;
+    },
+    async judge(bytes, check) {
+      const body = await post("/judge", { image: bytes.toString("base64"), rubric: check });
+      return readVerdict(String(body.text ?? ""));
+    },
+    async cutout(bytes) {
+      const body = await post("/cutout", { image: bytes.toString("base64") });
+      return typeof body.image === "string" ? Buffer.from(body.image, "base64") : null;
+    },
+  };
 }
 
 /** Card art shows at about 300px wide, so ship 640px on the long edge (macOS sips). */
@@ -257,7 +299,10 @@ async function brandCover(bytes: Buffer): Promise<Buffer> {
 }
 
 /** Match covers: a floodlit stadium where the two sides' colours collide as smoke. */
-async function matchCovers(bedrock: BedrockRuntimeClient, s3: S3Client, bucket: string, baseUrl: string) {
+const coverNegative =
+  "stadium stands, seats, advertising boards, crowd, people, player, face, text, letters, numbers, scoreboard, logo, crest, flag emblem, watermark, signature, border, frame, white margin, paper edge";
+
+async function matchCovers(backend: ArtBackend, s3: S3Client, bucket: string, baseUrl: string) {
   const done = JSON.parse(readFileSync(matchManifestPath, "utf8")) as Manifest;
   for (const fixture of fixtures) {
     if (done[fixture.slug] && !flag("force")) continue;
@@ -275,32 +320,10 @@ async function matchCovers(bedrock: BedrockRuntimeClient, s3: S3Client, bucket: 
     let accepted: Buffer | null = null;
     for (let attempt = 0; attempt < tries && !accepted; attempt++) {
       const seed = (hash(`cover:${fixture.slug}`) + attempt * 7919) % 4294967294;
-      const response = await routed(() =>
-        bedrock.send(
-          new InvokeModelCommand({
-            modelId: imageModel,
-            contentType: "application/json",
-            accept: "application/json",
-            body: JSON.stringify({
-              prompt: text,
-              negative_prompt:
-                "stadium stands, seats, advertising boards, crowd, people, player, face, text, letters, numbers, scoreboard, logo, crest, flag emblem, watermark, signature, border, frame, white margin, paper edge",
-              seed,
-              aspect_ratio: "1:1",
-              output_format: "jpeg",
-            }),
-          }),
-        ),
-      );
-      const body = JSON.parse(new TextDecoder().decode(response.body)) as {
-        images?: string[];
-        finish_reasons?: (string | null)[];
-      };
-      const image = body.images?.[0];
-      if (!image || body.finish_reasons?.[0]) continue;
-      const bytes = Buffer.from(image, "base64");
+      const bytes = await backend.draw(text, coverNegative, seed, "1:1");
+      if (!bytes) continue;
       writeFileSync(resolve(previewDir, `cover-${fixture.slug}.try${attempt}.jpg`), bytes);
-      const verdict = await judge(bedrock, bytes, coverRubric);
+      const verdict = await backend.judge(bytes, coverRubric);
       appendFileSync(
         resolve(previewDir, "judge.log"),
         `cover-${fixture.slug} #${attempt} ${verdict.pass ? "PASS" : "FAIL"} ${verdict.problems.join("; ")}\n`,
@@ -357,13 +380,19 @@ async function main() {
     return;
   }
 
-  const bucket = process.env.ART_BUCKET;
-  const baseUrl = process.env.ART_BASE_URL;
-  if (!bucket || !baseUrl) throw new Error("ART_BUCKET and ART_BASE_URL are required");
-  const bedrock = new BedrockRuntimeClient({ region, maxAttempts: 10, retryMode: "adaptive" });
+  const preview = flag("preview");
+  const bucket = process.env.ART_BUCKET ?? "";
+  const baseUrl = process.env.ART_BASE_URL ?? "";
+  if (!preview && (!bucket || !baseUrl)) throw new Error("ART_BUCKET and ART_BASE_URL are required");
+  if (preview && flag("matches")) throw new Error("--preview covers players only");
+  if (backendName !== "bedrock" && backendName !== "gpu") throw new Error("--backend is bedrock or gpu");
+  const backend =
+    backendName === "gpu"
+      ? gpuBackend(gpuUrl, gpuModel)
+      : bedrockBackend(new BedrockRuntimeClient({ region, maxAttempts: 10, retryMode: "adaptive" }));
   const s3 = new S3Client({ region });
   mkdirSync(previewDir, { recursive: true });
-  if (flag("matches")) return matchCovers(bedrock, s3, bucket, baseUrl);
+  if (flag("matches")) return matchCovers(backend, s3, bucket, baseUrl);
   const log = resolve(previewDir, "judge.log");
 
   let passed = 0;
@@ -372,13 +401,16 @@ async function main() {
     let accepted: Buffer | null = null;
     for (let attempt = 0; attempt < tries && !accepted; attempt++) {
       const seed = (hash(`${team.code}:${player.name}`) + attempt * 7919) % 4294967294;
-      const bytes = await draw(bedrock, text, seed);
+      const bytes = await backend.draw(text, negative, seed, "4:5");
       if (!bytes) {
         appendFileSync(log, `${key} #${attempt} filtered\n`);
         continue;
       }
-      writeFileSync(resolve(previewDir, `${key}.try${attempt}.jpg`), bytes);
-      const verdict = await judge(bedrock, bytes);
+      writeFileSync(
+        resolve(previewDir, `${key}${backendName === "gpu" ? `.${gpuModel}` : ""}.try${attempt}.jpg`),
+        bytes,
+      );
+      const verdict = await backend.judge(bytes, rubric);
       appendFileSync(
         log,
         `${key} #${attempt} ${verdict.pass ? "PASS" : "FAIL"} ${verdict.problems.join("; ")}\n`,
@@ -389,13 +421,19 @@ async function main() {
       console.warn(`  ${index + 1}/${todo.length} ${key}: no image passed in ${tries} tries`);
       continue;
     }
-    const png = await cutout(bedrock, accepted);
+    const png = await backend.cutout(accepted);
     if (!png) {
       console.warn(`  ${index + 1}/${todo.length} ${key}: background removal failed`);
       continue;
     }
-    const file = resolve(previewDir, `${key}.png`);
+    const tag = backendName === "gpu" ? `.${gpuModel}` : "";
+    const file = resolve(previewDir, `${key}${tag}.png`);
     writeFileSync(file, png);
+    if (preview) {
+      passed++;
+      console.log(`  ${index + 1}/${todo.length} ${key} (preview ${file})`);
+      continue;
+    }
     const objectKey = `players/${key}.png`;
     await s3.send(
       new PutObjectCommand({
