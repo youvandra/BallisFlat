@@ -1152,4 +1152,9 @@ contract BallIsFlatTest is Test {
         assertTrue(bif.supportsInterface(0x49064906)); // ERC-4906
         assertFalse(bif.supportsInterface(0xffffffff));
     }
+
+    /// Cross-checks the TypeScript tree in packages/core/src/squad.ts (same vector in squad.test.ts).
+    function test_Squad_RootMatchesCoreVector() public view {
+        assertEq(bif.squadRoot(_players()), 0xabd7d0e544a932d93429c4ac640a966a696a2c5ef7f7cc95dcee15996d020ea7);
+    }
 }

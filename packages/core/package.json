@@ -5,6 +5,7 @@
   "exports": {
     "./errors": "./src/errors.ts",
     "./format": "./src/format.ts",
-    "./payout": "./src/payout.ts"
+    "./payout": "./src/payout.ts",
+    "./squad": "./src/squad.ts"
   }
 }

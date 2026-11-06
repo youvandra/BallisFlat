@@ -122,9 +122,7 @@ contract Reenterer is ITokenHook, IERC721Receiver {
 
 /// Contract wallet that cannot receive ERC-721s.
 contract NoReceiver {
-    function mint(IBallIsFlat bif, address token, uint256 matchId, uint32 playerId, bytes32[] calldata proof)
-        external
-    {
+    function mint(IBallIsFlat bif, address token, uint256 matchId, uint32 playerId, bytes32[] calldata proof) external {
         IERC20(token).approve(address(bif), type(uint256).max);
         bif.mint(matchId, playerId, proof);
     }

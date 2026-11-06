@@ -1,6 +1,8 @@
 // The real client: viem reads and wagmi's injected connector (MetaMask, Rabby, Robinhood Wallet) against
 // the BallIsFlat deployment on Robinhood Chain. Loaded only when VITE_DATA_MODE=chain.
 import { ballIsFlatAbi } from "@app/config/abi/BallIsFlat";
+import { squadProof } from "@app/core/squad";
+import type { Hex } from "viem";
 import {
   BaseError,
   ContractFunctionRevertedError,
@@ -155,13 +157,22 @@ export class ChainGameClient implements GameClient {
     return matchStates[Number(state)] ?? "None";
   }
 
+  /** The squad lives in events: the listing, then any later squad update. The newest one wins. */
   async playersOf(matchId: number): Promise<number[]> {
-    const ids = await readContract(config, {
-      ...contract,
-      functionName: "playersOf",
-      args: [BigInt(matchId)],
-    });
-    return ids.map(Number);
+    const range = { address: contractAddress, fromBlock: deployBlock, toBlock: "latest" } as const;
+    const args = { matchId: BigInt(matchId) };
+    const [listed, updated] = await Promise.all([
+      publicClient.getContractEvents({ ...range, abi: ballIsFlatAbi, eventName: "MatchListed", args }),
+      publicClient.getContractEvents({ ...range, abi: ballIsFlatAbi, eventName: "PlayersUpdated", args }),
+    ]);
+    const latest = updated.at(-1)?.args.playerIds ?? listed.at(-1)?.args.playerIds ?? [];
+    return latest.map(Number);
+  }
+
+  private async proofFor(matchId: number, playerId: number): Promise<Hex[]> {
+    const proof = squadProof(await this.playersOf(matchId), playerId);
+    if (!proof) throw new GameError("UnknownPlayer");
+    return proof;
   }
 
   async winnersOf(matchId: number): Promise<number[]> {
@@ -388,11 +399,12 @@ export class ChainGameClient implements GameClient {
         });
         await this.confirm(approveHash);
       }
+      const proof = await this.proofFor(matchId, playerId);
       onStep("mint");
       const hash = await writeContract(config, {
         ...contract,
         functionName: "mint",
-        args: [BigInt(matchId), playerId],
+        args: [BigInt(matchId), playerId, proof],
         chainId: chain.id,
       });
       const receipt = await this.confirm(hash);
@@ -551,7 +563,12 @@ export class ChainGameClient implements GameClient {
       const hash = await writeContract(config, {
         ...contract,
         functionName: "propose",
-        args: [BigInt(matchId), winners, sourceUrl],
+        args: [
+          BigInt(matchId),
+          winners,
+          await Promise.all(winners.map((id) => this.proofFor(matchId, id))),
+          sourceUrl,
+        ],
         chainId: chain.id,
       });
       await this.confirm(hash);

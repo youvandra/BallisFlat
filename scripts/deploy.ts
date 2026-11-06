@@ -32,6 +32,7 @@ import { robinhoodChain } from "../packages/config/src/chain.ts";
 import { game, wif } from "../packages/config/src/constants.ts";
 import type { Deployment, Network } from "../packages/config/src/deployments.ts";
 import { fixtures } from "../packages/config/src/fixtures.ts";
+import { squadIds, squadProof } from "../packages/core/src/squad.ts";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const contractsDir = resolve(root, "packages/contracts");
@@ -118,35 +119,51 @@ async function main() {
   const contract = { address, abi: bif.abi } as const;
   const now = Number((await publicClient.getBlock()).timestamp);
   const matches: Record<string, number> = {};
-  let nextMatch = 0n;
+  // One transaction for every fixture, latest kickoff first, so each match rolls into the one listed
+  // just before it (listMatches checks nextMatch against the ids that already exist).
   const byKickoffDesc = [...fixtures].sort((a, b) => Date.parse(b.kickoff) - Date.parse(a.kickoff));
-  for (const fixture of byKickoffDesc) {
+  const listings = byKickoffDesc.map((fixture, index) => {
     const real = Math.floor(Date.parse(fixture.kickoff) / 1000);
-    const kickoff = real > now + 60 ? real : now + warmUpLead;
-    const receipt = await send(
+    return {
+      kickoff: BigInt(real > now + 60 ? real : now + warmUpLead),
+      price: game.cardPrice,
+      nextMatch: BigInt(index), // 0 for the first, then the id listed just before
+      maxPerPlayer: game.maxPerPlayer,
+      playerIds: squadIds(fixture.players.map((player) => player.id)),
+    };
+  });
+  const receipt = await send(
+    await client.writeContract({ ...contract, functionName: "listMatches", args: [listings] }),
+  );
+  const listed = parseEventLogs({
+    abi: bif.abi,
+    logs: receipt.logs,
+    eventName: "MatchListed",
+  }) as unknown as {
+    args: { matchId: bigint; kickoff: bigint };
+  }[];
+  for (const [index, fixture] of byKickoffDesc.entries()) {
+    const event = listed[index];
+    const id = Number(event?.args.matchId);
+    matches[fixture.slug] = id;
+    console.log(
+      `  #${id} ${fixture.slug} kickoff ${new Date(Number(event?.args.kickoff) * 1000).toISOString()}`,
+    );
+  }
+  console.log(`listed ${listed.length} matches in one transaction (gas ${receipt.gasUsed})`);
+
+  const metadataBase = process.env.METADATA_BASE_URI;
+  if (metadataBase) {
+    const contractUri =
+      process.env.METADATA_CONTRACT_URI ?? `${metadataBase.replace(/\/cards\/?$/, "")}/collection`;
+    await send(
       await client.writeContract({
         ...contract,
-        functionName: "listMatch",
-        args: [
-          BigInt(kickoff),
-          game.cardPrice,
-          nextMatch,
-          fixture.players.map((player) => player.id),
-          game.maxPerPlayer,
-        ],
+        functionName: "setMetadataURIs",
+        args: [metadataBase.endsWith("/") ? metadataBase : `${metadataBase}/`, contractUri],
       }),
     );
-    const [listed] = parseEventLogs({
-      abi: bif.abi,
-      logs: receipt.logs,
-      eventName: "MatchListed",
-    }) as unknown as {
-      args: { matchId: bigint };
-    }[];
-    const id = Number(listed?.args.matchId);
-    matches[fixture.slug] = id;
-    nextMatch = BigInt(id);
-    console.log(`  #${id} ${fixture.slug} kickoff ${new Date(kickoff * 1000).toISOString()}`);
+    console.log(`metadata: ${metadataBase} (+ ${contractUri})`);
   }
 
   const record: Deployment = {
@@ -197,9 +214,11 @@ async function seedLocal(
     } as never);
     await send(hash);
   }
+  const squadOf = (slug: string) =>
+    squadIds(fixtures.find((fixture) => fixture.slug === slug)?.players.map((player) => player.id) ?? []);
   async function pick(wallet: Address, slug: string, playerId: number) {
     await as(wallet, "approve", [contract.address, game.cardPrice], { address: wifAddress, abi: mock.abi });
-    await as(wallet, "mint", [BigInt(matches[slug] ?? 0), playerId]);
+    await as(wallet, "mint", [BigInt(matches[slug] ?? 0), playerId, squadProof(squadOf(slug), playerId)]);
   }
 
   const warmUp = fixtures.find((fixture) => fixture.warmUp);
@@ -227,7 +246,7 @@ async function seedLocal(
     await client.writeContract({
       ...contract,
       functionName: "propose",
-      args: [id, [winner.id], "local-only stand-in result"],
+      args: [id, [winner.id], [squadProof(squadOf(warmUp.slug), winner.id)], "local-only stand-in result"],
     }),
   );
   await rpc("evm_increaseTime", [game.disputeWindowSeconds + 60]);

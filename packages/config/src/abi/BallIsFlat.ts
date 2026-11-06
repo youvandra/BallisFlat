@@ -263,6 +263,19 @@ export const ballIsFlatAbi = [
   },
   {
     type: "function",
+    name: "contractURI",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "string",
+        internalType: "string",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "correct",
     inputs: [
       {
@@ -274,6 +287,11 @@ export const ballIsFlatAbi = [
         name: "winners",
         type: "uint32[]",
         internalType: "uint32[]",
+      },
+      {
+        name: "proofs",
+        type: "bytes32[][]",
+        internalType: "bytes32[][]",
       },
       {
         name: "sourceUrl",
@@ -325,6 +343,35 @@ export const ballIsFlatAbi = [
         name: "",
         type: "address",
         internalType: "address",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "inSquad",
+    inputs: [
+      {
+        name: "matchId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+      {
+        name: "playerId",
+        type: "uint32",
+        internalType: "uint32",
+      },
+      {
+        name: "proof",
+        type: "bytes32[]",
+        internalType: "bytes32[]",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "bool",
+        internalType: "bool",
       },
     ],
     stateMutability: "view",
@@ -423,6 +470,52 @@ export const ballIsFlatAbi = [
     outputs: [
       {
         name: "matchId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "listMatches",
+    inputs: [
+      {
+        name: "listings",
+        type: "tuple[]",
+        internalType: "struct IBallIsFlat.MatchListing[]",
+        components: [
+          {
+            name: "kickoff",
+            type: "uint64",
+            internalType: "uint64",
+          },
+          {
+            name: "price",
+            type: "uint256",
+            internalType: "uint256",
+          },
+          {
+            name: "nextMatch",
+            type: "uint256",
+            internalType: "uint256",
+          },
+          {
+            name: "maxPerPlayer",
+            type: "uint32",
+            internalType: "uint32",
+          },
+          {
+            name: "playerIds",
+            type: "uint32[]",
+            internalType: "uint32[]",
+          },
+        ],
+      },
+    ],
+    outputs: [
+      {
+        name: "firstMatchId",
         type: "uint256",
         internalType: "uint256",
       },
@@ -543,6 +636,11 @@ export const ballIsFlatAbi = [
             internalType: "uint256",
           },
           {
+            name: "playersRoot",
+            type: "bytes32",
+            internalType: "bytes32",
+          },
+          {
             name: "sourceUrl",
             type: "string",
             internalType: "string",
@@ -565,6 +663,11 @@ export const ballIsFlatAbi = [
         name: "playerId",
         type: "uint32",
         internalType: "uint32",
+      },
+      {
+        name: "proof",
+        type: "bytes32[]",
+        internalType: "bytes32[]",
       },
     ],
     outputs: [
@@ -649,25 +752,6 @@ export const ballIsFlatAbi = [
   },
   {
     type: "function",
-    name: "playersOf",
-    inputs: [
-      {
-        name: "matchId",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "uint32[]",
-        internalType: "uint32[]",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
     name: "propose",
     inputs: [
       {
@@ -679,6 +763,11 @@ export const ballIsFlatAbi = [
         name: "winners",
         type: "uint32[]",
         internalType: "uint32[]",
+      },
+      {
+        name: "proofs",
+        type: "bytes32[][]",
+        internalType: "bytes32[][]",
       },
       {
         name: "sourceUrl",
@@ -823,12 +912,48 @@ export const ballIsFlatAbi = [
   },
   {
     type: "function",
+    name: "setMetadataURIs",
+    inputs: [
+      {
+        name: "baseURI_",
+        type: "string",
+        internalType: "string",
+      },
+      {
+        name: "contractURI_",
+        type: "string",
+        internalType: "string",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "setMintPaused",
     inputs: [
       {
         name: "paused",
         type: "bool",
         internalType: "bool",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "setPlayers",
+    inputs: [
+      {
+        name: "matchId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+      {
+        name: "playerIds",
+        type: "uint32[]",
+        internalType: "uint32[]",
       },
     ],
     outputs: [],
@@ -859,6 +984,25 @@ export const ballIsFlatAbi = [
       },
     ],
     stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "squadRoot",
+    inputs: [
+      {
+        name: "playerIds",
+        type: "uint32[]",
+        internalType: "uint32[]",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "bytes32",
+        internalType: "bytes32",
+      },
+    ],
+    stateMutability: "pure",
   },
   {
     type: "function",
@@ -1119,6 +1263,25 @@ export const ballIsFlatAbi = [
   },
   {
     type: "event",
+    name: "BatchMetadataUpdate",
+    inputs: [
+      {
+        name: "_fromTokenId",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+      {
+        name: "_toTokenId",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
     name: "CardClaimed",
     inputs: [
       {
@@ -1317,6 +1480,12 @@ export const ballIsFlatAbi = [
   },
   {
     type: "event",
+    name: "ContractURIUpdated",
+    inputs: [],
+    anonymous: false,
+  },
+  {
+    type: "event",
     name: "ListingCancelled",
     inputs: [
       {
@@ -1394,6 +1563,12 @@ export const ballIsFlatAbi = [
         internalType: "uint256",
       },
       {
+        name: "playersRoot",
+        type: "bytes32",
+        indexed: false,
+        internalType: "bytes32",
+      },
+      {
         name: "playerIds",
         type: "uint32[]",
         indexed: false,
@@ -1410,6 +1585,19 @@ export const ballIsFlatAbi = [
         name: "matchId",
         type: "uint256",
         indexed: true,
+        internalType: "uint256",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "MetadataUpdate",
+    inputs: [
+      {
+        name: "_tokenId",
+        type: "uint256",
+        indexed: false,
         internalType: "uint256",
       },
     ],
@@ -1443,6 +1631,31 @@ export const ballIsFlatAbi = [
         type: "address",
         indexed: true,
         internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "PlayersUpdated",
+    inputs: [
+      {
+        name: "matchId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "playersRoot",
+        type: "bytes32",
+        indexed: false,
+        internalType: "bytes32",
+      },
+      {
+        name: "playerIds",
+        type: "uint32[]",
+        indexed: false,
+        internalType: "uint32[]",
       },
     ],
     anonymous: false,
@@ -1705,6 +1918,11 @@ export const ballIsFlatAbi = [
   {
     type: "error",
     name: "InvalidListing",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "InvalidSquad",
     inputs: [],
   },
   {
