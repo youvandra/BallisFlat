@@ -37,7 +37,11 @@ type Row = { view: MatchView; card: BinderCard | undefined; status: CardStatus }
 function settledLine(view: MatchView): { head: string; tail: string } {
   if (view.state === "Void") return { head: "Void", tail: "Every card refunded" };
   if (view.state === "RolledOver")
-    return { head: "Nobody called it", tail: `${formatWif(view.info.payPool)} $WIF rolled on` };
+    return {
+      head: "Nobody called it",
+      // with no next match the contract burns the uncalled pot
+      tail: `${formatWif(view.info.payPool)} $WIF ${view.info.nextMatch ? "rolled on" : "burned"}`,
+    };
   const names = view.winners.map((id) => surname(playerOf(view.fixture, id)?.name ?? `#${id}`));
   return { head: names.join(", ") || "Final", tail: `${formatWif(view.info.burned)} $WIF burned` };
 }
