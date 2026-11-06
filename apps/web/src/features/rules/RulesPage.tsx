@@ -24,7 +24,7 @@ const roadmap = [
     when: "Now",
     tag: `Nations League, Matchdays ${matchdays.join(" and ")}`,
     title: "One settler, open to challenge",
-    text: `Results posted with a source. ${windowHours}h to flag.`,
+    text: `Top FotMob rating, posted with the link. ${windowHours}h to flag.`,
     stats: [
       { value: String(onBoard.length), label: "matches" },
       { value: "1", label: "settler" },
