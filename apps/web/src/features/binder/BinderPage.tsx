@@ -6,7 +6,6 @@ import { formatUnits } from "viem";
 import { CardBackStack } from "../../components/playmat/CardBackStack";
 import { PackLoader } from "../../components/playmat/PackLoader";
 import { Zone } from "../../components/playmat/Zone";
-import { ButtonLink } from "../../components/ui/ButtonLink";
 import { Notice } from "../../components/ui/Notice";
 import { TextButton } from "../../components/ui/TextButton";
 import { useNow } from "../../hooks/use-now";
@@ -203,9 +202,33 @@ function Binder() {
               </TextButton>
             </Notice>
           ) : total === 0 ? (
-            <Zone label="Cards" size="auto" className="items-start gap-4 px-6 pt-7 pb-7">
-              <p className="t-small">No cards yet. Pick a player in a match to mint your first one.</p>
-              <ButtonLink to="/matches">Go to Matches</ButtonLink>
+            <Zone label="Cards · 0" size="auto" className="gap-4 px-6 pt-7 pb-7 max-tab:px-3">
+              <h2 className="t-small">Your binder is empty. Every pick you mint lands in a slot here.</h2>
+              <ul className="grid-binder" aria-label="Empty binder">
+                <li>
+                  <Link
+                    to="/matches"
+                    className="empty-slot empty-slot-cta"
+                    aria-label="Pick a player to mint your first card"
+                  >
+                    <span className="empty-slot-mark" aria-hidden>
+                      +
+                    </span>
+                    <span className="t-body-strong">Your first card</span>
+                    <span className="text-link">
+                      Pick a player <ArrowRight size={14} strokeWidth={2} aria-hidden />
+                    </span>
+                  </Link>
+                </li>
+                {[2, 3].map((slot) => (
+                  <li key={slot} aria-hidden className="max-tab:last:hidden">
+                    <span className="empty-slot empty-slot-faded">
+                      <span className="empty-slot-mark">?</span>
+                      <span className="t-small">Empty slot</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </Zone>
           ) : (
             shelves.map(({ group, shelf }) => (

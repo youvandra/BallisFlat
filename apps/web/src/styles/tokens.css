@@ -660,6 +660,20 @@
   .empty-slot > * {
     position: relative;
   }
+  .empty-slot-cta {
+    transition:
+      transform 0.2s var(--ease-out),
+      border-color 0.2s var(--ease-out);
+  }
+  .empty-slot-cta:hover,
+  .empty-slot-cta:focus-visible {
+    transform: translateY(-3px);
+    border-color: var(--color-pink);
+  }
+  .empty-slot-faded {
+    opacity: 0.6;
+    border-color: var(--color-line);
+  }
   .empty-slot-mark {
     font-family: var(--font-display);
     font-weight: 800;
