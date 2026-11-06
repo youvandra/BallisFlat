@@ -1,0 +1,10 @@
+{
+  "name": "@app/core",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./errors": "./src/errors.ts",
+    "./format": "./src/format.ts",
+    "./payout": "./src/payout.ts"
+  }
+}
