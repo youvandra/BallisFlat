@@ -9,7 +9,7 @@
 // Squad numbers are the shirt numbers from the latest official matchday sheet where one exists;
 // otherwise they are the order of the federation's published list (1..n). Numbers are unique per team.
 import type { Fixture, Player, Position, Team } from "./fixtures.types";
-import playerIds from "./player-ids.json";
+import playerIds from "./player-ids.json" with { type: "json" };
 
 type Entry = readonly [number: number, name: string, position: Position];
 type Squad = { team: Team; source: { url: string; readOn: string }; entries: readonly Entry[] };
