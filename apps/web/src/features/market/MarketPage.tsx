@@ -49,7 +49,7 @@ function summary(view: MarketView): string {
   return "";
 }
 
-// The steps in order; each is named with the header pill's word for that state (Open, Live, Settling, Claim).
+// The steps in order, named with the status pill's words (Open, Live, Settling, Claim). Shown once, over the title.
 const track = ["Open", "Locked", "Proposed", "Final"] as const;
 const trackIndex: Record<MatchState, number> = {
   None: -1,
@@ -67,10 +67,11 @@ const trackIndex: Record<MatchState, number> = {
  */
 function StateTrack({ state }: { state: MatchState }) {
   const current = trackIndex[state];
-  if (current < 0) return null;
+  // Void (or unlisted) is off the track: the pill alone says it.
+  if (current < 0) return <StatePill state={state} />;
   const names = track.map((step) => stateLabel(step === "Final" && state === "RolledOver" ? state : step));
   return (
-    <ol aria-label={`Match status: ${names[current]}`} className="flex items-center gap-2 max-tab:hidden">
+    <ol aria-label={`Match status: ${names[current]}`} className="flex flex-wrap items-center gap-x-2 gap-y-1">
       {names.map((name, index) => (
         <li key={name} className="flex items-center gap-2">
           {index > 0 ? (
@@ -209,7 +210,7 @@ export function MarketPage() {
 
             <header className="flex flex-col gap-2.5 max-tab:sr-only">
               {/* The matchday, number, competition and date all live on the sleeve; only the state is repeated. */}
-              <div>{view ? <StatePill state={view.state} /> : null}</div>
+              <div>{view ? <StateTrack state={view.state} /> : null}</div>
               <div className="flex flex-wrap items-end justify-between gap-4">
                 {/* The summary stays under the title it explains, also when the buttons wrap below them. */}
                 <div className="flex min-w-0 flex-col gap-2.5">
@@ -266,7 +267,6 @@ export function MarketPage() {
                       </div>
                     ))}
                   </dl>
-                  <StateTrack state={view.state} />
                 </div>
 
                 <section
