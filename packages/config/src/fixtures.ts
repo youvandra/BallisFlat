@@ -4,12 +4,12 @@
 // faw.cymru and the UEFA-time listing on Wikipedia's League A/B pages: every MD5/MD6 match below
 // starts 20:45 CET = 19:45 UTC.
 //
-// Player ids (stored on-chain as uint32, unique within a match):
-//   home side: id = squad number (1-99)
-//   away side: id = 100 + squad number (101-199)
+// Player ids (stored on-chain as uint32) are global and stable per person: player-ids.json maps
+// "TEAM:Name" to an id and is append-only (never renumber; the API's database continues the sequence).
 // Squad numbers are the shirt numbers from the latest official matchday sheet where one exists;
 // otherwise they are the order of the federation's published list (1..n). Numbers are unique per team.
 import type { Fixture, Player, Position, Team } from "./fixtures.types";
+import playerIds from "./player-ids.json";
 
 type Entry = readonly [number: number, name: string, position: Position];
 type Squad = { team: Team; source: { url: string; readOn: string }; entries: readonly Entry[] };
@@ -21,10 +21,18 @@ function inOrder(list: ReadonlyArray<readonly [string, Position]>): Entry[] {
   return list.map(([name, position], i) => [i + 1, name, position] as const);
 }
 
+const ids = playerIds as Record<string, number>;
+
+/** The global id of a player; a squad entry without one is a bug in player-ids.json. */
+export function playerIdOf(teamCode: string, name: string): number {
+  const id = ids[`${teamCode}:${name}`];
+  if (id === undefined) throw new Error(`no player id for ${teamCode}:${name} in player-ids.json`);
+  return id;
+}
+
 function players(squad: Squad, side: Player["side"]): Player[] {
-  const offset = side === "home" ? 0 : 100;
   return squad.entries.map(([number, name, position]) => ({
-    id: offset + number,
+    id: playerIdOf(squad.team.code, name),
     name,
     number,
     position,

@@ -4,7 +4,7 @@
 export type Position = "GK" | "DF" | "MF" | "FW";
 
 export type Player = {
-  /** Stable id stored on-chain as uint32. Unique within a match. */
+  /** Global id of the person (player-ids.json), stored on-chain as uint32. */
   id: number;
   name: string;
   number: number;

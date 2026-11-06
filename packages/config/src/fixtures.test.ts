@@ -7,16 +7,19 @@ describe("fixtures", () => {
     for (const f of fixtures) expect(new Date(f.kickoff).toISOString()).toBe(f.kickoff.replace("Z", ".000Z"));
   });
 
-  it("keeps player ids unique per match, home 1-99 and away 101-199", () => {
+  it("gives every person one global id, the same in every match", () => {
+    const byKey = new Map<string, number>();
     for (const f of fixtures) {
       const ids = f.players.map((p) => p.id);
       expect(new Set(ids).size, f.slug).toBe(ids.length);
       for (const p of f.players) {
-        const [lo, hi] = p.side === "home" ? [1, 99] : [101, 199];
-        expect(p.id, `${f.slug} ${p.name}`).toBeGreaterThanOrEqual(lo);
-        expect(p.id, `${f.slug} ${p.name}`).toBeLessThanOrEqual(hi);
+        const key = `${(p.side === "home" ? f.home : f.away).code}:${p.name}`;
+        expect(Number.isInteger(p.id) && p.id > 0 && p.id < 2 ** 32, key).toBe(true);
+        expect(byKey.get(key) ?? p.id, key).toBe(p.id);
+        byKey.set(key, p.id);
       }
     }
+    expect(new Set(byKey.values()).size).toBe(byKey.size);
   });
 
   it("lists exactly one warm-up and three goalkeepers or more per side", () => {
