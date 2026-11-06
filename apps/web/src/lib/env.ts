@@ -3,8 +3,9 @@ import * as z from "zod/mini";
 // The only reader of import.meta.env. A missing or malformed variable fails at start.
 const schema = z.object({
   VITE_SITE_URL: z._default(z.url(), "http://localhost:5173"),
-  // `mock` runs a simulated chain in the browser; `chain` talks to the deployed contract.
-  VITE_DATA_MODE: z._default(z.enum(["mock", "chain"]), "mock"),
+  // `chain` talks to the deployed contract (production). `mock` runs a simulated chain in the browser for
+  // development and the e2e suite; it must be asked for explicitly.
+  VITE_DATA_MODE: z._default(z.enum(["mock", "chain"]), "chain"),
   VITE_RPC_URL: z._default(z.url(), "https://rpc.mainnet.chain.robinhood.com"),
   // Which record in packages/config/src/deployments.json chain mode reads.
   VITE_NETWORK: z._default(z.enum(["mainnet", "local"]), "mainnet"),

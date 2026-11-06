@@ -1,4 +1,4 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
@@ -74,12 +74,25 @@ function useWalletOptions(mode: "mock" | "chain"): WalletOption[] {
 }
 
 /**
+ * Phones have no wallet extension: the page has to be opened inside a wallet app's own browser. These are
+ * the wallets' published universal links for that.
+ */
+function walletAppLinks(): { name: string; href: string }[] {
+  const { host, pathname, href } = window.location;
+  return [
+    { name: "MetaMask", href: `https://metamask.app.link/dapp/${host}${pathname}` },
+    { name: "Coinbase Wallet", href: `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(href)}` },
+  ];
+}
+
+/**
  * The wallet card body, shared by the Binder gate and the connect sheet: the network badge, then one state
  * at a time (reading, wallet options, wrong network with Switch Network, connected) and any error.
  */
 export function ConnectWallet() {
   const { account, connect, switchChain, mode } = useWallet();
   const options = useWalletOptions(mode);
+  const noWallet = mode === "chain" && !env.VITE_DEV_ACCOUNT && options[0]?.key === "injected";
   const current = account.data;
 
   return (
@@ -115,7 +128,7 @@ export function ConnectWallet() {
             <li key={option.key}>
               <button
                 type="button"
-                onClick={() => connect.mutate()}
+                onClick={() => connect.mutate(option.key)}
                 disabled={connect.isPending}
                 aria-label={`Connect ${option.name}`}
                 className="flex w-full cursor-pointer items-center gap-3 rounded-sleeve bg-mat px-4 py-3 text-left shadow-result transition-transform hover:-translate-y-0.5 disabled:cursor-wait"
@@ -140,6 +153,19 @@ export function ConnectWallet() {
           ))}
         </ul>
       )}
+
+      {noWallet && !current ? (
+        <div className="flex flex-col gap-2">
+          <p className="t-small">No wallet in this browser? Open this page in your wallet app:</p>
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            {walletAppLinks().map((link) => (
+              <a key={link.name} href={link.href} className="text-link" rel="noreferrer">
+                Open in {link.name} <ArrowUpRight size={14} strokeWidth={2} aria-hidden />
+              </a>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {connect.isError ? <Notice tone="danger">{errorSentence(connect.error)}</Notice> : null}
       {switchChain.isError ? <Notice tone="danger">{errorSentence(switchChain.error)}</Notice> : null}

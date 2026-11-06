@@ -7,7 +7,10 @@ export function useWallet() {
   const queryClient = useQueryClient();
   const account = useAccount();
   const refresh = () => queryClient.invalidateQueries();
-  const connect = useMutation({ mutationFn: () => client.connect(), onSettled: refresh });
+  const connect = useMutation({
+    mutationFn: (walletId?: string) => client.connect(walletId),
+    onSettled: refresh,
+  });
   const disconnect = useMutation({ mutationFn: () => client.disconnect(), onSettled: refresh });
   const switchChain = useMutation({ mutationFn: () => client.switchChain(), onSettled: refresh });
   return { account, connect, disconnect, switchChain, mode: client.mode };

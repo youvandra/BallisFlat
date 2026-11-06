@@ -12,5 +12,9 @@ export default defineConfig({
   ],
   webServer: process.env.E2E_URL
     ? undefined
-    : { command: "npm run build && npm run preview -w apps/web", url: baseURL, reuseExistingServer: true },
+    : {
+        command: "VITE_DATA_MODE=mock npm run build && npm run preview -w apps/web",
+        url: baseURL,
+        reuseExistingServer: true,
+      },
 });

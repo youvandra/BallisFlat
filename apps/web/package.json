@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "VITE_DATA_MODE=${VITE_DATA_MODE:-mock} vite",
     "build": "vite build",
     "preview": "vite preview --port 4173 --strictPort"
   },

@@ -117,7 +117,8 @@ export interface GameClient {
   ledger(): Promise<LedgerCard[]>;
   // wallet
   account(): Promise<Account | null>;
-  connect(): Promise<Account>;
+  /** walletId picks one EIP-6963 wallet by its rdns; without it, the default browser wallet. */
+  connect(walletId?: string): Promise<Account>;
   disconnect(): Promise<void>;
   switchChain(): Promise<void>;
   // fan

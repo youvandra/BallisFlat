@@ -339,9 +339,12 @@ export class ChainGameClient implements GameClient {
     };
   }
 
-  connect(): Promise<Account> {
+  connect(walletId?: string): Promise<Account> {
     return guard(async () => {
-      const connector = config.connectors[0];
+      // wagmi lists every EIP-6963 wallet it discovered under its rdns, next to the default injected one.
+      const connector =
+        (walletId ? config.connectors.find((item) => item.id === walletId) : undefined) ??
+        config.connectors[0];
       if (!connector) throw new GameError("NoWallet");
       await connect(config, { connector, chainId: chain.id });
       const account = await this.account();
