@@ -9,7 +9,7 @@ SSH=(ssh -i "$KEY" "$HOST")
 what="${1:-all}"
 
 if [[ "$what" == web || "$what" == all ]]; then
-  VITE_DATA_MODE=chain VITE_NETWORK=mainnet VITE_API_URL=https://api.ballisflat.fun npm run build
+  VITE_SITE_URL=https://ballisflat.fun VITE_DATA_MODE=chain VITE_NETWORK=mainnet VITE_API_URL=https://api.ballisflat.fun npm run build
   grep -q 'og:image" content="https://' apps/web/dist/index.html || { echo "og:image is not absolute"; exit 1; }
   rsync -az --delete -e "ssh -i $KEY" apps/web/dist/ "$HOST:/srv/ballisflat/web/"
 fi
