@@ -1,6 +1,7 @@
-// Card art, all drawn here as SVG from the fixture data. Match covers are riso prints of the two team codes
-// and a halftone ball; player art is drawn here as an SVG: the team colour as a halftone screen and the shirt number printed
+// Card art, all drawn here as SVG from the fixture data. Match covers are riso prints of the two flags and
+// a halftone ball, with no text; player art is drawn here as an SVG: the team colour as a halftone screen and the shirt number printed
 // twice, pink over cyan, off register. No photos, no likeness.
+import { flagShapes } from "@app/config/flags";
 import { artKey, matchArt, playerArt } from "@app/config/player-art";
 import { useEffect, useSyncExternalStore } from "react";
 import { fixtureBySlug, listedFixtures, type Player, type Team } from "./game/fixtures";
@@ -59,19 +60,21 @@ export function useCoverArtReady(): boolean {
   );
 }
 
+type CoverTeam = Pick<Team, "code" | "colour">;
+
 /**
- * A fixture cover in the landing's riso print, drawn from the fixture: the home code in pink, the away code
- * in cyan, a halftone ball on the halfway line between them. "card" is square with the codes above and
- * below the ball (sleeves, the deck); "wide" is 2:1 with the codes either side (the match list tiles).
+ * A fixture cover as a two-ink riso print of both flags, no text: the home flag fills the left of a slanted
+ * seam and the away flag the right, each printed through a halftone screen with a faint off-register copy,
+ * and a halftone ball sits on the seam. "card" is square (sleeves, the deck); "wide" is 2:1 (list tiles).
  */
-function coverSvg(home: string, away: string, shape: CoverShape): string {
+function coverSvg(home: CoverTeam, away: CoverTeam, shape: CoverShape): string {
   const ink = palette();
   const wide = shape === "wide";
   const w = 1024;
   const h = wide ? 512 : 1024;
   const cx = w / 2;
   const cy = h / 2;
-  const r = wide ? 150 : 220;
+  const r = wide ? 92 : 124;
   const k = r / 220;
   const pentagon = (x: number, y: number, size: number) =>
     Array.from({ length: 5 }, (_, i) => {
@@ -88,49 +91,44 @@ function coverSvg(home: string, away: string, shape: CoverShape): string {
   ]
     .map(
       ([dx = 0, dy = 0, size = 0]) =>
-        `<polygon points="${pentagon(cx + dx * k, cy + dy * k, size * k)}" fill="${ink.mat}" opacity="0.85"/>`,
+        `<polygon points="${pentagon(cx + dx * k, cy + dy * k, size * k)}" fill="${ink.mat}"/>`,
     )
     .join("");
-  // textLength keeps any three-letter code inside its half, however wide the letters are.
-  const codes = wide
-    ? `<text x="${cx - r - 165}" y="${cy + 66}" font-size="190" textLength="290" lengthAdjust="spacingAndGlyphs" fill="url(#pinkDots)">${home}</text>
-<text x="${cx + r + 165}" y="${cy + 66}" font-size="190" textLength="290" lengthAdjust="spacingAndGlyphs" fill="url(#cyanDots)">${away}</text>`
-    : `<text x="${cx}" y="300" font-size="300" textLength="860" lengthAdjust="spacingAndGlyphs" fill="url(#pinkDots)">${home}</text>
-<text x="${cx}" y="960" font-size="300" textLength="860" lengthAdjust="spacingAndGlyphs" fill="url(#cyanDots)">${away}</text>`;
+  // The seam leans like the dock and the card stacks: top 60% across, bottom 40% across.
+  const top = w * 0.6;
+  const bottom = w * 0.4;
+  const half = (id: string, team: CoverTeam, points: string, dx: number) =>
+    `<clipPath id="${id}"><polygon points="${points}"/></clipPath>
+<g clip-path="url(#${id})">
+<g transform="translate(${dx} 6)" opacity="0.22">${flagShapes(team.code, team.colour, w, h)}</g>
+<g mask="url(#screen)">${flagShapes(team.code, team.colour, w, h)}</g>
+</g>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}">
 <defs>
-<linearGradient id="fade" x1="0" y1="0" x2="${wide ? 1 : 0}" y2="${wide ? 0 : 1}"><stop offset="0" stop-color="white"/><stop offset="1" stop-color="black"/></linearGradient>
-<mask id="first"><rect width="${w}" height="${h}" fill="url(#fade)"/></mask>
-<mask id="second"><rect width="${w}" height="${h}" fill="url(#fade)" transform="rotate(180 ${cx} ${cy})"/></mask>
-<pattern id="dotsPink" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><circle cx="6" cy="6" r="3.2" fill="${ink.pink}"/></pattern>
-<pattern id="dotsCyan" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><circle cx="6" cy="6" r="3.2" fill="${ink.cyan}"/></pattern>
-<pattern id="fine" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(15)"><circle cx="4" cy="4" r="2.6" fill="${ink.ink}"/></pattern>
-<pattern id="pinkDots" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><circle cx="5" cy="5" r="4.4" fill="${ink.pink}"/></pattern>
-<pattern id="cyanDots" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><circle cx="5" cy="5" r="4.4" fill="${ink.cyan}"/></pattern>
-${coverFontCss ? `<style>${coverFontCss}</style>` : ""}
-<radialGradient id="shade" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="white"/><stop offset="1" stop-color="white" stop-opacity="0.35"/></radialGradient>
-<mask id="ball"><circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#shade)"/></mask>
+<pattern id="dots" width="11" height="11" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><circle cx="5.5" cy="5.5" r="4.9" fill="white"/></pattern>
+<mask id="screen"><rect width="${w}" height="${h}" fill="url(#dots)"/></mask>
+<pattern id="fine" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(15)"><circle cx="3.5" cy="3.5" r="2.4" fill="${ink.ink}"/></pattern>
+<filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0"/></filter>
 </defs>
 <rect width="${w}" height="${h}" fill="${ink.mat}"/>
-<rect width="${w}" height="${h}" fill="url(#dotsPink)" mask="url(#first)" opacity="0.6"/>
-<rect width="${w}" height="${h}" fill="url(#dotsCyan)" mask="url(#second)" opacity="0.6"/>
-<line x1="0" y1="${cy}" x2="${w}" y2="${cy}" stroke="${ink.cyan}" stroke-width="5"/>
-<g font-family="'BIF Cover', Unbounded, 'Arial Black', sans-serif" font-weight="800" text-anchor="middle">
-${codes}
-</g>
-<circle cx="${cx}" cy="${cy}" r="${r}" fill="${ink.pink}" opacity="0.45"/>
-<rect width="${w}" height="${h}" fill="url(#fine)" mask="url(#ball)"/>
+${half("home", home, `0,0 ${top},0 ${bottom},${h} 0,${h}`, -7)}
+${half("away", away, `${top},0 ${w},0 ${w},${h} ${bottom},${h}`, 7)}
+<line x1="${top}" y1="0" x2="${bottom}" y2="${h}" stroke="${ink.mat}" stroke-width="14"/>
+<line x1="${top + 9}" y1="0" x2="${bottom + 9}" y2="${h}" stroke="${ink.cyan}" stroke-width="3" opacity="0.8"/>
+<circle cx="${cx + 6}" cy="${cy + 5}" r="${r}" fill="${ink.pink}" opacity="0.55"/>
+<circle cx="${cx}" cy="${cy}" r="${r}" fill="${ink.mat}"/>
+<circle cx="${cx}" cy="${cy}" r="${r - 4}" fill="url(#fine)"/>
 ${patches}
 <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${ink.cyan}" stroke-width="5"/>
-${wide ? "" : `<text x="${cx}" y="780" font-family="'BIF Cover', Unbounded, sans-serif" font-weight="800" font-size="44" text-anchor="middle" fill="${ink.ink}">v</text>`}
+<rect width="${w}" height="${h}" filter="url(#grain)" opacity="0.35"/>
 </svg>`;
 }
 
 const coverCache = new Map<string, string>();
 
 /**
- * The fixture's cover art: the generated stadium cover (scripts/gen-art.ts --matches) when there is one,
- * else drawn from its team codes so the art and the text always agree.
+ * The fixture's cover art: a generated cover from match-art.json when one is listed there, else the riso
+ * flag print drawn here from the fixture's two teams.
  */
 export function matchArtUrl(slug: string, shape: CoverShape = "card"): string {
   const generated = shape === "card" ? matchArt[slug] : undefined;
@@ -139,7 +137,8 @@ export function matchArtUrl(slug: string, shape: CoverShape = "card"): string {
   const hit = coverCache.get(key);
   if (hit) return hit;
   const fixture = fixtureBySlug(slug);
-  const url = svgDataUrl(coverSvg(fixture?.home.code ?? "BIF", fixture?.away.code ?? "BIF", shape));
+  const fallback = { code: "BIF", colour: palette().pink };
+  const url = svgDataUrl(coverSvg(fixture?.home ?? fallback, fixture?.away ?? fallback, shape));
   coverCache.set(key, url);
   return url;
 }

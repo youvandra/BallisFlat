@@ -10,6 +10,7 @@
     "./deployments": "./src/deployments.ts",
     "./fixtures": "./src/fixtures.ts",
     "./fixtures.types": "./src/fixtures.types.ts",
+    "./flags": "./src/flags.ts",
     "./player-art": "./src/player-art.ts",
     "./player-ids.json": "./src/player-ids.json"
   }
