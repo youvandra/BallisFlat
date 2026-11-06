@@ -1,0 +1,25 @@
+{
+  "mainnet": {
+    "chainId": 4663,
+    "deployBlock": 0,
+    "contracts": {},
+    "matches": {}
+  },
+  "local": {
+    "chainId": 4663,
+    "deployBlock": 2,
+    "contracts": {
+      "BallIsFlat": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+      "WIF": "0x5fbdb2315678afecb367f032d93f642f64180aa3"
+    },
+    "matches": {
+      "hungary-v-northern-ireland": 1,
+      "ireland-v-kosovo": 2,
+      "wales-v-portugal": 3,
+      "spain-v-england": 4,
+      "northern-ireland-v-ukraine": 5,
+      "england-v-croatia": 6,
+      "croatia-v-england": 7
+    }
+  }
+}
