@@ -7,7 +7,7 @@ import schema from "ponder:schema";
 import { squadProof } from "@app/core/squad";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { and, desc, eq, graphql, inArray, replaceBigInts } from "ponder";
+import { and, desc, eq, graphql, inArray } from "ponder";
 import type { Hex } from "viem";
 import { getAddress, isAddress } from "viem";
 import { type CardView, cardSvg, metadataJson } from "./metadata";
@@ -37,7 +37,9 @@ app.use("/graphql", graphql({ db, schema }));
 
 /** JSON with bigints as decimal strings: amounts are 18-decimal $WIF and ids are uint256. */
 function json(body: unknown, status: 200 | 201 = 200, cacheSeconds = 2) {
-  return new Response(JSON.stringify(replaceBigInts(body, (value) => value.toString())), {
+  // JSON.stringify runs Date.toJSON before the replacer, so dates arrive as ISO strings.
+  const text = JSON.stringify(body, (_key, value) => (typeof value === "bigint" ? value.toString() : value));
+  return new Response(text, {
     status,
     headers: { "content-type": "application/json", "cache-control": `public, max-age=${cacheSeconds}` },
   });

@@ -66,3 +66,28 @@ export type ApiCard = {
   burnTx: `0x${string}` | null;
   listingPrice: string | null;
 };
+
+// ---------- admin (token kept in this tab's sessionStorage only) ----------
+
+const TOKEN_KEY = "bif-admin-token";
+
+export const adminToken = {
+  get: (): string => (typeof sessionStorage === "undefined" ? "" : (sessionStorage.getItem(TOKEN_KEY) ?? "")),
+  set: (value: string) => sessionStorage.setItem(TOKEN_KEY, value),
+  clear: () => sessionStorage.removeItem(TOKEN_KEY),
+};
+
+export async function adminApi<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  if (!apiUrl) throw new ApiError(0, "no API configured");
+  const response = await fetch(`${apiUrl}${path}`, {
+    method: init.method ?? "GET",
+    headers: {
+      authorization: `Bearer ${adminToken.get()}`,
+      ...(init.body === undefined ? {} : { "content-type": "application/json" }),
+    },
+    body: init.body === undefined ? undefined : JSON.stringify(init.body),
+  });
+  const body = (await response.json().catch(() => ({}))) as T & { error?: string };
+  if (!response.ok) throw new ApiError(response.status, body.error ?? `API ${response.status}`);
+  return body;
+}

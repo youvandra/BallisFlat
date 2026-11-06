@@ -5,12 +5,14 @@ import { Button } from "../../components/ui/Button";
 import { Notice } from "../../components/ui/Notice";
 import { StatePill } from "../../components/ui/StatePill";
 import { useWallet } from "../../hooks/use-wallet";
+import { apiUrl } from "../../lib/api";
 import { formatKickoff, shortHash } from "../../lib/format";
 import { errorSentence } from "../../lib/game/errors";
 import { matchName, shownKickoff } from "../../lib/game/fixtures";
 import { MockGameClient } from "../../lib/game/mock-client";
 import { type MatchView, useBoard, useGame } from "../../lib/game/queries";
 import { WalletGate } from "../connect/WalletGate";
+import { AdminFixtures } from "./AdminFixtures";
 
 function MatchOps({ view }: { view: MatchView }) {
   const client = useGame();
@@ -140,6 +142,14 @@ function Ops() {
             {(board.data ?? []).map((view) => (
               <MatchOps key={view.fixture.slug} view={view} />
             ))}
+            {apiUrl ? (
+              <details className="surface-card rounded-card bg-card p-4 shadow-result">
+                <summary className="t-title cursor-pointer">Owner: Fixtures and Listing</summary>
+                <div className="mt-4">
+                  <AdminFixtures />
+                </div>
+              </details>
+            ) : null}
           </div>
         </Zone>
       </div>
