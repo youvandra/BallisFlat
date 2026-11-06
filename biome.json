@@ -13,7 +13,10 @@
       "!scripts/check-design-tokens.mjs",
       "!scripts/kit-check.mjs",
       "!**/*.md",
-      "!apps/web/src/framer"
+      "!apps/web/src/framer",
+      "!apps/indexer/generated",
+      "!apps/indexer/ponder-env.d.ts",
+      "!apps/indexer/.ponder"
     ]
   },
   "formatter": {
@@ -39,7 +42,12 @@
   },
   "overrides": [
     {
-      "includes": ["**/*.config.ts", "**/vite.config.ts", "playwright.config.ts"],
+      "includes": [
+        "**/*.config.ts",
+        "**/vite.config.ts",
+        "playwright.config.ts",
+        "apps/indexer/src/api/index.ts"
+      ],
       "linter": {
         "rules": {
           "style": {

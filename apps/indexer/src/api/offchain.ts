@@ -217,8 +217,9 @@ export async function upsertFixture(input: FixtureInput): Promise<{ slug: string
     await tx`delete from app.fixture_player where fixture_slug = ${input.slug}`;
     for (const p of input.players) {
       const teamCode = p.side === "home" ? input.home.code : input.away.code;
-      let [person] = await tx<{ id: number }[]>`
+      const [found] = await tx<{ id: number }[]>`
         select id from app.player where team_code = ${teamCode} and name = ${p.name}`;
+      let person = found;
       if (!person) {
         [person] = await tx<{ id: number }[]>`
           insert into app.player (id, team_code, name, position)
@@ -226,9 +227,10 @@ export async function upsertFixture(input: FixtureInput): Promise<{ slug: string
           returning id`;
         created++;
       }
+      if (!person) throw new AdminError(409, `could not create ${p.name}`);
       await tx`insert into app.fixture_player ${tx({
         fixture_slug: input.slug,
-        player_id: person!.id,
+        player_id: person.id,
         number: p.number,
         side: p.side,
         position: p.position,

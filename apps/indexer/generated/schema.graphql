@@ -23,75 +23,19 @@ type Meta {
 
 type Query {
   match(id: BigInt!): match
-  matchs(
-    where: matchFilter
-    orderBy: String
-    orderDirection: String
-    before: String
-    after: String
-    limit: Int
-    offset: Int
-  ): matchPage!
+  matchs(where: matchFilter, orderBy: String, orderDirection: String, before: String, after: String, limit: Int, offset: Int): matchPage!
   card(tokenId: BigInt!): card
-  cards(
-    where: cardFilter
-    orderBy: String
-    orderDirection: String
-    before: String
-    after: String
-    limit: Int
-    offset: Int
-  ): cardPage!
+  cards(where: cardFilter, orderBy: String, orderDirection: String, before: String, after: String, limit: Int, offset: Int): cardPage!
   pick(matchId: BigInt!, playerId: Float!): pick
-  picks(
-    where: pickFilter
-    orderBy: String
-    orderDirection: String
-    before: String
-    after: String
-    limit: Int
-    offset: Int
-  ): pickPage!
+  picks(where: pickFilter, orderBy: String, orderDirection: String, before: String, after: String, limit: Int, offset: Int): pickPage!
   listing(tokenId: BigInt!): listing
-  listings(
-    where: listingFilter
-    orderBy: String
-    orderDirection: String
-    before: String
-    after: String
-    limit: Int
-    offset: Int
-  ): listingPage!
+  listings(where: listingFilter, orderBy: String, orderDirection: String, before: String, after: String, limit: Int, offset: Int): listingPage!
   sale(id: String!): sale
-  sales(
-    where: saleFilter
-    orderBy: String
-    orderDirection: String
-    before: String
-    after: String
-    limit: Int
-    offset: Int
-  ): salePage!
+  sales(where: saleFilter, orderBy: String, orderDirection: String, before: String, after: String, limit: Int, offset: Int): salePage!
   wallet(address: String!): wallet
-  wallets(
-    where: walletFilter
-    orderBy: String
-    orderDirection: String
-    before: String
-    after: String
-    limit: Int
-    offset: Int
-  ): walletPage!
+  wallets(where: walletFilter, orderBy: String, orderDirection: String, before: String, after: String, limit: Int, offset: Int): walletPage!
   settings(id: String!): settings
-  settingss(
-    where: settingsFilter
-    orderBy: String
-    orderDirection: String
-    before: String
-    after: String
-    limit: Int
-    offset: Int
-  ): settingsPage!
+  settingss(where: settingsFilter, orderBy: String, orderDirection: String, before: String, after: String, limit: Int, offset: Int): settingsPage!
   _meta: Meta
 }
 
