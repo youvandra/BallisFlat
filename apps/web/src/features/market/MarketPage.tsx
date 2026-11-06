@@ -71,7 +71,10 @@ function StateTrack({ state }: { state: MatchState }) {
   if (current < 0) return <StatePill state={state} />;
   const names = track.map((step) => stateLabel(step === "Final" && state === "RolledOver" ? state : step));
   return (
-    <ol aria-label={`Match status: ${names[current]}`} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+    <ol
+      aria-label={`Match status: ${names[current]}`}
+      className="flex flex-wrap items-center gap-x-2 gap-y-1"
+    >
       {names.map((name, index) => (
         <li key={name} className="flex items-center gap-2">
           {index > 0 ? (
