@@ -93,13 +93,18 @@ export function ConnectWallet() {
   const { account, connect, switchChain, mode } = useWallet();
   const options = useWalletOptions(mode);
   const noWallet = mode === "chain" && !env.VITE_DEV_ACCOUNT && options[0]?.key === "injected";
+  // One button first. With a single wallet it connects straight away; with several it opens the list.
+  const [choosing, setChoosing] = useState(false);
+  const only = options.length === 1 ? options[0] : undefined;
   const current = account.data;
 
   return (
     <div className="flex flex-col gap-4">
-      <Badge tone="cyan" className="self-start">
-        {chain.name} · Chain ID <span className="num">&nbsp;{chain.id}</span>
-      </Badge>
+      {current ? (
+        <Badge tone="cyan" className="self-start">
+          {chain.name} · Chain ID <span className="num">&nbsp;{chain.id}</span>
+        </Badge>
+      ) : null}
 
       {account.isPending ? (
         <div className="skeleton h-16" aria-busy />
@@ -122,8 +127,16 @@ export function ConnectWallet() {
           Connected as <span className="num">{shortHash(current.address)}</span>
           {mode === "mock" ? " (demo)" : ""} on {chain.name}.
         </Notice>
+      ) : !choosing ? (
+        <Button
+          className="submit-tall w-full"
+          disabled={connect.isPending}
+          onClick={() => (only ? connect.mutate(only.key) : setChoosing(true))}
+        >
+          {connect.isPending ? "Connecting…" : "Connect Wallet"}
+        </Button>
       ) : (
-        <ul className="flex flex-col gap-2.5">
+        <ul className="flex flex-col gap-2.5" aria-label="Wallets in this browser">
           {options.map((option) => (
             <li key={option.key}>
               <button

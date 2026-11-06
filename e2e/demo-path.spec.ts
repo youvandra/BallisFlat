@@ -7,7 +7,7 @@ import { expect, type Page, test } from "@playwright/test";
 async function connect(page: Page) {
   await page.getByRole("button", { name: /^Connect( Wallet)?$/ }).click();
   const sheet = page.getByRole("dialog", { name: "Connect a Wallet" });
-  await sheet.getByRole("button", { name: "Connect Demo Wallet" }).click();
+  await sheet.getByRole("button", { name: "Connect Wallet", exact: true }).click();
   await expect(sheet).toBeHidden();
   await expect(page.getByTestId("wif-balance")).toBeVisible();
 }
@@ -36,7 +36,7 @@ async function mintFirstPlayer(page: Page) {
   await expect(sheet.getByText("If he wins")).toBeVisible();
   // No wallet yet: the pick sheet asks to connect in place, then shows the mint button for the same pick.
   await expect(sheet.getByRole("button", { name: /Mint for/ })).toHaveCount(0);
-  await sheet.getByRole("button", { name: "Connect Demo Wallet" }).click();
+  await sheet.getByRole("button", { name: "Connect Wallet", exact: true }).click();
   await sheet.getByRole("button", { name: /^Mint for 1,000 \$WIF$/ }).click();
   await expect(sheet.getByText(/^Approve \$WIF/)).toBeVisible();
   await expect(page).toHaveURL(/\/open\/\d+$/, { timeout: 10_000 });
@@ -75,7 +75,7 @@ test("the binder asks for a wallet in place, then opens", async ({ page }) => {
   await expect(page).toHaveURL(/\/binder$/);
   const gate = page.getByTestId("wallet-gate");
   await expect(gate.getByRole("heading", { name: "Connect to open your binder" })).toBeVisible();
-  await gate.getByRole("button", { name: "Connect Demo Wallet" }).click();
+  await gate.getByRole("button", { name: "Connect Wallet", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Your binder" })).toBeVisible();
   await expect(page).toHaveURL(/\/binder$/);
 });
@@ -122,7 +122,7 @@ test("a second mint for the same match is blocked", async ({ page }) => {
 
 test("binder: burn the warm-up winner to claim", async ({ page }) => {
   await page.goto("/binder");
-  await page.getByTestId("wallet-gate").getByRole("button", { name: "Connect Demo Wallet" }).click();
+  await page.getByTestId("wallet-gate").getByRole("button", { name: "Connect Wallet", exact: true }).click();
   await expect(page.getByText("Claim · 1")).toBeVisible();
   // Claim lives on the back of the card: flip it first.
   await page
@@ -179,7 +179,7 @@ test("buy a sealed card from the market; it lands in the binder sealed", async (
   await sheet.getByRole("button", { name: /^Buy .+ for 900 \$WIF$/ }).click();
   await expect(sheet.getByText("5% of the price is burned.")).toBeVisible();
   // No wallet yet: the buy confirm asks to connect in place, then the buy button takes its place.
-  await sheet.getByRole("button", { name: "Connect Demo Wallet" }).click();
+  await sheet.getByRole("button", { name: "Connect Wallet", exact: true }).click();
   await sheet.getByRole("button", { name: "Buy for 900 $WIF" }).click();
   await expect(page.getByRole("status").filter({ hasText: "is in your binder, sealed" })).toBeVisible({
     timeout: 10_000,
