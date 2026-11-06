@@ -1,6 +1,7 @@
 // @ts-nocheck: verbatim Framer code component (see shim.ts)
 import * as React from "react"
 import { addPropertyControls, ControlType, useIsStaticRenderer } from "./shim"
+import { Logo } from "../components/ui/Logo"
 import { motion, useReducedMotion } from "framer-motion"
 
 /**
@@ -73,7 +74,7 @@ export default function MissingCard(props: any) {
                     pointerEvents: "none",
                 }}
             >
-                <div style={{ width: 74, height: 74, borderRadius: "50%", border: `2px solid ${dark}`, display: "grid", placeItems: "center", fontFamily: display, fontWeight: 800, fontSize: 24, letterSpacing: "-0.05em", color: dark }}>BF</div>
+                <div style={{ width: 74, height: 74, borderRadius: "50%", border: `2px solid ${dark}`, display: "grid", placeItems: "center", color: dark }}><Logo style={{ width: 60, height: "auto" }} /></div>
                 <span style={{ fontFamily: display, fontWeight: 700, fontSize: 13, color: dark }}>{hint}</span>
             </motion.div>
         </div>

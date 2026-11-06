@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     "./abi/*": "./src/abi/*.ts",
+    "./brand": "./src/brand.ts",
     "./chain": "./src/chain.ts",
     "./constants": "./src/constants.ts",
     "./deployments": "./src/deployments.ts",

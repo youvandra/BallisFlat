@@ -7,10 +7,10 @@
   },
   "local": {
     "chainId": 4663,
-    "deployBlock": 2,
+    "deployBlock": 63,
     "contracts": {
-      "BallIsFlat": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
-      "WIF": "0x5fbdb2315678afecb367f032d93f642f64180aa3"
+      "BallIsFlat": "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82",
+      "WIF": "0xa51c1fc2f0d1a1b8494ed1fe312d7c3a78ed91c0"
     },
     "matches": {
       "hungary-v-northern-ireland": 1,

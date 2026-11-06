@@ -1,6 +1,7 @@
 // @ts-nocheck: verbatim Framer code component (see shim.ts)
 import * as React from "react"
 import { addPropertyControls, ControlType, useIsStaticRenderer } from "./shim"
+import { Logo } from "../components/ui/Logo"
 import { motion, useReducedMotion } from "framer-motion"
 
 /**
@@ -113,7 +114,7 @@ export default function SummonCard(props: any) {
                     <div style={{ position: "relative", width: "62%", aspectRatio: "1", display: "grid", placeItems: "center" }}>
                         <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `2px solid ${dark}` }} />
                         <div style={{ position: "absolute", inset: "14%", borderRadius: "50%", border: `2px dashed ${dark}`, opacity: 0.6 }} />
-                        <span style={{ fontFamily: display, fontWeight: 800, fontSize: 30, letterSpacing: "-0.05em", color: dark }}>BF</span>
+                        <Logo style={{ width: "74%", height: "auto", color: dark }} />
                     </div>
                     <div style={{ textAlign: "center" }}>
                         <div style={{ fontFamily: display, fontWeight: 800, fontSize: 17, lineHeight: 1.05, letterSpacing: "-0.035em", color: dark }}>{title}</div>

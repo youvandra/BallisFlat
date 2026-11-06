@@ -10,7 +10,7 @@ listing, squad updates before kickoff, settle, correct, dispute window, void and
 rollover, claim, sealed-card market, metadata URIs and ERC-4906 events. The squad tree is pinned to the same
 vector in Solidity and in `packages/core/src/squad.test.ts`.
 
-## Static analysis (6 Nov 2026)
+## Static analysis (Slither re-run 7 Nov 2026 after CardLocked + pot burn; Aderyn last run 6 Nov)
 
 **Slither 0.11.6** (`--exclude-informational`): 0 high, 0 medium. 14 low/other results, all reviewed:
 

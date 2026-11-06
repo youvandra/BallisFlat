@@ -89,11 +89,12 @@
   --t-body: 15px; /* Body ADP1mlLeQ, Body Strong Ub8wkSasy */
   --t-small: 13px; /* Small XX6NLY3mC */
   --t-zone: 12px; /* Zone dUANXuZMU */
-  --t-wordmark: 18px; /* Masthead name QP1uVBgQt */
+  --logo-masthead: 44px; /* BIF logo height in the masthead */
+  --logo-masthead-tab: 34px;
+  --logo-pack: 22px; /* BIF logo on a sealed pack */
   --t-folio: 11px; /* Backdrop folio UrIGeGheI */
   --t-overprint: 300px; /* Backdrop overprint S1G6LpXrm */
   --t-input: 15px; /* form inputs */
-  --t-card-back: 10px; /* Binder card back "BF" */
 
   /* Playmat layout (page breakpoints WQLkyLRf1, SmGdGpPwd, zXqSEnnGz) */
   --screen-pad: 95px 40px 96px 40px;
@@ -1152,13 +1153,20 @@
     justify-content: space-between;
     pointer-events: auto;
   }
-  .wordmark {
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: var(--t-wordmark);
-    letter-spacing: -0.02em;
-    color: var(--color-ink);
-    line-height: 1.2em;
+  /* The BIF logo in the masthead (replaces the text wordmark) */
+  .masthead-logo {
+    height: var(--logo-masthead);
+    width: auto;
+    flex: none;
+  }
+  @media (max-width: 809.98px) {
+    .masthead-logo {
+      height: var(--logo-masthead-tab);
+    }
+  }
+  .pack-logo {
+    height: var(--logo-pack);
+    width: auto;
   }
   .live-dot {
     width: 7px;
@@ -1528,12 +1536,10 @@
     background: var(--color-pink);
     transform: rotate(4deg);
   }
-  .card-back span {
-    font-family: var(--font-display);
-    font-weight: 800;
-    font-size: var(--t-card-back);
-    letter-spacing: -0.04em;
-    color: var(--color-white);
+  .card-back-logo {
+    width: 46px;
+    height: auto;
+    color: var(--color-on-ink);
   }
 
   /* Mat Art (tKdQRZD3K): the circle printed on the Field */
