@@ -1,0 +1,6 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    "apps/web": { "ignoreDependencies": ["tailwindcss"], "ignore": ["src/lib/motion.ts"] }
+  }
+}
