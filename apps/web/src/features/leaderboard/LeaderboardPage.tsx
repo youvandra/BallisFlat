@@ -167,7 +167,7 @@ export function LeaderboardPage() {
             <header className="flex flex-wrap items-end justify-between gap-3">
               <div className="flex flex-col gap-1.5">
                 <h1 className="t-heading">The table</h1>
-                <p className="t-small">Ranked by $WIF won.</p>
+                <p className="t-small">Ranked by $WIF won. A tie goes to the earlier pick.</p>
               </div>
               <Chips
                 label="Period"

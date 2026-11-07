@@ -43,15 +43,25 @@ describe("rankLedger", () => {
       won: 4_500n * WIF,
     });
     expect(rows[0]?.best).toEqual({ matchId: 1, playerId: 9, multiple: 4.5 });
-    // An unclaimed winner counts as a call right but has won nothing yet.
-    expect(rows[1]).toMatchObject({ rank: 2, callsRight: 1, won: 0n });
+    // A final but unclaimed winning card already counts as won.
+    expect(rows[1]).toMatchObject({ rank: 2, callsRight: 1, won: 4_500n * WIF });
     expect(rows[2]).toMatchObject({ rank: 3, callsRight: 0, hitRate: 0, best: null });
   });
 
-  it("filters to a set of matches and gives equal records the same rank", () => {
-    const rows = rankLedger([card(a, 1, 9), card(b, 2, 3), card(c, 2, 4)], matches, (id) => id === 2);
-    expect(rows.map((row) => row.rank)).toEqual([1, 1]);
+  it("filters to a set of matches and breaks a level record by who picked first", () => {
+    const rows = rankLedger([card(a, 1, 9), card(c, 2, 4), card(b, 2, 3)], matches, (id) => id === 2);
+    // b's card (token 203) was minted before c's (204): b ranks first, and every rank is unique.
+    expect(rows.map((row) => [row.wallet, row.rank])).toEqual([
+      [b, 1],
+      [c, 2],
+    ]);
     expect(rows.every((row) => row.hitRate === null)).toBe(true);
+  });
+
+  it("never gives two wallets the same rank, even with identical records", () => {
+    const rows = rankLedger([card(b, 1, 9), card(a, 1, 9)], matches);
+    expect(rows.map((row) => row.rank)).toEqual([1, 2]);
+    expect(rows[0]?.won).toBe(rows[1]?.won);
   });
 });
 

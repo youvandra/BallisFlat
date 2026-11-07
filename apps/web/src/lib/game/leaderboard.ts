@@ -17,7 +17,7 @@ export interface LeaderRow {
   callsRight: number;
   /** callsRight / settled, null before any of the wallet's matches settled. */
   hitRate: number | null;
-  /** $WIF paid out by claims. */
+  /** $WIF won: paid out by claims, plus the share a final winning card can still claim. */
   won: bigint;
   /** The winning card that paid the most per $WIF staked. */
   best: { matchId: number; playerId: number; multiple: number } | null;
@@ -25,13 +25,17 @@ export interface LeaderRow {
 
 const settledStates: ReadonlySet<MatchState> = new Set(["Final", "RolledOver"]);
 
-/** One row per wallet, ranked by $WIF won, then calls right, hit rate and cards. */
+/**
+ * One row per wallet, ranked by $WIF won, then calls right, hit rate and cards. A result is final once the
+ * match is, so an unclaimed winning card already counts as won. Anything still level goes to the wallet
+ * that picked first (lowest token id), so every rank is unique and the podium never shows two firsts.
+ */
 export function rankLedger(
   ledger: readonly LedgerCard[],
   matches: ReadonlyMap<number, LeaderMatch>,
   include: (matchId: number) => boolean = () => true,
 ): LeaderRow[] {
-  const rows = new Map<string, Omit<LeaderRow, "rank" | "hitRate">>();
+  const rows = new Map<string, Omit<LeaderRow, "rank" | "hitRate"> & { firstPick: bigint }>();
   for (const card of ledger) {
     const match = matches.get(card.matchId);
     if (!match || !include(card.matchId)) continue;
@@ -43,18 +47,20 @@ export function rankLedger(
       callsRight: 0,
       won: 0n,
       best: null,
+      firstPick: card.tokenId,
     };
     row.cards += 1;
+    if (card.tokenId < row.firstPick) row.firstPick = card.tokenId;
     if (settledStates.has(match.state)) row.settled += 1;
     if (match.state === "Final" && match.winners.includes(card.playerId)) {
       row.callsRight += 1;
       const paid = card.claimed ?? claimShare(match.info.payPool, match.info.winningCards);
+      row.won += paid;
       const multiple = match.info.price > 0n ? Number((paid * 1000n) / match.info.price) / 1000 : 0;
       if (!row.best || multiple > row.best.multiple) {
         row.best = { matchId: card.matchId, playerId: card.playerId, multiple };
       }
     }
-    if (card.claimed !== null) row.won += card.claimed;
     rows.set(key, row);
   }
   const ranked = [...rows.values()]
@@ -65,21 +71,9 @@ export function rankLedger(
         b.callsRight - a.callsRight ||
         (b.hitRate ?? -1) - (a.hitRate ?? -1) ||
         b.cards - a.cards ||
-        a.wallet.localeCompare(b.wallet),
+        (a.firstPick < b.firstPick ? -1 : a.firstPick > b.firstPick ? 1 : 0),
     );
-  // Equal records share a rank (1, 2, 2, 4).
-  let rank = 0;
-  return ranked.map((row, index) => {
-    const prev = ranked[index - 1];
-    const tied =
-      prev !== undefined &&
-      prev.won === row.won &&
-      prev.callsRight === row.callsRight &&
-      prev.hitRate === row.hitRate &&
-      prev.cards === row.cards;
-    if (!tied) rank = index + 1;
-    return { ...row, rank };
-  });
+  return ranked.map(({ firstPick: _firstPick, ...row }, index) => ({ ...row, rank: index + 1 }));
 }
 
 /** The crowd's choice: the player with the most cards on him, first by shirt number on a tie. */
