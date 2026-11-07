@@ -24,7 +24,8 @@ export function MatchSleeve({ fixture }: { fixture: ListedFixture }) {
         ink={ink.ink}
         muted={ink.graphite}
         line={ink.lineSoft}
-        edge={ink.shade}
+        // neutral, like the board cards: the cover already carries both team colours
+        edge="color-mix(in srgb, var(--color-ink) 18%, var(--color-mat))"
         dark={ink.mat}
       />
     </div>

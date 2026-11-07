@@ -12,7 +12,6 @@ const names = [
   "pink",
   "cyan",
   "on-ink",
-  "shade",
 ] as const;
 type Name = (typeof names)[number];
 type Camel<S extends string> = S extends `${infer A}-${infer B}` ? `${A}${Capitalize<Camel<B>>}` : S;
