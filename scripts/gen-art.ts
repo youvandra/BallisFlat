@@ -56,6 +56,8 @@ const limit = Number(value("limit") ?? Number.POSITIVE_INFINITY);
 const tries = Number(value("tries") ?? 4);
 const backendName = value("backend") ?? "bedrock";
 const gpuModel = value("model") ?? "sd35";
+// --seed N starts from a fresh set of seeds, so a redraw of a rejected player is a new image, not the same one.
+const seedRound = Number(value("seed") ?? 0);
 const gpuUrl = process.env.ART_GPU_URL ?? "http://127.0.0.1:8188";
 
 /** Kits as plain words: image models do not read hex. Colours only, no crests or sponsor marks. */
@@ -139,13 +141,16 @@ function hash(text: string): number {
   return h >>> 0;
 }
 
+/** A navy figure disappears into a blue kit, so these teams get a charcoal black figure instead. */
+const darkKit: ReadonlySet<string> = new Set(["KVX"]);
+
 function prompt(player: Player, team: Team): string {
   const options = poses[player.position];
   const pose = options[hash(player.name) % options.length];
   return [
     `Flat vector silhouette illustration of a single football player, ${pose}.`,
     `Shirt filled with one solid flat colour, ${kits[team.code] ?? "plain shirt"}, completely plain fabric with no logos, no badge, no stripes, no numbers.`,
-    "Head, hair, face, arms and legs are one solid dark navy silhouette shape with no facial features and no inner detail.",
+    `Head, hair, face, arms and legs are one solid ${darkKit.has(team.code) ? "charcoal black" : "dark navy"} silhouette shape with no facial features and no inner detail.`,
     "Minimal flat shapes, crisp clean edges, no outlines inside the figure, no texture, no gradients.",
     "Exactly one ball. Natural anatomy, two arms, two legs. Whole body in frame. Plain flat light grey background.",
   ].join(" ");
@@ -256,7 +261,25 @@ function bedrockBackend(bedrock: BedrockRuntimeClient): ArtBackend {
 function gpuBackend(url: string, model: string): ArtBackend {
   // node:http instead of fetch: fetch gives up after 300 s without response headers, and the first call
   // after a model switch reads 16+ GB from disk. One request runs at a time; 20 minutes is the hard stop.
-  function post(path: string, body: object): Promise<Record<string, unknown>> {
+  // The SSH tunnel to the box drops now and then; the box keeps working, so a dropped request is simply sent
+  // again once the tunnel is back, instead of ending the whole run.
+  async function post(path: string, body: object): Promise<Record<string, unknown>> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await postOnce(path, body);
+      } catch (error) {
+        const dropped =
+          error instanceof Error &&
+          /ECONNRESET|ECONNREFUSED|socket hang up/i.test(
+            `${error.message} ${(error as { code?: string }).code ?? ""}`,
+          );
+        if (!dropped || attempt >= 8) throw error;
+        console.warn(`  ${path}: connection dropped, retrying (${attempt})`);
+        await new Promise((done) => setTimeout(done, 15_000));
+      }
+    }
+  }
+  function postOnce(path: string, body: object): Promise<Record<string, unknown>> {
     const payload = JSON.stringify(body);
     return new Promise((resolvePost, rejectPost) => {
       const request = httpRequest(
@@ -443,7 +466,7 @@ async function main() {
     const text = prompt(player, team);
     let accepted: Buffer | null = null;
     for (let attempt = 0; attempt < tries && !accepted; attempt++) {
-      const seed = (hash(`${team.code}:${player.name}`) + attempt * 7919) % 4294967294;
+      const seed = (hash(`${team.code}:${player.name}`) + (attempt + seedRound * 16) * 7919) % 4294967294;
       const bytes = await backend.draw(text, negative, seed, "4:5");
       if (!bytes) {
         appendFileSync(log, `${key} #${attempt} filtered\n`);
