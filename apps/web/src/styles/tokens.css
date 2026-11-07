@@ -28,6 +28,7 @@
   --color-cyan: #3fe0ff; /* Ink 2 */
   --color-white: #ffffff; /* Submit label, Dock active label */
   --color-on-ink: #141416; /* text on pink, cyan and note fills */
+  --color-shade: #3a3a42; /* neutral print shadow under flag covers, so it never fights a team colour */
 
   /* Submit / Error: the one state colour Framer defines */
   --color-error-fill: rgb(220 60 60 / 0.1);
@@ -55,6 +56,7 @@
   --shadow-result-pink: 4px 4px 0 0 var(--color-pink);
   --shadow-sleeve: 5px 5px 0 0 var(--color-cyan);
   --shadow-sleeve-hover: 7px 7px 0 0 var(--color-cyan);
+  --shadow-cover: 5px 5px 0 0 var(--color-shade);
   /* design-rules: allow (Framer Sleeve foil sheen, verbatim from the Work page card) */
   --sheen-1: rgb(201 167 255 / 0.18);
   /* design-rules: allow (Framer Sleeve foil sheen, verbatim from the Work page card) */
@@ -713,7 +715,7 @@
     height: 100%;
     min-height: inherit;
     border-radius: var(--radius-sleeve);
-    box-shadow: var(--shadow-sleeve);
+    box-shadow: var(--shadow-cover);
     transform-style: preserve-3d;
     transition:
       transform 0.6s var(--ease-out),

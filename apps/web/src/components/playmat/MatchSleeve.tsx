@@ -24,7 +24,7 @@ export function MatchSleeve({ fixture }: { fixture: ListedFixture }) {
         ink={ink.ink}
         muted={ink.graphite}
         line={ink.lineSoft}
-        edge={ink.cyan}
+        edge={ink.shade}
         dark={ink.mat}
       />
     </div>
