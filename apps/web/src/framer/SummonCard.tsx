@@ -34,6 +34,8 @@ export default function SummonCard(props: any) {
         muted = "rgba(242, 242, 238, 0.62)",
         dark = "#141416",
         rule = "rgba(242, 242, 238, 0.14)",
+        accent = back,
+        onAccent = dark,
         startRevealed = false,
         style,
     } = props
@@ -139,7 +141,7 @@ export default function SummonCard(props: any) {
                     <a
                         href={link || undefined}
                         tabIndex={open ? 0 : -1}
-                        style={{ margin: "0 14px", padding: "11px 14px", borderRadius: 100, background: back, color: dark, textDecoration: "none", textAlign: "center", fontFamily: body, fontWeight: 600, fontSize: 14, boxShadow: `3px 3px 0 0 ${edge}` }}
+                        style={{ margin: "0 14px", padding: "11px 14px", borderRadius: 100, background: accent, color: onAccent, textDecoration: "none", textAlign: "center", fontFamily: body, fontWeight: 600, fontSize: 14, boxShadow: `3px 3px 0 0 ${edge}` }}
                     >
                         {cta} →
                     </a>

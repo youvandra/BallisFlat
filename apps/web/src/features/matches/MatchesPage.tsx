@@ -181,7 +181,7 @@ export function MatchesPage() {
                       label={`${matchName(view.fixture)}, ${formatKickoff(shownKickoff(view.fixture, view.info.kickoff))}, ${status}`}
                       image={matchArtUrl(view.fixture.slug)}
                       status={
-                        <Badge tone={loud.has(status) ? "pink" : "cyan"} testId="match-status">
+                        <Badge tone={loud.has(status) ? "pink" : "quiet"} testId="match-status">
                           {status}
                         </Badge>
                       }
@@ -222,12 +222,14 @@ export function MatchesPage() {
                 rows={`Kickoff:${formatKickoff(kickoff)}\nCloses in:${formatCountdown(next.info.kickoff - now)}\nPot:${formatWif(next.info.pot)} $WIF\nCards:${next.info.cards}`}
                 cta="Pick a Player"
                 link={`/m/${next.fixture.slug}`}
-                back={ink.pink}
-                edge={ink.cyan}
+                back={ink.card}
+                edge="color-mix(in srgb, var(--color-ink) 18%, var(--color-mat))"
                 card={ink.card}
                 ink={ink.ink}
                 muted={ink.graphite}
-                dark={ink.mat}
+                dark={ink.ink}
+                accent={ink.pink}
+                onAccent={ink.mat}
                 rule={ink.lineSoft}
               />
             </div>

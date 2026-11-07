@@ -99,7 +99,7 @@ function Chasers({ rows, me }: { rows: LeaderRow[]; me: string | undefined }) {
             data-testid={isMe ? "leader-me" : undefined}
             className="grid grid-cols-[2.5rem_1fr_auto] items-center gap-3 border-b border-line-soft py-3 last:border-0"
           >
-            <span className="t-zone num">{row.rank}</span>
+            <span className="t-small num">{row.rank}</span>
             <span className="flex min-w-0 flex-col">
               <span className="t-body-strong num truncate">
                 {shortHash(row.wallet)}
@@ -109,7 +109,7 @@ function Chasers({ rows, me }: { rows: LeaderRow[]; me: string | undefined }) {
                 {calls(row)} · Best: {bestCall(row)}
               </span>
             </span>
-            <span className="t-body-strong num text-cyan">{formatWif(row.won)}</span>
+            <span className="t-body-strong num">{formatWif(row.won)}</span>
           </li>
         );
       })}

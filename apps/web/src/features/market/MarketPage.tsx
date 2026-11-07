@@ -265,7 +265,7 @@ export function MarketPage() {
                         : []),
                     ].map((item) => (
                       <div key={item.label} className="flex flex-col gap-0.5">
-                        <dt className="t-zone">{item.label}</dt>
+                        <dt className="t-small">{item.label}</dt>
                         <dd className="t-body-strong num whitespace-nowrap">{item.value}</dd>
                       </div>
                     ))}

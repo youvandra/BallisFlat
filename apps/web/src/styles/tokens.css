@@ -51,7 +51,8 @@
 
   /* Hard offset shadows: a second print pass */
   --shadow-dock: 4px 4px 0 0 var(--color-pink);
-  --shadow-result: 4px 4px 0 0 var(--color-cyan);
+  /* Panels print a neutral shadow; pink (below) is kept for what should stand out: first place, a warning. */
+  --shadow-result: 4px 4px 0 0 color-mix(in srgb, var(--color-ink) 18%, var(--color-mat));
   --shadow-result-pink: 4px 4px 0 0 var(--color-pink);
   --shadow-sleeve: 5px 5px 0 0 var(--color-cyan);
   --shadow-sleeve-hover: 7px 7px 0 0 var(--color-cyan);
@@ -116,8 +117,8 @@
   --riso-cyan-size: 820px;
   --riso-pink-opacity: 0.6;
   --riso-cyan-opacity: 0.5;
-  --riso-ink2-opacity: 0.34;
-  --riso-pinktext-opacity: 0.46;
+  --riso-ink2-opacity: 0.09;
+  --riso-pinktext-opacity: 0.11;
   --riso-offset-x: 18px;
   --riso-offset-y: 16px;
   --riso-grain-opacity: 0.7;
@@ -165,8 +166,8 @@
     --riso-cyan-size: 520px;
     --riso-pink-opacity: 0.35;
     --riso-cyan-opacity: 0.32;
-    --riso-ink2-opacity: 0.14;
-    --riso-pinktext-opacity: 0.2;
+    --riso-ink2-opacity: 0.08;
+    --riso-pinktext-opacity: 0.1;
     --riso-offset-x: 10px;
     --riso-offset-y: 10px;
   }
@@ -348,6 +349,13 @@
   }
   .badge-cyan {
     background: var(--color-cyan);
+  }
+  /* Default states (Not Joined and the like): reads as a label, not an alert. */
+  .badge.badge-quiet {
+    border: 1px solid var(--color-line-soft);
+    background: color-mix(in srgb, var(--color-mat) 72%, transparent);
+    backdrop-filter: blur(6px);
+    color: var(--color-graphite);
   }
   .badge-note {
     background: var(--color-note);
@@ -797,7 +805,7 @@
     gap: 4px;
   }
   .match-card-kicker {
-    color: var(--color-cyan);
+    color: var(--color-graphite);
   }
   .match-card-back {
     gap: 14px;
@@ -896,16 +904,16 @@
   .riso[data-variant="quiet"] {
     --riso-pink-opacity: 0.32;
     --riso-cyan-opacity: 0.3;
-    --riso-ink2-opacity: 0.12;
-    --riso-pinktext-opacity: 0.16;
+    --riso-ink2-opacity: 0.07;
+    --riso-pinktext-opacity: 0.08;
   }
   @media (max-width: 809.98px) {
     /* The phone breakpoint always uses the Compact variant. */
     .riso[data-variant] {
       --riso-pink-opacity: 0.35;
       --riso-cyan-opacity: 0.32;
-      --riso-ink2-opacity: 0.14;
-      --riso-pinktext-opacity: 0.2;
+      --riso-ink2-opacity: 0.08;
+      --riso-pinktext-opacity: 0.1;
     }
   }
   .riso-halftone {
@@ -1320,7 +1328,7 @@
   /* Secondary (404 ZQ6UGv9gO): Card fill, Ink label, pink hard print */
   .submit-quiet {
     background: var(--color-card);
-    box-shadow: 3px 3px 0 0 var(--color-pink);
+    box-shadow: 3px 3px 0 0 color-mix(in srgb, var(--color-ink) 22%, var(--color-mat));
     color: var(--color-ink);
   }
   /* On a Card surface (sheet, panel, card back) a Card fill vanishes and only the print shows, so the
@@ -1507,9 +1515,9 @@
     border-color: var(--color-line);
   }
   .chip[aria-pressed="true"] {
-    border-color: var(--color-pink);
-    background: var(--color-pink);
-    color: var(--color-white);
+    border-color: var(--color-line);
+    background: color-mix(in srgb, var(--color-ink) 12%, transparent);
+    color: var(--color-ink);
   }
 
   /* Contact Drawer: the confirm sheet */
