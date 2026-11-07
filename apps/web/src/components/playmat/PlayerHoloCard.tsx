@@ -3,6 +3,7 @@ import { playerArtUrl, playerIllustration } from "../../lib/art";
 import { surname } from "../../lib/format";
 import type { Player, Team } from "../../lib/game/fixtures";
 import { HoloCard } from "./framer";
+import { PlayerCutout } from "./PlayerCutout";
 import { ShirtNumber } from "./ShirtNumber";
 
 export const positionNames = { GK: "Goalkeeper", DF: "Defender", MF: "Midfielder", FW: "Forward" } as const;
@@ -76,7 +77,7 @@ export function PlayerHoloCard({
         artOverlay={
           illustration ? (
             <>
-              <img src={illustration} alt="" className="player-cutout" loading="lazy" decoding="async" />
+              <PlayerCutout src={illustration} />
               <ShirtNumber value={player.number} className="shirt-number-corner" />
             </>
           ) : (

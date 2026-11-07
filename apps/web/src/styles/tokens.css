@@ -313,6 +313,33 @@
     transform: scale(1.18);
     transform-origin: center 70%;
     filter: drop-shadow(-3px -2px 0 var(--color-cyan)) drop-shadow(3px 2px 0 var(--color-pink));
+    opacity: 0;
+    transition: opacity 0.35s var(--ease-out);
+  }
+  .player-cutout.is-loaded {
+    opacity: 1;
+  }
+  /* While a cut-out loads: a soft light sweeps across the art well, so the card reads as loading, not empty. */
+  .cutout-skeleton {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      100deg,
+      transparent 20%,
+      color-mix(in srgb, var(--color-ink) 12%, transparent) 45%,
+      transparent 70%
+    );
+    background-size: 220% 100%;
+    animation: cutout-shimmer 1.4s var(--ease-out) infinite;
+  }
+  @keyframes cutout-shimmer {
+    from {
+      background-position: 120% 0;
+    }
+    to {
+      background-position: -100% 0;
+    }
   }
   /* Over an illustration the number sits small in the top-left corner, clear of the figure. */
   .shirt-number.shirt-number-corner {
