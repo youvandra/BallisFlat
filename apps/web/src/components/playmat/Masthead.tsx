@@ -96,7 +96,7 @@ function LandingStatus() {
 type Variant = "landing" | "app";
 
 /**
- * Masthead (Framer component iz_oxBMfc) in the Masthead Bar: the BIF logo and role line on the left; on the
+ * Masthead (Framer component iz_oxBMfc) in the Masthead Bar: the BIF logo on the left; on the
  * right the Sound icon button, then the wallet pill in the app. The landing's only call to action is the
  * Launch App button in the bottom bar. Padding 28px 40px, 24px 28px on tablet, 20px 16px on phone.
  */
@@ -110,11 +110,6 @@ export function Masthead({ variant }: { variant: Variant }) {
           aria-label={product.name}
         >
           <Logo className="masthead-logo" />
-          <span className={`t-small ${variant === "app" ? "max-tab:hidden" : ""}`}>
-            Man of the match
-            <br />
-            cards on $WIF
-          </span>
         </Link>
         <div className="flex items-center gap-2 max-tab:gap-0.5">
           {variant === "landing" ? (

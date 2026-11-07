@@ -13,6 +13,10 @@ import { matchdayLabel } from "../../lib/game/fixtures";
 import { type MatchView, useBoard } from "../../lib/game/queries";
 import { houseRules, playSteps, skillProps } from "../../lib/game/rules";
 import { sleeveCodes, sleeveColour, sleeveNumber, sleeveTag } from "../../lib/game/sleeve";
+
+// Card stacks print a neutral edge and shadow, like the board: colour stays for the pack, the CTA and the art.
+const neutralEdge = "color-mix(in srgb, var(--color-ink) 22%, var(--color-mat))";
+
 import { palette } from "../../lib/palette";
 
 /** ProjectCascade takes its cards as numbered props. */
@@ -83,7 +87,7 @@ export function LandingPage() {
                 cardHeight={320}
                 cardFill={ink.card}
                 ink={ink.ink}
-                edge={ink.cyan}
+                edge={neutralEdge}
                 accent={ink.pink}
                 muted={ink.graphite}
                 {...deckProps(visible)}
@@ -112,6 +116,7 @@ export function LandingPage() {
               <PackRip
                 key="landing-pack"
                 packTitle="Ball is Flat"
+                packLogo
                 packSubtitle={`${matchdayLabel(field.fixture)}, Nov 2026`}
                 badge="One MVP in every match"
                 hint="Drag across the top to open"
@@ -152,7 +157,7 @@ export function LandingPage() {
               hint="Tap to shuffle"
               cardFill={ink.card}
               ink={ink.ink}
-              edge={ink.cyan}
+              edge={neutralEdge}
               muted={ink.graphite}
               band1={ink.pink}
               band2={ink.cyan}

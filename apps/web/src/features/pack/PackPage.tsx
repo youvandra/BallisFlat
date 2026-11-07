@@ -138,6 +138,7 @@ function Pack() {
               <div className="absolute inset-0">
                 <PackRip
                   packTitle={sleeveCodes(fixture)}
+                  packLogo
                   packSubtitle={`${matchdayLabel(fixture)}, ${formatKickoff(kickoff)}`}
                   badge="One MVP in every match"
                   hint={hint}

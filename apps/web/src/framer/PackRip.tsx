@@ -3,6 +3,7 @@ import { addPropertyControls, ControlType, useIsStaticRenderer } from "./shim"
 import { motion, useMotionValue, useTransform, useMotionTemplate, animate, useReducedMotion } from "framer-motion"
 import { useState, useRef, useEffect, startTransition, type CSSProperties, type PointerEvent as RPointerEvent } from "react"
 import HoloCard from "./HoloTradingCard"
+import { Logo } from "../components/ui/Logo"
 
 /**
  * Pack Rip: a sealed foil booster you tear open by dragging across the top.
@@ -26,6 +27,8 @@ interface Img {
 interface PackRipProps {
     foil?: Img
     packTitle: string
+    /** Print the BIF logo as the pack title, with packTitle in small type under it. */
+    packLogo?: boolean
     packSubtitle: string
     badge: string
     hint: string
@@ -198,6 +201,7 @@ export default function PackRip(props: PackRipProps) {
     const {
         foil,
         packTitle = "Noa Varela",
+        packLogo = false,
         packSubtitle = "First edition, 2026",
         badge = "One legendary in every pack",
         hint = "Drag across the top to open",
@@ -712,19 +716,35 @@ export default function PackRip(props: PackRipProps) {
                             }}
                         >
                             <div style={{ fontFamily: body, fontWeight: 500, fontSize: Math.max(11, geo.packH * 0.027), opacity: 0.75 }}>{packSubtitle}</div>
-                            <h1
-                                style={{
-                                    fontFamily: display,
-                                    fontWeight: 800,
-                                    fontSize: Math.max(20, geo.packH * 0.135) * titleScale,
-                                    lineHeight: 0.92,
-                                    letterSpacing: "-0.05em",
-                                    overflowWrap: "normal",
-                                    margin: 0,
-                                }}
-                            >
-                                {packTitle}
-                            </h1>
+                            {packLogo ? (
+                                <h1 style={{ margin: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: geo.packH * 0.025 }}>
+                                    <Logo title="Ball is Flat" style={{ width: "92%", height: "auto", color: ink }} />
+                                    <span
+                                        style={{
+                                            fontFamily: display,
+                                            fontWeight: 800,
+                                            fontSize: Math.max(12, geo.packH * 0.036),
+                                            letterSpacing: "-0.02em",
+                                        }}
+                                    >
+                                        {packTitle}
+                                    </span>
+                                </h1>
+                            ) : (
+                                <h1
+                                    style={{
+                                        fontFamily: display,
+                                        fontWeight: 800,
+                                        fontSize: Math.max(20, geo.packH * 0.135) * titleScale,
+                                        lineHeight: 0.92,
+                                        letterSpacing: "-0.05em",
+                                        overflowWrap: "normal",
+                                        margin: 0,
+                                    }}
+                                >
+                                    {packTitle}
+                                </h1>
+                            )}
                             <div
                                 style={{
                                     fontFamily: body,
