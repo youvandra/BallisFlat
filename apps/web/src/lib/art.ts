@@ -75,7 +75,7 @@ function coverSvg(home: CoverTeam, away: CoverTeam, shape: CoverShape): string {
   const h = wide ? 512 : 1024;
   const cx = w / 2;
   const cy = h / 2;
-  const r = wide ? 120 : 175;
+  const r = wide ? 96 : 138;
   // The seam leans like the dock and the card stacks: top 60% across, bottom 40% across.
   const top = w * 0.6;
   const bottom = w * 0.4;

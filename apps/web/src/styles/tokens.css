@@ -696,8 +696,9 @@
       grid-template-columns: minmax(0, 1fr);
     }
   }
-  /* Match Card (board): a sleeve that turns over on hover or focus. Face = cover art + one pill + title +
-     pot; back = the schedule. Same radius and hard cyan print as the Project Card. */
+  /* Match Card (board): a sleeve that turns over from its Details button (no hover motion). Face = cover art +
+     one pill + title + pot, and opens the match; back = the schedule. Same radius and hard cyan print as the
+     Project Card. */
   .match-card {
     display: block;
     height: 100%;
@@ -745,11 +746,49 @@
     );
     pointer-events: none;
   }
+  .match-card-open {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+  }
   .match-card-top,
   .match-card-bottom {
     position: relative;
-    z-index: 1;
+    z-index: 2;
     display: flex;
+  }
+  .match-card-top {
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .match-card-bottom {
+    pointer-events: none;
+  }
+  /* Quiet chip: reads as a control, never louder than the status pill. */
+  .match-card-flip {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    border: 1px solid var(--color-line-soft);
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--color-mat) 72%, transparent);
+    backdrop-filter: blur(6px);
+    color: var(--color-graphite);
+    font-size: var(--t-small);
+    line-height: 1.2;
+    cursor: pointer;
+    transition:
+      color 0.15s var(--ease-out),
+      border-color 0.15s var(--ease-out);
+  }
+  .match-card-flip:hover,
+  .match-card-flip:focus-visible {
+    color: var(--color-ink);
+    border-color: var(--color-line);
   }
   .match-card-bottom {
     flex-direction: column;
@@ -780,27 +819,11 @@
   .match-card-row:last-child {
     border-bottom: 0;
   }
-  .match-card-touch-only {
-    display: none;
-  }
-  @media (hover: hover) {
-    .match-card:hover .match-card-inner,
-    .match-card:focus-visible .match-card-inner {
-      transform: rotateY(180deg);
-      box-shadow: var(--shadow-sleeve-hover);
-    }
-  }
-  /* No hover on touch: the face carries the kickoff too, and a tap opens the match. */
-  @media (hover: none) {
-    .match-card-touch-only {
-      display: block;
-    }
-    .match-card-back {
-      display: none;
-    }
+  .match-card.is-flipped .match-card-inner {
+    transform: rotateY(180deg);
   }
   /* Reduced motion: the back fades in place instead of turning. */
-  @media (hover: hover) and (prefers-reduced-motion: reduce) {
+  @media (prefers-reduced-motion: reduce) {
     .match-card-inner {
       transition: none;
     }
@@ -809,12 +832,10 @@
       opacity: 0;
       transition: opacity 0.2s linear;
     }
-    .match-card:hover .match-card-inner,
-    .match-card:focus-visible .match-card-inner {
+    .match-card.is-flipped .match-card-inner {
       transform: none;
     }
-    .match-card:hover .match-card-back,
-    .match-card:focus-visible .match-card-back {
+    .match-card.is-flipped .match-card-back {
       opacity: 1;
     }
   }
