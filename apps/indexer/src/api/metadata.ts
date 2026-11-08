@@ -7,7 +7,7 @@ export type CardView = {
   serial: number;
   cardsInMatch: number;
   opened: boolean;
-  state: "live" | "claimed" | "refunded";
+  state: "live" | "claimed" | "kept" | "refunded";
   matchStatus: string;
   won: boolean | null; // null until the match is final
   playerName: string;
@@ -38,6 +38,7 @@ export function footLine(card: Pick<CardView, "competition" | "matchday">): stri
 
 export function cardStatus(card: CardView): string {
   if (card.state === "claimed") return "Claimed";
+  if (card.state === "kept") return "Kept";
   if (card.state === "refunded") return "Refunded";
   if (card.matchStatus === "Voided") return "Refund";
   if (card.won === true) return "Winner";

@@ -190,6 +190,16 @@ ponder.on("BallIsFlat:CardClaimed", async ({ event, context }) => {
   await context.db.update(wallet, { address: lower(owner) }).set((w) => ({ claimed: w.claimed + amount }));
 });
 
+// Claim and keep: the share minus the burned keep fee is paid and the card stays with its owner.
+ponder.on("BallIsFlat:CardKept", async ({ event, context }) => {
+  const { tokenId, owner, amount } = event.args;
+  await context.db
+    .update(card, { tokenId })
+    .set({ state: "kept", payout: amount, owner: lower(owner), burnTx: event.transaction.hash });
+  await touchWallet(context, lower(owner));
+  await context.db.update(wallet, { address: lower(owner) }).set((w) => ({ claimed: w.claimed + amount }));
+});
+
 ponder.on("BallIsFlat:CardRefunded", async ({ event, context }) => {
   const { tokenId, owner, amount } = event.args;
   await context.db

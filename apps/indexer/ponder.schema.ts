@@ -34,7 +34,7 @@ export const card = onchainTable(
     minter: t.hex().notNull(),
     owner: t.hex().notNull(),
     opened: t.boolean().notNull(),
-    state: t.text().notNull(), // live | claimed | refunded
+    state: t.text().notNull(), // live | claimed | kept | refunded
     payout: t.bigint().notNull(), // claim or refund amount once burned
     mintedAt: t.bigint().notNull(),
     mintTx: t.hex().notNull(),
