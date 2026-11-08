@@ -237,3 +237,15 @@ test("sell a sealed card, see it listed, then cancel the listing", async ({ page
   await sheet.getByRole("button", { name: "Cancel Listing" }).click();
   await expect(page.getByTestId("listed-badge")).toHaveCount(0, { timeout: 10_000 });
 });
+
+test("an unknown page and a lost connection each get their own status page", async ({ page, context }) => {
+  await page.goto("/no-such-page");
+  await expect(page.getByTestId("status-missing")).toContainText("This page is off the pitch");
+
+  await page.goto("/matches");
+  await expect(page.locator(".loading-veil")).toBeHidden();
+  await context.setOffline(true);
+  await expect(page.getByTestId("status-offline")).toContainText("You are offline");
+  await context.setOffline(false);
+  await expect(page.getByTestId("status-offline")).toHaveCount(0);
+});

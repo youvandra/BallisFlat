@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router";
+import { ConnectionGuard } from "../../app/ConnectionGuard";
 import { prefetchPages } from "../../app/prefetch";
 import { ConnectPromptProvider } from "../../features/connect/ConnectPrompt";
 import { resetScroll } from "../../lib/motion";
@@ -96,6 +97,7 @@ export function AppShell() {
         </main>
         {variant === "landing" ? <LaunchDock /> : <Dock />}
         <LoadingVeil visible={!ready} />
+        <ConnectionGuard />
         <HandCursor
           variant="Riso"
           size={34}

@@ -6,6 +6,7 @@ import { LoadingVeil } from "../components/playmat/LoadingVeil";
 import { gameClient } from "../lib/game/client";
 import { GameContext, useGameSync } from "../lib/game/queries";
 import { transitions } from "../lib/motion";
+import { BootBoundary } from "./BootBoundary";
 import { router } from "./router";
 
 const loadMotionFeatures = () => import("../lib/motion-features").then((mod) => mod.domAnimation);
@@ -28,16 +29,18 @@ function Booting() {
 export function Providers() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Suspense fallback={<Booting />}>
-        <GameProvider>
-          <MotionConfig reducedMotion="user" transition={transitions.base}>
-            {/* Not strict: the Framer components in src/framer render full motion.* elements. */}
-            <LazyMotion features={loadMotionFeatures}>
-              <RouterProvider router={router} />
-            </LazyMotion>
-          </MotionConfig>
-        </GameProvider>
-      </Suspense>
+      <BootBoundary>
+        <Suspense fallback={<Booting />}>
+          <GameProvider>
+            <MotionConfig reducedMotion="user" transition={transitions.base}>
+              {/* Not strict: the Framer components in src/framer render full motion.* elements. */}
+              <LazyMotion features={loadMotionFeatures}>
+                <RouterProvider router={router} />
+              </LazyMotion>
+            </MotionConfig>
+          </GameProvider>
+        </Suspense>
+      </BootBoundary>
     </QueryClientProvider>
   );
 }

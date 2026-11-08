@@ -1065,6 +1065,32 @@
     padding: var(--screen-pad);
     overflow: hidden;
   }
+  /* A failure as a page: inside the shell (404, crash) or over the whole app (offline, chain, server). */
+  .status-page {
+    margin: auto;
+    display: flex;
+    min-height: 100%;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 40px 16px;
+    text-align: center;
+  }
+  .status-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 40px 16px;
+    overflow-y: auto;
+    text-align: center;
+    background: var(--color-mat);
+  }
   /* Full-screen veil while a page loads: the page sits blurred and dimmed behind the pack loader. */
   .loading-veil {
     position: fixed;

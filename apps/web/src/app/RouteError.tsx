@@ -1,27 +1,29 @@
-import { MissingCard } from "../components/playmat/framer-shell";
-import { ButtonLink } from "../components/ui/ButtonLink";
-import { palette } from "../lib/palette";
+import { isRouteErrorResponse, useRouteError } from "react-router";
+import { MatchesLink, ReloadButton, type StatusKind, StatusPage } from "../components/playmat/StatusPage";
 
-/** Unknown URL or a crash inside a screen: the landing's empty binder slot, and the way back. */
+/** A lazy page whose code file is gone: the site was redeployed while this tab stayed open. */
+function isStaleCode(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /dynamically imported module|Importing a module script failed|Failed to fetch dynamically|error loading dynamically/i.test(
+    message,
+  );
+}
+
+function kindOf(error: unknown): StatusKind {
+  if (error == null || (isRouteErrorResponse(error) && error.status === 404)) return "missing";
+  if (isStaleCode(error)) return navigator.onLine ? "update" : "offline";
+  return "crash";
+}
+
+/** Unknown URL, a page whose code is out of date, or a crash inside a screen: say which, and the way out. */
 export function RouteError() {
-  const ink = palette();
+  const error = useRouteError();
+  const kind = kindOf(error);
+  if (kind === "crash") console.error(error);
   return (
-    <div className="m-auto flex min-h-full flex-col items-center justify-center gap-5 px-4 py-10 text-center">
-      <div className="aspect-sleeve w-55">
-        <MissingCard
-          code="404"
-          label="Empty Slot"
-          hint="Not this one"
-          ink={ink.ink}
-          muted={ink.graphite}
-          back={ink.pink}
-          edge={ink.cyan}
-          dark={ink.mat}
-        />
-      </div>
-      <h1 className="t-heading">This page is off the pitch</h1>
-      <p className="t-small">The link may be old, or something broke while loading it.</p>
-      <ButtonLink to="/matches">Back to Matches</ButtonLink>
-    </div>
+    <StatusPage kind={kind}>
+      {kind === "missing" ? null : <ReloadButton />}
+      <MatchesLink />
+    </StatusPage>
   );
 }
