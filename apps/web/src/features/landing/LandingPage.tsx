@@ -65,7 +65,7 @@ export function LandingPage() {
 
   return (
     <div className="playmat">
-      <div className="playmat-col col-side">
+      <div className="playmat-col col-side landing-pair">
         <Zone label="Matches" className="gap-0.5 px-3 pt-7.5 pb-3.5">
           <div className="relative min-h-0 flex-1 max-tab:h-87.5 max-tab:flex-none">
             {board.isPending ? (
@@ -153,7 +153,7 @@ export function LandingPage() {
         </Zone>
       </div>
 
-      <div className="playmat-col col-side relative z-5">
+      <div className="playmat-col col-side landing-pair relative z-5">
         <Zone label="How it plays" className="px-3 pt-7.5 pb-3">
           <div className="relative min-h-0 flex-1 max-tab:h-90 max-tab:flex-none">
             <SkillStack

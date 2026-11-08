@@ -1088,6 +1088,19 @@
     padding: var(--screen-pad);
     overflow: hidden;
   }
+  /* Landing on a portrait tablet (540-809px): each side column's two zones sit side by side instead of
+     stretching one narrow piece of content across the full width. */
+  @media (min-width: 540px) and (max-width: 809.98px) {
+    .playmat .playmat-col.landing-pair {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: stretch;
+    }
+    /* Paired zones share a height; the shorter one centres its content instead of leaving a gap below. */
+    .landing-pair > * {
+      justify-content: center;
+    }
+  }
   /* A failure as a page: inside the shell (404, crash) or over the whole app (offline, chain, server). */
   .status-page {
     margin: auto;
@@ -1720,6 +1733,14 @@
   }
   .zone-scroll::-webkit-scrollbar {
     display: none;
+  }
+  /* The scrollbar is hidden, so the zone's bottom edge fades instead: content running under it reads as
+     "more below". page-end padding keeps the last row clear of the fade once scrolled to the end. */
+  @media (min-width: 810px) {
+    .zone-scroll {
+      -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 44px), transparent);
+      mask-image: linear-gradient(to bottom, black calc(100% - 44px), transparent);
+    }
   }
   /* Phone: zones hug their content and the page scrolls instead of the zone. */
   @media (max-width: 809.98px) {
