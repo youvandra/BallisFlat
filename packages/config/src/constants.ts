@@ -39,10 +39,10 @@ export const hunt = {
     { id: 1, name: "Gold", price: 100n * 10n ** 18n, cards: 7 },
     { id: 2, name: "Diamond", price: 150n * 10n ** 18n, cards: 12 },
   ],
-  /** 1000 bps = 10% of every pack burns; the rest grows the pot. */
+  /** 1000 bps = 10% of every pack burns; the rest goes to the treasury. */
   burnBps: 1000,
-  /** 8000 bps = 80% of the pot goes to the finder; 20% carries into the next round. */
-  winnerBps: 8000,
+  /** Prize the team posts for round 1, paid by transfer to the winner (not from pack money). */
+  firstPrize: 10_000n * 10n ** 18n,
   /** Parent-chain blocks a pack's draw stays readable (about 51 minutes on Robinhood Chain). */
   revealWindowBlocks: 256,
 } as const;

@@ -66,20 +66,29 @@ export interface MockHuntPack {
   boughtAt: number;
 }
 
-export interface MockHunt {
-  round: number;
+export interface MockHuntRound {
+  id: number;
   target: number;
   status: "Open" | "Won" | "Closed";
   winner: Address | null;
-  pot: string;
+  prize: string;
   packs: number;
   pool: number[];
-  carry: string;
-  claimable: string;
+  winningPack: string | null;
+  paid: boolean;
+  payment: Hash | null;
+}
+
+export interface MockHunt {
+  version: 2;
+  /** Newest last. */
+  rounds: MockHuntRound[];
   allowance: string;
   nextPack: number;
   nextCard: number;
   mine: MockHuntPack[];
+  /** Demo only: the next opened pack holds the wanted player. */
+  rigged?: boolean;
 }
 
 export interface SeedConfig {

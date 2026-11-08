@@ -6,6 +6,7 @@ import {
   createSeed,
   crowdLedger,
   type MockHunt,
+  type MockHuntRound,
   type MockMatch,
   type MockState,
   type MockToken,
@@ -22,6 +23,7 @@ import {
   type HuntBuyReceipt,
   type HuntOpenReceipt,
   type HuntPack,
+  type HuntRound,
   type HuntStep,
   type HuntTier,
   type HuntView,
@@ -44,14 +46,15 @@ export interface KeyValueStore {
 export interface MockHuntOptions {
   tiers: readonly HuntTier[];
   burnBps: number;
-  winnerBps: number;
-  /** Wanted player of round 1. */
+  /** Wanted player and posted prize of round 1. */
   target: number;
+  prize: bigint;
   /** Strictly ascending player ids round 1 draws from. */
   pool: readonly number[];
-  /** Packs the simulated crowd already bought, and the pot they built. */
+  /** Packs the simulated crowd already bought. */
   seedPacks: number;
-  seedPot: bigint;
+  /** Stands in for the treasury address. */
+  treasury: Address;
 }
 
 export interface MockOptions extends Omit<SeedConfig, "now"> {
@@ -279,17 +282,23 @@ export class MockGameClient implements GameClient {
   private huntOrNull(): MockHunt | null {
     const options = this.options.hunt;
     if (!options) return null;
-    if (!this.state.hunt) {
+    if (this.state.hunt?.version !== 2) {
       this.state.hunt = {
-        round: 1,
-        target: options.target,
-        status: "Open",
-        winner: null,
-        pot: options.seedPot.toString(),
-        packs: options.seedPacks,
-        pool: [...options.pool],
-        carry: "0",
-        claimable: "0",
+        version: 2,
+        rounds: [
+          {
+            id: 1,
+            target: options.target,
+            status: "Open",
+            winner: null,
+            prize: options.prize.toString(),
+            packs: options.seedPacks,
+            pool: [...options.pool],
+            winningPack: null,
+            paid: false,
+            payment: null,
+          },
+        ],
         allowance: "0",
         nextPack: options.seedPacks + 1,
         nextCard: 1,
@@ -300,32 +309,42 @@ export class MockGameClient implements GameClient {
     return this.state.hunt;
   }
 
-  private huntState_(): MockHunt {
+  private requireHunt(): { hunt: MockHunt; options: MockHuntOptions; round: MockHuntRound } {
+    const options = this.options.hunt;
     const hunt = this.huntOrNull();
-    if (!hunt) throw new GameError("HuntUnavailable");
-    return hunt;
+    const round = hunt?.rounds.at(-1);
+    if (!options || !hunt || !round) throw new GameError("HuntUnavailable");
+    return { hunt, options, round };
+  }
+
+  private huntRoundView(round: MockHuntRound): HuntRound {
+    return {
+      id: round.id,
+      target: round.target,
+      status: round.status,
+      winner: round.winner,
+      prize: BigInt(round.prize),
+      packs: round.packs,
+      poolSize: round.pool.length,
+      winningPack: round.winningPack === null ? null : BigInt(round.winningPack),
+      paid: round.paid,
+      payment: round.payment,
+    };
   }
 
   async huntState(): Promise<HuntView> {
     const options = this.options.hunt;
     const hunt = this.huntOrNull();
     if (!options || !hunt) {
-      return { available: false, round: null, carry: 0n, burnBps: 0, winnerBps: 0, tiers: [] };
+      return { available: false, round: null, history: [], burnBps: 0, treasury: null, tiers: [] };
     }
+    const history = [...hunt.rounds].reverse().map((round) => this.huntRoundView(round));
     return {
       available: true,
-      round: {
-        id: hunt.round,
-        target: hunt.target,
-        status: hunt.status,
-        winner: hunt.winner,
-        pot: BigInt(hunt.pot),
-        packs: hunt.packs,
-        poolSize: hunt.pool.length,
-      },
-      carry: BigInt(hunt.carry),
+      round: history[0] ?? null,
+      history,
       burnBps: options.burnBps,
-      winnerBps: options.winnerBps,
+      treasury: options.treasury,
       tiers: [...options.tiers],
     };
   }
@@ -346,19 +365,12 @@ export class MockGameClient implements GameClient {
     }));
   }
 
-  async huntClaimable(wallet: Address): Promise<bigint> {
-    const hunt = this.huntOrNull();
-    if (!hunt || wallet.toLowerCase() !== this.options.demoWallet.toLowerCase()) return 0n;
-    return BigInt(hunt.claimable);
-  }
-
   async buyHuntPack(tier: number, onStep: (step: HuntStep) => void): Promise<HuntBuyReceipt> {
     this.requireWallet();
-    const options = this.options.hunt;
-    const hunt = this.huntState_();
-    const spec = options?.tiers.find((candidate) => candidate.id === tier);
-    if (!options || !spec) throw new GameError("BadTier");
-    if (hunt.status !== "Open") throw new GameError("NoOpenRound");
+    const { hunt, options, round } = this.requireHunt();
+    const spec = options.tiers.find((candidate) => candidate.id === tier);
+    if (!spec) throw new GameError("BadTier");
+    if (round.status !== "Open") throw new GameError("NoOpenRound");
     if (BigInt(this.state.wallet.wif) < spec.price) throw new GameError("InsufficientBalance");
     if (BigInt(hunt.allowance) < spec.price) {
       onStep("approve");
@@ -368,17 +380,15 @@ export class MockGameClient implements GameClient {
     }
     onStep("buy");
     const hash = await this.send();
-    const burned = (spec.price * BigInt(options.burnBps)) / 10_000n;
     this.state.wallet.wif = (BigInt(this.state.wallet.wif) - spec.price).toString();
     hunt.allowance = (BigInt(hunt.allowance) - spec.price).toString();
-    hunt.pot = (BigInt(hunt.pot) + spec.price - burned).toString();
-    hunt.packs += 1;
+    round.packs += 1;
     const packId = hunt.nextPack;
     hunt.nextPack += 1;
     hunt.mine.push({
       packId: packId.toString(),
       tier,
-      round: hunt.round,
+      round: round.id,
       opened: false,
       players: [],
       firstCardId: null,
@@ -391,13 +401,13 @@ export class MockGameClient implements GameClient {
 
   async openHuntPack(packId: bigint, onStep: (step: HuntStep) => void): Promise<HuntOpenReceipt> {
     this.requireWallet();
-    const options = this.options.hunt;
-    const hunt = this.huntState_();
+    const { hunt, options } = this.requireHunt();
     const pack = hunt.mine.find((candidate) => candidate.packId === packId.toString());
-    if (!options || !pack) throw new GameError("UnknownPack");
+    if (!pack) throw new GameError("UnknownPack");
     if (pack.opened) throw new GameError("AlreadyOpened");
     const spec = options.tiers.find((candidate) => candidate.id === pack.tier);
-    if (!spec) throw new GameError("BadTier");
+    const round = hunt.rounds.find((candidate) => candidate.id === pack.round);
+    if (!spec || !round) throw new GameError("BadTier");
     onStep("seal");
     await wait(this.options.latencyMs);
     onStep("open");
@@ -406,42 +416,31 @@ export class MockGameClient implements GameClient {
     const players: number[] = [];
     for (let i = 0; i < spec.cards; i += 1) {
       const roll = BigInt(keccak256(toHex(`${seed}-${i}`)));
-      players.push(hunt.pool[Number(roll % BigInt(hunt.pool.length))] as number);
+      players.push(round.pool[Number(roll % BigInt(round.pool.length))] as number);
+    }
+    if (hunt.rigged && round.status === "Open") {
+      players[players.length - 1] = round.target;
+      hunt.rigged = false;
     }
     pack.opened = true;
     pack.players = players;
     pack.firstCardId = hunt.nextCard.toString();
     hunt.nextCard += players.length;
-    const found = players.includes(hunt.target) && hunt.status === "Open" && pack.round === hunt.round;
+    const found = players.includes(round.target) && round.status === "Open";
     if (found) {
-      const pot = BigInt(hunt.pot);
-      const prize = (pot * BigInt(options.winnerBps)) / 10_000n;
-      hunt.status = "Won";
-      hunt.winner = this.options.demoWallet;
-      hunt.claimable = (BigInt(hunt.claimable) + prize).toString();
-      hunt.carry = (BigInt(hunt.carry) + pot - prize).toString();
+      round.status = "Won";
+      round.winner = this.options.demoWallet;
+      round.winningPack = pack.packId;
       pack.found = true;
     }
     this.commit();
     return { hash, players, found };
   }
 
-  async claimHunt(): Promise<ClaimReceipt> {
+  async startHuntRound(target: number, prize: bigint, pool: number[]): Promise<TxReceipt> {
     this.requireWallet();
-    const hunt = this.huntState_();
-    const amount = BigInt(hunt.claimable);
-    if (amount === 0n) throw new GameError("NothingToClaim");
-    const hash = await this.send();
-    hunt.claimable = "0";
-    this.state.wallet.wif = (BigInt(this.state.wallet.wif) + amount).toString();
-    this.commit();
-    return { hash, amount };
-  }
-
-  async startHuntRound(target: number, pool: number[]): Promise<TxReceipt> {
-    this.requireWallet();
-    const hunt = this.huntState_();
-    if (hunt.status === "Open") throw new GameError("RoundStillOpen");
+    const { hunt, round } = this.requireHunt();
+    if (round.status === "Open") throw new GameError("RoundStillOpen");
     if (
       pool.length < 2 ||
       !pool.includes(target) ||
@@ -450,27 +449,50 @@ export class MockGameClient implements GameClient {
       throw new GameError("BadPool");
     }
     const hash = await this.send();
-    hunt.round += 1;
-    hunt.target = target;
-    hunt.status = "Open";
-    hunt.winner = null;
-    hunt.pot = hunt.carry;
-    hunt.carry = "0";
-    hunt.packs = 0;
-    hunt.pool = [...pool];
+    hunt.rounds.push({
+      id: round.id + 1,
+      target,
+      status: "Open",
+      winner: null,
+      prize: prize.toString(),
+      packs: 0,
+      pool: [...pool],
+      winningPack: null,
+      paid: false,
+      payment: null,
+    });
     this.commit();
     return { hash };
   }
 
   async closeHuntRound(): Promise<TxReceipt> {
     this.requireWallet();
-    const hunt = this.huntState_();
-    if (hunt.status !== "Open") throw new GameError("NoOpenRound");
+    const { round } = this.requireHunt();
+    if (round.status !== "Open") throw new GameError("NoOpenRound");
     const hash = await this.send();
-    hunt.status = "Closed";
-    hunt.carry = (BigInt(hunt.carry) + BigInt(hunt.pot)).toString();
+    round.status = "Closed";
     this.commit();
     return { hash };
+  }
+
+  async markHuntPaid(roundId: number, payment: Hash): Promise<TxReceipt> {
+    this.requireWallet();
+    const { hunt } = this.requireHunt();
+    const round = hunt.rounds.find((candidate) => candidate.id === roundId);
+    if (!round || round.status !== "Won") throw new GameError("NotWon");
+    if (round.paid) throw new GameError("AlreadyPaid");
+    const hash = await this.send();
+    round.paid = true;
+    round.payment = payment;
+    this.commit();
+    return { hash };
+  }
+
+  /** Demo only: the next opened pack finds the wanted player (for the video and the e2e test). */
+  rigNextHuntPack(): void {
+    const { hunt } = this.requireHunt();
+    hunt.rigged = true;
+    this.commit();
   }
 
   // ---------- wallet ----------

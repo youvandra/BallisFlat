@@ -175,8 +175,8 @@ async function main() {
       bytecode: huntArtifact.bytecode.object,
       args: [
         wifAddress,
+        (process.env.HUNT_TREASURY as Address | undefined) ?? owner.address,
         hunt.burnBps,
-        hunt.winnerBps,
         hunt.tiers.map((tier) => ({ price: tier.price, cards: tier.cards })),
       ],
     }),
@@ -185,11 +185,17 @@ async function main() {
   const huntContract = { address: huntAddress, abi: huntArtifact.abi } as const;
   const [targetTeam, targetName] = (process.env.HUNT_TARGET ?? "ENG:Harry Kane").split(":");
   const target = playerIdOf(targetTeam ?? "", targetName ?? "");
+  // HUNT_PRIZE is whole $WIF; the team pays it by transfer when someone finds the wanted card.
+  const huntPrize = process.env.HUNT_PRIZE ? BigInt(process.env.HUNT_PRIZE) * 10n ** 18n : hunt.firstPrize;
   const huntPool = [
     ...new Set(fixtures.filter((f) => !f.warmUp).flatMap((f) => f.players.map((p) => p.id))),
   ].sort((a, b) => a - b);
   await send(
-    await client.writeContract({ ...huntContract, functionName: "startRound", args: [target, huntPool] }),
+    await client.writeContract({
+      ...huntContract,
+      functionName: "startRound",
+      args: [target, huntPrize, huntPool],
+    }),
   );
   if (metadataBase) {
     const huntBase = `${metadataBase.replace(/\/cards\/?$/, "")}/hunt/cards/`;

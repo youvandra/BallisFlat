@@ -83,3 +83,29 @@ body {
 .drawer-dialog::backdrop {
   background: rgb(20 20 22 / 0.72);
 }
+
+/* Hunt: cards leave the torn pack one after another. The end state is the card's own style, so a card
+   whose animation never runs (hidden tab, reduced motion) is simply there. */
+@keyframes hunt-deal {
+  0% {
+    transform: translateY(-70%) scale(0.55) rotate(-10deg);
+    opacity: 0;
+  }
+  70% {
+    transform: translateY(4%) scale(1.04) rotate(1deg);
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+.hunt-deal {
+  animation: hunt-deal 560ms var(--ease-out) backwards;
+  animation-delay: calc(var(--deal-index, 0) * 120ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hunt-deal {
+    animation: none;
+  }
+}

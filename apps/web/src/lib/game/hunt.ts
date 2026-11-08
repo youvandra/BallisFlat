@@ -36,12 +36,3 @@ export function useHuntPacks(account: Account | null | undefined) {
     queryFn: async (): Promise<HuntPack[]> => (account ? client.huntPacks(account.address) : []),
   });
 }
-
-export function useHuntClaimable(account: Account | null | undefined) {
-  const client = useGame();
-  return useQuery({
-    queryKey: ["hunt-claimable", account?.address],
-    enabled: Boolean(account),
-    queryFn: async () => (account ? client.huntClaimable(account.address) : 0n),
-  });
-}

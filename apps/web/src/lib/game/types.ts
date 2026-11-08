@@ -111,20 +111,24 @@ export interface HuntRound {
   target: number;
   status: HuntStatus;
   winner: Address | null;
-  /** $WIF in the pot (for a won round: the pot it was won with). */
-  pot: bigint;
+  /** $WIF the team posted for this round, paid by transfer to the winner. */
+  prize: bigint;
   packs: number;
   poolSize: number;
+  winningPack: bigint | null;
+  paid: boolean;
+  /** Transaction hash of the prize transfer, once the team recorded it. */
+  payment: Hash | null;
 }
 
 export interface HuntView {
   /** False until a Hunt contract is deployed on this network. */
   available: boolean;
   round: HuntRound | null;
-  /** Pot carried into the next round (after a find or an early close). */
-  carry: bigint;
+  /** Every round so far, newest first (the admin payout queue reads it). */
+  history: HuntRound[];
   burnBps: number;
-  winnerBps: number;
+  treasury: Address | null;
   tiers: HuntTier[];
 }
 
@@ -205,15 +209,15 @@ export interface GameClient {
   // hunt (wanted-player packs)
   huntState(): Promise<HuntView>;
   huntPacks(wallet: Address): Promise<HuntPack[]>;
-  huntClaimable(wallet: Address): Promise<bigint>;
   /** Approves $WIF if needed, then buys one pack of `tier`. */
   buyHuntPack(tier: number, onStep: (step: HuntStep) => void): Promise<HuntBuyReceipt>;
   /** Waits for the pack's reveal block, then opens it (cards go to the buyer). */
   openHuntPack(packId: bigint, onStep: (step: HuntStep) => void): Promise<HuntOpenReceipt>;
-  claimHunt(): Promise<ClaimReceipt>;
   // hunt owner
-  startHuntRound(target: number, pool: number[]): Promise<TxReceipt>;
+  startHuntRound(target: number, prize: bigint, pool: number[]): Promise<TxReceipt>;
   closeHuntRound(): Promise<TxReceipt>;
+  /** Records the prize transfer for a won round. */
+  markHuntPaid(round: number, payment: Hash): Promise<TxReceipt>;
   /** Subscribes to state changes (mock writes, chain blocks). Returns an unsubscribe function. */
   subscribe(listener: () => void): () => void;
 }

@@ -3,12 +3,14 @@ import { useState } from "react";
 import { Zone } from "../../components/playmat/Zone";
 import { Button } from "../../components/ui/Button";
 import { Notice } from "../../components/ui/Notice";
+import { Segmented } from "../../components/ui/Segmented";
 import { StatePill } from "../../components/ui/StatePill";
 import { useWallet } from "../../hooks/use-wallet";
 import { apiUrl } from "../../lib/api";
 import { formatKickoff, shortHash } from "../../lib/format";
 import { errorSentence } from "../../lib/game/errors";
 import { matchName, shownKickoff } from "../../lib/game/fixtures";
+import { useHunt } from "../../lib/game/hunt";
 import { MockGameClient } from "../../lib/game/mock-client";
 import { type MatchView, useBoard, useGame } from "../../lib/game/queries";
 import { WalletGate } from "../connect/WalletGate";
@@ -106,56 +108,72 @@ function MatchOps({ view }: { view: MatchView }) {
 /** Every settler tool is a signed call, so the page asks for a wallet first. */
 export function OpsPage() {
   return (
-    <WalletGate label="Settler" title="Connect the settler wallet" line="Settler wallet only.">
+    <WalletGate label="Admin" title="Connect the admin wallet" line="Owner and settler wallet only.">
       <Ops />
     </WalletGate>
   );
 }
 
-/** Settler tools. Not linked anywhere; the contract rejects every call from a non-settler anyway. */
+type Tab = "matches" | "hunt" | "fixtures" | "demo";
+
+/** Owner and settler tools. Not linked anywhere; the contracts reject every call from anyone else. */
 function Ops() {
   const client = useGame();
   const { account } = useWallet();
   const board = useBoard();
+  const hunt = useHunt();
+  const [tab, setTab] = useState<Tab>("matches");
+  const unpaid = (hunt.data?.history ?? []).filter((r) => r.status === "Won" && !r.paid).length;
+  const toSettle = (board.data ?? []).filter(
+    (view) => view.state === "Locked" || view.state === "Proposed",
+  ).length;
+  const tabs: { key: Tab; label: string }[] = [
+    { key: "matches", label: toSettle > 0 ? `Matches · ${toSettle}` : "Matches" },
+    { key: "hunt", label: unpaid > 0 ? `Hunt · ${unpaid}` : "Hunt" },
+    ...(apiUrl ? [{ key: "fixtures" as const, label: "Fixtures" }] : []),
+    ...(client instanceof MockGameClient ? [{ key: "demo" as const, label: "Demo" }] : []),
+  ];
 
   return (
     <div className="playmat">
       <div className="playmat-col col-fill">
-        <Zone label="Settler" className="px-6 pt-7.5 pb-6">
-          <div className="zone-scroll flex flex-col gap-4">
-            <h1 className="t-heading">Settler tools</h1>
+        <Zone label="Admin" className="px-6 pt-7.5 pb-6">
+          <div className="zone-scroll flex flex-col gap-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h1 className="t-heading">Admin</h1>
+              <Segmented label="Admin sections" kind="tabs" options={tabs} value={tab} onChange={setTab} />
+            </div>
             {account.data && !account.data.isSettler ? (
-              <Notice tone="warn">Not the settler wallet.</Notice>
+              <Notice tone="warn">
+                This wallet is not the settler or owner. Every write here will be refused.
+              </Notice>
             ) : null}
-            {client instanceof MockGameClient ? (
+
+            {tab === "matches" ? (
+              <div className="flex flex-col gap-3">
+                <p className="t-small">
+                  Post the top-rated player with the rating link after full time, then finalize once the
+                  2-hour dispute window closes.
+                </p>
+                {(board.data ?? []).map((view) => (
+                  <MatchOps key={view.fixture.slug} view={view} />
+                ))}
+              </div>
+            ) : null}
+            {tab === "hunt" ? <HuntOps /> : null}
+            {tab === "fixtures" ? <AdminFixtures /> : null}
+            {tab === "demo" && client instanceof MockGameClient ? (
               <div className="flex flex-wrap gap-2">
                 <Button variant="secondary" onClick={() => client.advance(2 * 3600)}>
-                  Skip 2 Hours (Demo)
+                  Skip 2 Hours
                 </Button>
                 <Button variant="secondary" onClick={() => client.advance(7 * 86_400)}>
-                  Skip 7 Days (Demo)
+                  Skip 7 Days
                 </Button>
                 <Button variant="quiet" onClick={() => client.reset()}>
                   Reset Demo
                 </Button>
               </div>
-            ) : null}
-            {(board.data ?? []).map((view) => (
-              <MatchOps key={view.fixture.slug} view={view} />
-            ))}
-            <details className="surface-card rounded-card bg-card p-4 shadow-result">
-              <summary className="t-title cursor-pointer">Owner: Hunt</summary>
-              <div className="mt-4">
-                <HuntOps />
-              </div>
-            </details>
-            {apiUrl ? (
-              <details className="surface-card rounded-card bg-card p-4 shadow-result">
-                <summary className="t-title cursor-pointer">Owner: Fixtures and Listing</summary>
-                <div className="mt-4">
-                  <AdminFixtures />
-                </div>
-              </details>
             ) : null}
           </div>
         </Zone>
