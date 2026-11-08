@@ -9,17 +9,20 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /// @title Ball is Flat: Hunt
-/// @notice A wanted poster with a growing $WIF pot. Buy a Silver, Gold or Diamond pack, open it, and if one of
-///         its player cards is the wanted player, the pot is yours to claim.
-/// @dev    - Each pack price is split: `burnBps` goes to the dead address, the rest grows the open round's pot.
+/// @notice A wanted poster with a prize put up by the Ball is Flat team. Buy a Silver, Gold or Diamond pack,
+///         open it, and if one of its player cards is the wanted player, you are the round's winner.
+/// @dev    - The prize is not funded by packs. The owner posts it with the round (`prize`, in $WIF), pays the
+///           winner by a transfer outside this contract, then records that payment with `markPaid`, so the
+///           poster, the winner and the payment reference all stay on chain.
+///         - Each pack price is split: `burnBps` goes to the dead address, the rest goes to `treasury`.
+///           The contract holds no $WIF.
 ///         - A pack is drawn from the blockhash of the block after the one it was bought in, so the outcome does
 ///           not exist when the buyer pays and cannot be checked and reverted. On Robinhood Chain (Arbitrum
 ///           Orbit) `block.number` is the parent-chain block, so the hash stays readable for 256 of those blocks
 ///           (about 51 minutes). A pack opened after that draws from a fixed seed with the wanted player taken
 ///           out, so waiting never improves a pack.
-///         - The first opened pack holding the wanted card wins `winnerBps` of the pot as a claimable balance;
-///           the rest carries into the next round. The owner sets the wanted player and the player pool per
-///           round and can close a round early (its whole pot carries over). The owner cannot take any pot.
+///         - The first opened pack holding the wanted card wins its round. The owner sets the wanted player,
+///           prize and player pool per round and can close a round early.
 ///         - Cards are ERC-721 collectibles bound to the wallet that opened them (no transfers), separate from
 ///           Ball is Flat match picks.
 contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
@@ -27,7 +30,6 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
 
     address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
     uint256 public constant TIERS = 3;
-    uint256 public constant REVEAL_WINDOW = 256;
 
     enum Status {
         None,
@@ -45,8 +47,12 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
         uint32 target;
         Status status;
         address winner;
-        uint128 pot;
+        uint128 prize;
         uint64 packs;
+        uint64 winningPack;
+        uint64 winningCard;
+        bool paid;
+        bytes32 payment;
     }
 
     struct Pack {
@@ -59,25 +65,23 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
 
     IERC20 public immutable wif;
     uint16 public immutable burnBps;
-    uint16 public immutable winnerBps;
 
+    address public treasury;
     Tier[TIERS] internal _tiers;
     mapping(uint256 => Round) internal _rounds;
     mapping(uint256 => uint32[]) internal _pools;
     mapping(uint256 => Pack) internal _packs;
     mapping(uint256 => uint32) public cardPlayer;
     mapping(uint256 => uint32) public cardRound;
-    mapping(address => uint256) public claimable;
 
     uint256 public currentRound;
-    uint256 public carry;
     uint256 public packCount;
     uint256 public cardCount;
     bool public paused;
     string internal _base;
 
-    event RoundStarted(uint256 indexed round, uint32 target, uint256 poolSize, uint256 seedPot);
-    event RoundClosed(uint256 indexed round, uint256 carried);
+    event RoundStarted(uint256 indexed round, uint32 target, uint256 prize, uint256 poolSize);
+    event RoundClosed(uint256 indexed round);
     event PackBought(
         uint256 indexed packId,
         address indexed buyer,
@@ -93,7 +97,8 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
     event TargetFound(
         uint256 indexed round, uint256 indexed packId, address indexed winner, uint256 cardId, uint256 prize
     );
-    event Claimed(address indexed account, uint256 amount);
+    event PrizePaid(uint256 indexed round, address indexed winner, uint256 prize, bytes32 payment);
+    event TreasurySet(address treasury);
     event Paused(bool paused);
     event BaseURISet(string baseURI);
 
@@ -107,29 +112,31 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
     error UnknownPack();
     error AlreadyOpened();
     error TooEarly();
-    error NothingToClaim();
+    error NotWon();
+    error AlreadyPaid();
     error CardBound();
 
-    constructor(address wif_, uint16 burnBps_, uint16 winnerBps_, Tier[TIERS] memory tiers_)
+    constructor(address wif_, address treasury_, uint16 burnBps_, Tier[TIERS] memory tiers_)
         ERC721("Ball is Flat Hunt", "BIFH")
         Ownable(msg.sender)
     {
-        if (wif_ == address(0)) revert ZeroAddress();
-        if (burnBps_ > 5000 || winnerBps_ == 0 || winnerBps_ > 10_000) revert BadBps();
+        if (wif_ == address(0) || treasury_ == address(0)) revert ZeroAddress();
+        if (burnBps_ > 10_000) revert BadBps();
         for (uint256 i; i < TIERS; ++i) {
             if (tiers_[i].price == 0 || tiers_[i].cards == 0 || tiers_[i].cards > 20) revert BadTier();
             _tiers[i] = tiers_[i];
         }
         wif = IERC20(wif_);
+        treasury = treasury_;
         burnBps = burnBps_;
-        winnerBps = winnerBps_;
+        emit TreasurySet(treasury_);
     }
 
     // ------------------------------------------------------------------ owner
 
-    /// @notice Opens the next round. `pool` must be strictly ascending, hold at least two players and include
-    ///         `target`. The previous round must be won or closed; its carry seeds this pot.
-    function startRound(uint32 target, uint32[] calldata players) external onlyOwner {
+    /// @notice Opens the next round with `prize` $WIF (paid by the team, outside this contract) on `target`.
+    ///         `players` must be strictly ascending, hold at least two players and include `target`.
+    function startRound(uint32 target, uint128 prize, uint32[] calldata players) external onlyOwner {
         if (_rounds[currentRound].status == Status.Open) revert RoundStillOpen();
         if (players.length < 2) revert BadPool();
         bool hasTarget;
@@ -139,20 +146,36 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
         }
         if (!hasTarget) revert BadPool();
         uint256 id = ++currentRound;
-        uint256 seed = carry;
-        carry = 0;
-        _rounds[id] = Round({target: target, status: Status.Open, winner: address(0), pot: uint128(seed), packs: 0});
+        Round storage r = _rounds[id];
+        r.target = target;
+        r.status = Status.Open;
+        r.prize = prize;
         _pools[id] = players;
-        emit RoundStarted(id, target, players.length, seed);
+        emit RoundStarted(id, target, prize, players.length);
     }
 
-    /// @notice Ends the open round with no winner; its whole pot carries into the next round.
+    /// @notice Ends the open round with no winner.
     function closeRound() external onlyOwner {
         Round storage r = _rounds[currentRound];
         if (r.status != Status.Open) revert NoOpenRound();
         r.status = Status.Closed;
-        carry += r.pot;
-        emit RoundClosed(currentRound, r.pot);
+        emit RoundClosed(currentRound);
+    }
+
+    /// @notice Records that the winner of `roundId` was paid, with the payment's transaction hash.
+    function markPaid(uint256 roundId, bytes32 payment) external onlyOwner {
+        Round storage r = _rounds[roundId];
+        if (r.status != Status.Won) revert NotWon();
+        if (r.paid) revert AlreadyPaid();
+        r.paid = true;
+        r.payment = payment;
+        emit PrizePaid(roundId, r.winner, r.prize, payment);
+    }
+
+    function setTreasury(address treasury_) external onlyOwner {
+        if (treasury_ == address(0)) revert ZeroAddress();
+        treasury = treasury_;
+        emit TreasurySet(treasury_);
     }
 
     function setPaused(bool on) external onlyOwner {
@@ -177,10 +200,9 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
 
         uint256 price = _tiers[t].price;
         uint256 burned = (price * burnBps) / 10_000;
-        wif.safeTransferFrom(msg.sender, address(this), price);
-        if (burned > 0) wif.safeTransfer(DEAD, burned);
+        if (burned > 0) wif.safeTransferFrom(msg.sender, DEAD, burned);
+        if (price > burned) wif.safeTransferFrom(msg.sender, treasury, price - burned);
 
-        r.pot += uint128(price - burned);
         r.packs += 1;
         packId = ++packCount;
         uint64 reveal = uint64(block.number + 1);
@@ -225,23 +247,12 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
         emit PackOpened(packId, p.round, first, players, expired);
 
         if (foundCard != 0 && r.status == Status.Open) {
-            uint256 prize = (uint256(r.pot) * winnerBps) / 10_000;
-            uint256 rest = r.pot - prize;
             r.status = Status.Won;
             r.winner = p.buyer;
-            claimable[p.buyer] += prize;
-            carry += rest;
-            emit TargetFound(p.round, packId, p.buyer, foundCard, prize);
+            r.winningPack = uint64(packId);
+            r.winningCard = uint64(foundCard);
+            emit TargetFound(p.round, packId, p.buyer, foundCard, r.prize);
         }
-    }
-
-    /// @notice Pays out every prize won by the caller.
-    function claim() external nonReentrant returns (uint256 amount) {
-        amount = claimable[msg.sender];
-        if (amount == 0) revert NothingToClaim();
-        claimable[msg.sender] = 0;
-        wif.safeTransfer(msg.sender, amount);
-        emit Claimed(msg.sender, amount);
     }
 
     // ------------------------------------------------------------------ views

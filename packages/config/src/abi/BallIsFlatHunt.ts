@@ -10,12 +10,12 @@ export const ballIsFlatHuntAbi = [
         internalType: "address",
       },
       {
-        name: "burnBps_",
-        type: "uint16",
-        internalType: "uint16",
+        name: "treasury_",
+        type: "address",
+        internalType: "address",
       },
       {
-        name: "winnerBps_",
+        name: "burnBps_",
         type: "uint16",
         internalType: "uint16",
       },
@@ -48,19 +48,6 @@ export const ballIsFlatHuntAbi = [
         name: "",
         type: "address",
         internalType: "address",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "REVEAL_WINDOW",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
       },
     ],
     stateMutability: "view",
@@ -200,51 +187,6 @@ export const ballIsFlatHuntAbi = [
   },
   {
     type: "function",
-    name: "carry",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "claim",
-    inputs: [],
-    outputs: [
-      {
-        name: "amount",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "claimable",
-    inputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
     name: "closeRound",
     inputs: [],
     outputs: [],
@@ -305,6 +247,24 @@ export const ballIsFlatHuntAbi = [
       },
     ],
     stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "markPaid",
+    inputs: [
+      {
+        name: "roundId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+      {
+        name: "payment",
+        type: "bytes32",
+        internalType: "bytes32",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -500,7 +460,7 @@ export const ballIsFlatHuntAbi = [
             internalType: "address",
           },
           {
-            name: "pot",
+            name: "prize",
             type: "uint128",
             internalType: "uint128",
           },
@@ -508,6 +468,26 @@ export const ballIsFlatHuntAbi = [
             name: "packs",
             type: "uint64",
             internalType: "uint64",
+          },
+          {
+            name: "winningPack",
+            type: "uint64",
+            internalType: "uint64",
+          },
+          {
+            name: "winningCard",
+            type: "uint64",
+            internalType: "uint64",
+          },
+          {
+            name: "paid",
+            type: "bool",
+            internalType: "bool",
+          },
+          {
+            name: "payment",
+            type: "bytes32",
+            internalType: "bytes32",
           },
         ],
       },
@@ -611,12 +591,30 @@ export const ballIsFlatHuntAbi = [
   },
   {
     type: "function",
+    name: "setTreasury",
+    inputs: [
+      {
+        name: "treasury_",
+        type: "address",
+        internalType: "address",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "startRound",
     inputs: [
       {
         name: "target",
         type: "uint32",
         internalType: "uint32",
+      },
+      {
+        name: "prize",
+        type: "uint128",
+        internalType: "uint128",
       },
       {
         name: "players",
@@ -747,6 +745,19 @@ export const ballIsFlatHuntAbi = [
   },
   {
     type: "function",
+    name: "treasury",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "address",
+        internalType: "address",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "wif",
     inputs: [],
     outputs: [
@@ -754,19 +765,6 @@ export const ballIsFlatHuntAbi = [
         name: "",
         type: "address",
         internalType: "contract IERC20",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "winnerBps",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "uint16",
-        internalType: "uint16",
       },
     ],
     stateMutability: "view",
@@ -830,25 +828,6 @@ export const ballIsFlatHuntAbi = [
         type: "string",
         indexed: false,
         internalType: "string",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
-    name: "Claimed",
-    inputs: [
-      {
-        name: "account",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "amount",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
       },
     ],
     anonymous: false,
@@ -973,7 +952,7 @@ export const ballIsFlatHuntAbi = [
   },
   {
     type: "event",
-    name: "RoundClosed",
+    name: "PrizePaid",
     inputs: [
       {
         name: "round",
@@ -982,9 +961,34 @@ export const ballIsFlatHuntAbi = [
         internalType: "uint256",
       },
       {
-        name: "carried",
+        name: "winner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "prize",
         type: "uint256",
         indexed: false,
+        internalType: "uint256",
+      },
+      {
+        name: "payment",
+        type: "bytes32",
+        indexed: false,
+        internalType: "bytes32",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "RoundClosed",
+    inputs: [
+      {
+        name: "round",
+        type: "uint256",
+        indexed: true,
         internalType: "uint256",
       },
     ],
@@ -1007,13 +1011,13 @@ export const ballIsFlatHuntAbi = [
         internalType: "uint32",
       },
       {
-        name: "poolSize",
+        name: "prize",
         type: "uint256",
         indexed: false,
         internalType: "uint256",
       },
       {
-        name: "seedPot",
+        name: "poolSize",
         type: "uint256",
         indexed: false,
         internalType: "uint256",
@@ -1084,8 +1088,26 @@ export const ballIsFlatHuntAbi = [
     anonymous: false,
   },
   {
+    type: "event",
+    name: "TreasurySet",
+    inputs: [
+      {
+        name: "treasury",
+        type: "address",
+        indexed: false,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
     type: "error",
     name: "AlreadyOpened",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "AlreadyPaid",
     inputs: [],
   },
   {
@@ -1223,7 +1245,7 @@ export const ballIsFlatHuntAbi = [
   },
   {
     type: "error",
-    name: "NothingToClaim",
+    name: "NotWon",
     inputs: [],
   },
   {
