@@ -168,21 +168,25 @@ const SOUND_KEY = "nv-playmat-sound"
 
 const SILVER = "linear-gradient(160deg, #F4F5FA 0%, #B9BFCC 18%, #EEF0F5 36%, #969DAF 58%, #E8EAF0 78%, #A9B0BF 100%)"
 // App addition: the Framer project's "finish" control (Silver, Gold, Diamond) for the Hunt's pack tiers.
-const GOLD = "linear-gradient(160deg, #FFF7D6 0%, #E3B94E 18%, #FFEFB0 36%, #B27F22 58%, #FBE39A 78%, #C8973A 100%)"
-const DIAMOND = "linear-gradient(160deg, #F3FCFF 0%, #9EE6FF 18%, #FFFFFF 36%, #8BB3FF 58%, #E6F8FF 78%, #C3A6FF 100%)"
+// Values copied from the Framer landing's PackRip (project XEtKsUwoOQ3RKoCtLUyn, Foil): Gold and Diamond
+// each have their own base and sheen at 0.38; Silver keeps the rainbow at 0.62.
+const GOLD = "linear-gradient(160deg, #FFF6CD 0%, #D5AC42 18%, #FFF0A4 36%, #A7791F 58%, #FFE8A0 78%, #C99A33 100%)"
+const DIAMOND = "linear-gradient(160deg, #FFFFFF 0%, #B9E5F2 18%, #EDF8FF 36%, #83ACCD 58%, #F5FFFF 78%, #B9CFEA 100%)"
+const GOLD_SHEEN = "repeating-linear-gradient(115deg, #FFF4BF 0%, #E1B849 14%, #FFF9DF 28%, #DCA944 35%)"
+const DIAMOND_SHEEN = "repeating-conic-gradient(from 30deg, #D8FFFF 0deg 60deg, #BBD9FF 60deg 120deg, #FFFFFF 120deg 180deg)"
 export type PackFinish = "Silver" | "Gold" | "Diamond"
-const FINISHES: Record<PackFinish, { base: string; rainbow: number }> = {
-    Silver: { base: SILVER, rainbow: 0.62 },
-    Gold: { base: GOLD, rainbow: 0.38 },
-    Diamond: { base: DIAMOND, rainbow: 0.8 },
-}
 const RAINBOW = "repeating-linear-gradient(115deg, #FFB3D9 0%, #8EF6FF 7%, #C9A7FF 14%, #FFF1A8 21%, #A0FFC8 28%, #FFB3D9 35%)"
+const FINISHES: Record<PackFinish, { base: string; sheen: string; opacity: number }> = {
+    Silver: { base: SILVER, sheen: RAINBOW, opacity: 0.62 },
+    Gold: { base: GOLD, sheen: GOLD_SHEEN, opacity: 0.38 },
+    Diamond: { base: DIAMOND, sheen: DIAMOND_SHEEN, opacity: 0.38 },
+}
 const CRIMP = "repeating-linear-gradient(90deg, rgba(255,255,255,0.6) 0px, rgba(255,255,255,0.6) 2px, rgba(10,11,18,0.16) 2px, rgba(10,11,18,0.16) 6px)"
 
 /** App addition: one finish as a single CSS background (sheen over the base), for still pack tiles. */
 export function packFoil(finish: PackFinish): string {
     const look = FINISHES[finish] ?? FINISHES.Silver
-    const sheen = RAINBOW.replace(/#([0-9A-F]{6})/gi, (hex) => `${hex}${Math.round(look.rainbow * 0.55 * 255).toString(16).padStart(2, "0")}`)
+    const sheen = look.sheen.replace(/#([0-9A-F]{6})/gi, (hex) => `${hex}${Math.round(look.opacity * 0.55 * 255).toString(16).padStart(2, "0")}`)
     return `${sheen}, ${look.base}`
 }
 
@@ -195,11 +199,11 @@ function Foil({ pos, glare, image, finish = "Silver" }: { pos: any; glare: any; 
                 style={{
                     position: "absolute",
                     inset: 0,
-                    backgroundImage: RAINBOW,
+                    backgroundImage: look.sheen,
                     backgroundSize: "320% 320%",
                     backgroundPosition: pos,
                     mixBlendMode: "multiply",
-                    opacity: look.rainbow,
+                    opacity: look.opacity,
                 }}
             />
             {image ? (
