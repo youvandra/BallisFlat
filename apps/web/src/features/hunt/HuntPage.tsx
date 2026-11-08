@@ -12,7 +12,7 @@ import { ButtonLink } from "../../components/ui/ButtonLink";
 import { Logo } from "../../components/ui/Logo";
 import { Notice } from "../../components/ui/Notice";
 import { StepLine } from "../../components/ui/StepLine";
-import type { PackFinish } from "../../framer/PackRip";
+import { type PackFinish, packFoil } from "../../framer/PackRip";
 import { useWallet } from "../../hooks/use-wallet";
 import { playerArtUrl } from "../../lib/art";
 import { formatPercent, formatWif, shortHash, surname } from "../../lib/format";
@@ -293,7 +293,13 @@ function Hunt({ view }: { view: HuntView }) {
 /** A tier's sealed pack: Silver in Ink, Gold in Note, Diamond in cyan over pink. */
 function TierPack({ tier, round }: { tier: HuntTier; round: number }) {
   return (
-    <span className="pack-tile" data-tier={tierKeys[tier.id]} role="img" aria-label={`${tier.name} pack`}>
+    <span
+      className="pack-tile"
+      data-tier={tierKeys[tier.id]}
+      style={{ background: packFoil(tier.name as PackFinish) }}
+      role="img"
+      aria-label={`${tier.name} pack`}
+    >
       <Logo className="pack-logo text-on-ink" title={product.name} />
       <span className="t-title text-on-ink">{tier.name}</span>
       <span className="t-small text-on-ink">{tier.cards} cards</span>

@@ -174,6 +174,13 @@ const FINISHES: Record<PackFinish, { base: string; rainbow: number }> = {
 const RAINBOW = "repeating-linear-gradient(115deg, #FFB3D9 0%, #8EF6FF 7%, #C9A7FF 14%, #FFF1A8 21%, #A0FFC8 28%, #FFB3D9 35%)"
 const CRIMP = "repeating-linear-gradient(90deg, rgba(255,255,255,0.6) 0px, rgba(255,255,255,0.6) 2px, rgba(10,11,18,0.16) 2px, rgba(10,11,18,0.16) 6px)"
 
+/** App addition: one finish as a single CSS background (sheen over the base), for still pack tiles. */
+export function packFoil(finish: PackFinish): string {
+    const look = FINISHES[finish] ?? FINISHES.Silver
+    const sheen = RAINBOW.replace(/#([0-9A-F]{6})/gi, (hex) => `${hex}${Math.round(look.rainbow * 0.55 * 255).toString(16).padStart(2, "0")}`)
+    return `${sheen}, ${look.base}`
+}
+
 function Foil({ pos, glare, image, finish = "Silver" }: { pos: any; glare: any; image?: string; finish?: PackFinish }) {
     const look = FINISHES[finish] ?? FINISHES.Silver
     return (
