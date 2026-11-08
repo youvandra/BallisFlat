@@ -6,6 +6,8 @@ import { PackLoader } from "./PackLoader";
 /** How often the page is checked, and how many calm checks in a row count as loaded. */
 const TICK_MS = 100;
 const CALM_TICKS = 3;
+/** Images or fonts that take less than this after a route change never show the veil. */
+const SHOW_AFTER_MS = 180;
 /** Never hold a page longer than this: a stuck request or image must not keep the page hidden. */
 const MAX_HOLD_MS = 10_000;
 
@@ -40,36 +42,49 @@ function imagesPending(): boolean {
 }
 
 /**
- * Holds the veil on every route until the route's code, its first data, its eager images and the fonts are
- * all in, checked with a timer (never animation frames, which stop in hidden tabs).
+ * Decides when the veil covers the page. The first paint always waits for everything. After that a route
+ * change only brings the veil back when the new page really waits (its code, first data or images are not
+ * cached yet) for longer than SHOW_AFTER_MS; a page already in cache appears at once. Checked with a timer,
+ * never animation frames, which stop in hidden tabs.
  */
 export function usePageReady(): boolean {
   const client = useQueryClient();
   const navigation = useNavigation();
   const { pathname } = useLocation();
-  const [ready, setReady] = useState(false);
+  const [veiled, setVeiled] = useState(true);
   const navigating = navigation.state !== "idle";
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new path starts a new wait
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new path or navigation starts a new check
   useEffect(() => {
-    setReady(false);
-  }, [pathname]);
-
-  useEffect(() => {
-    if (ready || navigating) return;
     let calm = 0;
+    let busySince: number | null = null;
     const started = Date.now();
-    const timer = window.setInterval(() => {
+    let timer = 0;
+    const check = () => {
+      // Code or first data still missing: the page would show half drawn, so veil at once.
+      const waiting = navigating || firstLoadsInFlight(client);
+      // Images and fonts are usually in the browser cache: only veil if they are slow.
       const fontsIn = !document.fonts || document.fonts.status === "loaded";
-      const busy = firstLoadsInFlight(client) || imagesPending() || !fontsIn;
-      calm = busy ? 0 : calm + 1;
-      if (calm >= CALM_TICKS || Date.now() - started > MAX_HOLD_MS) {
-        window.clearInterval(timer);
-        setReady(true);
+      const settling = imagesPending() || !fontsIn;
+      const now = Date.now();
+      if (waiting || settling) {
+        calm = 0;
+        busySince ??= now;
+        if (waiting || now - busySince >= SHOW_AFTER_MS) setVeiled(true);
+      } else {
+        busySince = null;
+        calm += 1;
       }
-    }, TICK_MS);
+      if (calm >= CALM_TICKS || now - started > MAX_HOLD_MS) {
+        window.clearInterval(timer);
+        setVeiled(false);
+      }
+    };
+    // Child pages subscribe their queries before this effect runs, so the first check sees them.
+    check();
+    timer = window.setInterval(check, TICK_MS);
     return () => window.clearInterval(timer);
-  }, [client, ready, navigating]);
+  }, [client, pathname, navigating]);
 
-  return ready && !navigating;
+  return !veiled;
 }

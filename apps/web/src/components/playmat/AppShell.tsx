@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router";
+import { prefetchPages } from "../../app/prefetch";
 import { ConnectPromptProvider } from "../../features/connect/ConnectPrompt";
 import { resetScroll } from "../../lib/motion";
 import { palette } from "../../lib/palette";
@@ -51,6 +52,12 @@ export function AppShell() {
   const variant = pathname === "/" ? "landing" : "app";
   // Every page waits behind the veil until its code, first data, images and fonts are in.
   const ready = usePageReady();
+  // Once the first page is up, fetch the other pages' code in the background.
+  useEffect(() => {
+    if (!ready) return;
+    const timer = window.setTimeout(prefetchPages, 300);
+    return () => window.clearTimeout(timer);
+  }, [ready]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the scroll resets on every route change
   useLayoutEffect(() => {
