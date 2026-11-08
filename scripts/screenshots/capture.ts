@@ -3,7 +3,7 @@ import sharp from "sharp";
 
 const out = (name: string) => `docs/media/${name}.webp`;
 // The README uses only these, at 1440 wide in WebP; the rest of the walk just gets the app into each state.
-const keep = ["landing", "market", "binder"];
+const keep = ["landing", "market", "binder", "hunt"];
 
 test("readme screenshots", async ({ page }) => {
   const shot = async (name: string) => {
@@ -32,8 +32,9 @@ test("readme screenshots", async ({ page }) => {
   await page.waitForTimeout(1200);
   await shot("market");
 
+  // A player with generated art, so the README card shows the art rather than the number fallback.
   await page
-    .getByRole("button", { name: /if he wins/ })
+    .getByRole("button", { name: /^Jude Bellingham, number .*if he wins/ })
     .first()
     .click();
   const sheet = page.getByRole("dialog");
@@ -54,6 +55,11 @@ test("readme screenshots", async ({ page }) => {
   await page.goto("/binder");
   await page.waitForTimeout(1500);
   await shot("binder");
+
+  await page.goto("/hunt");
+  await expect(page.getByTestId("hunt-wanted-left")).toBeVisible();
+  await page.waitForTimeout(1500);
+  await shot("hunt");
 
   await page.goto("/leaderboard");
   await page.waitForTimeout(1200);
