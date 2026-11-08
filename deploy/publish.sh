@@ -15,11 +15,10 @@ if [[ "$what" == web || "$what" == all ]]; then
 fi
 
 if [[ "$what" == api || "$what" == all ]]; then
-  rsync -az --delete -e "ssh -i $KEY" \
-    --exclude node_modules --exclude .git --exclude 'apps/web/dist' --exclude '.ponder' \
-    --exclude 'packages/contracts/out' --exclude 'packages/contracts/cache' --exclude 'test-results' \
-    --exclude NEXT.md --exclude 'scripts/.art-preview' \
-    ./ "$HOST:/srv/ballisflat/repo/"
+  # Ship tracked files only: local notes, .env files and build output never leave this machine.
+  git diff --quiet HEAD -- packages apps/indexer package.json package-lock.json \
+    || { echo "commit packages/ and apps/indexer/ first: the server runs HEAD"; exit 1; }
+  git ls-files -z | rsync -az --from0 --files-from=- -e "ssh -i $KEY" ./ "$HOST:/srv/ballisflat/repo/"
   "${SSH[@]}" 'cd /srv/ballisflat/repo && npm ci --omit=dev && sudo systemctl restart ballisflat-api'
   sleep 8
   curl -fsS https://api.ballisflat.fun/api/board >/dev/null && echo "api ok"
