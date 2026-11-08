@@ -522,13 +522,21 @@ function fixture(
 }
 
 export const fixtures: Fixture[] = [
-  fixture("croatia-v-england", 0, "2026-10-03T16:00:00Z", croatiaOct3, englandOct3, { warmUp: true }),
-  fixture("england-v-croatia", 5, "2026-11-12T19:45:00Z", england, croatia),
-  fixture("northern-ireland-v-ukraine", 5, "2026-11-14T19:45:00Z", northernIreland, ukraine),
-  fixture("spain-v-england", 6, "2026-11-15T19:45:00Z", spain, england),
-  fixture("hungary-v-northern-ireland", 6, "2026-11-17T19:45:00Z", hungary, northernIreland),
-  fixture("ireland-v-kosovo", 6, "2026-11-17T19:45:00Z", ireland, kosovo),
-  fixture("wales-v-portugal", 6, "2026-11-17T19:45:00Z", wales, portugal),
+  // Kickoffs and FotMob ids checked on FotMob's day lists on 9 Nov 2026.
+  fixture("croatia-v-england", 0, "2026-10-03T16:00:00Z", croatiaOct3, englandOct3, {
+    warmUp: true,
+    fotmobId: "5181853",
+  }),
+  fixture("england-v-croatia", 5, "2026-11-12T19:45:00Z", england, croatia, { fotmobId: "5181858" }),
+  fixture("northern-ireland-v-ukraine", 5, "2026-11-14T19:45:00Z", northernIreland, ukraine, {
+    fotmobId: "5181809",
+  }),
+  fixture("spain-v-england", 6, "2026-11-15T19:45:00Z", spain, england, { fotmobId: "5181860" }),
+  fixture("hungary-v-northern-ireland", 6, "2026-11-17T19:45:00Z", hungary, northernIreland, {
+    fotmobId: "5181810",
+  }),
+  fixture("ireland-v-kosovo", 6, "2026-11-17T19:45:00Z", ireland, kosovo, { fotmobId: "5181823" }),
+  fixture("wales-v-portugal", 6, "2026-11-17T19:45:00Z", wales, portugal, { fotmobId: "5181872" }),
 ];
 
 /** Where each team's squad list came from, keyed by FIFA code (both sides of every fixture). */

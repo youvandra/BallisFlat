@@ -1,0 +1,16 @@
+# /etc/systemd/system/ballisflat-settler.service: one settler pass (scripts/settler.ts --once).
+# Started every 5 minutes by ballisflat-settler.timer. Logs: journalctl -u ballisflat-settler.
+# grep for "NEEDS A HUMAN": a top-rated player off the listed squad, a postponed match, or an error.
+[Unit]
+Description=Ball is Flat settler pass (FotMob ratings to propose, correct, finalize)
+After=network-online.target ballisflat-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/srv/ballisflat/repo
+EnvironmentFile=/etc/ballisflat/settler.env
+ExecStart=/usr/bin/node scripts/settler.ts --network mainnet --once
+TimeoutStartSec=240
+MemoryMax=300M

@@ -20,6 +20,17 @@ sudo cp deploy/api.env.example /etc/ballisflat/api.env && sudo chmod 600 /etc/ba
 sudo cp deploy/ballisflat-api.service /etc/systemd/system/ && sudo systemctl enable --now ballisflat-api
 ```
 
+## Settler bot
+Posts each result from FotMob's ratings, follows FotMob during the 2h window (correct), then finalizes.
+```bash
+sudo cp deploy/settler.env.example /etc/ballisflat/settler.env && sudo chmod 600 /etc/ballisflat/settler.env   # SETTLER_KEY
+sudo cp deploy/ballisflat-settler.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now ballisflat-settler.timer
+node scripts/settler.ts --network mainnet --once --dry-run    # read-only check, sends nothing
+journalctl -u ballisflat-settler -n 50 | grep -E "propose|correct|finalize|NEEDS A HUMAN"
+```
+It never guesses. "NEEDS A HUMAN" = settle or void that match from /ops (manual override always works).
+
 ## Every release
 `deploy/publish.sh web`, `deploy/publish.sh api`, or `deploy/publish.sh` for both. It builds the web app in chain
 mode against the API, refuses a build whose og:image is not absolute, and checks `/api/board` after a restart.

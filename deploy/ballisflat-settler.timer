@@ -1,0 +1,11 @@
+# /etc/systemd/system/ballisflat-settler.timer: runs the settler every 5 minutes.
+[Unit]
+Description=Ball is Flat settler every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

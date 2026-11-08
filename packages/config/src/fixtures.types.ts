@@ -33,4 +33,6 @@ export type Fixture = {
   squadSource: { url: string; readOn: string };
   /** A past match listed only so the claim step can be demoed. */
   warmUp?: boolean;
+  /** FotMob's match id (www.fotmob.com/match/<id>), where the settler reads ratings. */
+  fotmobId?: string;
 };

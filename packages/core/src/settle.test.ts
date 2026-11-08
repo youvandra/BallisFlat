@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   matchSquadPlayer,
@@ -9,11 +8,10 @@ import {
   settle,
   topRated,
 } from "./settle";
+import warmUpJson from "./testdata/fotmob-5181853.json";
 
 // FotMob's matchDetails for the warm-up, Croatia v England on 3 Oct 2026 (trimmed to the fields used).
-const warmUp = parseFotmobMatch(
-  JSON.parse(readFileSync(new URL("./testdata/fotmob-5181853.json", import.meta.url), "utf8")),
-);
+const warmUp = parseFotmobMatch(warmUpJson);
 
 const rated = (
   name: string,
