@@ -1065,16 +1065,28 @@
     padding: var(--screen-pad);
     overflow: hidden;
   }
-  .route-loader {
+  /* Full-screen veil while a page loads: the page sits blurred and dimmed behind the pack loader. */
+  .loading-veil {
     position: fixed;
-    right: 24px;
-    bottom: 24px;
-    z-index: 20;
-    padding: 0 18px;
-    border: 1.5px solid var(--color-cyan);
-    border-radius: var(--radius-card);
-    background: var(--color-mat);
-    box-shadow: var(--shadow-dock);
+    inset: 0;
+    z-index: 70;
+    display: grid;
+    place-items: center;
+    background: rgb(20 20 22 / 0.62);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    opacity: 1;
+    transition:
+      opacity 220ms ease,
+      visibility 0s linear 0s;
+  }
+  .loading-veil-done {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity 220ms ease,
+      visibility 0s linear 220ms;
   }
   .playmat {
     display: flex;

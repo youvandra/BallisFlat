@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LazyMotion, MotionConfig } from "motion/react";
 import { type ReactNode, Suspense, use } from "react";
 import { RouterProvider } from "react-router";
-import { PackLoader } from "../components/playmat/PackLoader";
+import { LoadingVeil } from "../components/playmat/LoadingVeil";
 import { gameClient } from "../lib/game/client";
 import { GameContext, useGameSync } from "../lib/game/queries";
 import { transitions } from "../lib/motion";
@@ -21,7 +21,7 @@ function GameProvider({ children }: { children: ReactNode }) {
 }
 
 function Booting() {
-  return <PackLoader size="screen" />;
+  return <LoadingVeil />;
 }
 
 // Composition only: providers wrap the router, features own their own state.

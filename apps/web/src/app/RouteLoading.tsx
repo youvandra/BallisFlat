@@ -1,6 +1,6 @@
-import { PackLoader } from "../components/playmat/PackLoader";
+import { LoadingVeil } from "../components/playmat/LoadingVeil";
 
 /** Shown while the first screen's code loads. */
 export function RouteLoading() {
-  return <PackLoader size="screen" />;
+  return <LoadingVeil />;
 }

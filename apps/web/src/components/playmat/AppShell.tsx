@@ -1,12 +1,12 @@
-import { useEffect, useLayoutEffect, useState } from "react";
-import { Outlet, useLocation, useNavigate, useNavigation } from "react-router";
+import { useEffect, useLayoutEffect } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router";
 import { ConnectPromptProvider } from "../../features/connect/ConnectPrompt";
 import { resetScroll } from "../../lib/motion";
 import { palette } from "../../lib/palette";
 import { Dock, LaunchDock } from "./Dock";
 import { HandCursor } from "./framer-shell";
+import { LoadingVeil, usePageReady } from "./LoadingVeil";
 import { Masthead } from "./Masthead";
-import { PackLoader } from "./PackLoader";
 import { RisoBackdrop } from "./RisoBackdrop";
 
 interface PageMeta {
@@ -49,17 +49,8 @@ export function AppShell() {
   // The landing stands alone with its Launch App bar; the app pages carry the wallet control and the dock,
   // with or without a wallet connected.
   const variant = pathname === "/" ? "landing" : "app";
-  const navigation = useNavigation();
-  // A route still loading its code after 250ms shows the pack loader in the corner; quick ones never do.
-  const [slow, setSlow] = useState(false);
-  useEffect(() => {
-    if (navigation.state !== "loading") {
-      setSlow(false);
-      return;
-    }
-    const timer = window.setTimeout(() => setSlow(true), 250);
-    return () => window.clearTimeout(timer);
-  }, [navigation.state]);
+  // Every page waits behind the veil until its code, first data, images and fonts are in.
+  const ready = usePageReady();
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the scroll resets on every route change
   useLayoutEffect(() => {
@@ -97,11 +88,7 @@ export function AppShell() {
           <Outlet />
         </main>
         {variant === "landing" ? <LaunchDock /> : <Dock />}
-        {slow ? (
-          <div className="route-loader">
-            <PackLoader label="Loading the page…" />
-          </div>
-        ) : null}
+        <LoadingVeil visible={!ready} />
         <HandCursor
           variant="Riso"
           size={34}

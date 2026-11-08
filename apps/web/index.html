@@ -26,7 +26,18 @@
     />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- First paint until React mounts: the same veil and pack loader the app shows while a page loads. -->
+      <div class="loading-veil" style="position:fixed;inset:0;display:grid;place-items:center;background:#141416">
+        <div class="pack-loader" role="status">
+          <div class="pack-loader-rig" aria-hidden="true">
+            <div class="pack-loader-card"></div>
+            <div class="pack-loader-pack"><span class="pack-loader-strip"></span><span class="pack-loader-mark">BIF</span></div>
+          </div>
+          <p class="t-small text-ink">Loading…</p>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
