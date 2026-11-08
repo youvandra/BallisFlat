@@ -8,6 +8,7 @@ import { Notice } from "../../components/ui/Notice";
 import { TextButton } from "../../components/ui/TextButton";
 import { formatMultiple, formatPercent, formatWif, shortHash, surname } from "../../lib/format";
 import { fixtureById, matchdayLabel, playerOf } from "../../lib/game/fixtures";
+import { useHunt } from "../../lib/game/hunt";
 import { fanFavourite, type LeaderMatch, type LeaderRow, rankLedger } from "../../lib/game/leaderboard";
 import { type MatchView, useAccount, useBoard, useGame, useLedger, useMarkets } from "../../lib/game/queries";
 import { sleeveCodes } from "../../lib/game/sleeve";
@@ -40,8 +41,10 @@ const places = [
 ] as const;
 
 function calls(row: LeaderRow): string {
+  const hunt = row.huntFinds > 0 ? `${row.huntFinds} Hunt find${row.huntFinds === 1 ? "" : "s"}` : "";
+  if (row.cards === 0) return hunt;
   const rate = row.hitRate === null ? "" : ` · ${formatPercent(row.hitRate)}`;
-  return `${row.callsRight}/${row.cards} called${rate}`;
+  return `${row.callsRight}/${row.cards} called${rate}${hunt ? ` · ${hunt}` : ""}`;
 }
 
 /** The top three as cards on the mat, first place raised in the middle (stacked in order when narrow). */
@@ -124,6 +127,7 @@ export function LeaderboardPage() {
   const ledger = useLedger();
   const account = useAccount();
   const markets = useMarkets();
+  const hunt = useHunt();
   const [params, setParams] = useSearchParams();
   const tab: TabKey = params.get("view") === "matchday" ? "matchday" : "all";
   const me = account.data?.address.toLowerCase();
@@ -136,8 +140,15 @@ export function LeaderboardPage() {
       const fixture = fixtureById(matchId);
       return Boolean(fixture && !fixture.warmUp && fixture.matchday === matchday);
     };
-    return rankLedger(ledger.data ?? [], matches, tab === "matchday" ? inMatchday : undefined);
-  }, [board.data, ledger.data, tab, matchday]);
+    // Hunt rounds run across matchdays, so their prizes count in All Time only.
+    const finds =
+      tab === "all"
+        ? (hunt.data?.history ?? []).flatMap((round) =>
+            round.finds.map((find) => ({ winner: find.winner, prize: round.prizeEach })),
+          )
+        : [];
+    return rankLedger(ledger.data ?? [], matches, tab === "matchday" ? inMatchday : undefined, finds);
+  }, [board.data, ledger.data, hunt.data, tab, matchday]);
   const mine = rows.find((row) => row.wallet.toLowerCase() === me);
 
   const loading = board.isPending || ledger.isPending;
@@ -167,7 +178,9 @@ export function LeaderboardPage() {
             <header className="flex flex-wrap items-end justify-between gap-3">
               <div className="flex flex-col gap-1.5">
                 <h1 className="t-heading">The table</h1>
-                <p className="t-small">Ranked by $WIF won. A tie goes to the earlier pick.</p>
+                <p className="t-small">
+                  Ranked by $WIF won, Hunt prizes included. A tie goes to the earlier pick.
+                </p>
               </div>
               <Chips
                 label="Period"

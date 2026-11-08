@@ -28,6 +28,17 @@ const matches = new Map<number, LeaderMatch>([
 ]);
 
 describe("rankLedger", () => {
+  it("adds Hunt prizes to $WIF won and ranks a Hunt-only wallet too", () => {
+    const d = "0x000000000000000000000000000000000000000d" as Address;
+    const rows = rankLedger([card(a, 1, 9, 4_500n * WIF), card(b, 1, 9)], matches, undefined, [
+      { winner: d, prize: 10_000n * WIF },
+      { winner: b, prize: 10_000n * WIF },
+    ]);
+    expect(rows.map((row) => row.wallet)).toEqual([b, d, a]);
+    expect(rows[0]).toMatchObject({ won: 14_500n * WIF, huntFinds: 1, callsRight: 1 });
+    expect(rows[1]).toMatchObject({ won: 10_000n * WIF, huntFinds: 1, cards: 0, hitRate: null });
+  });
+
   it("ranks by $WIF won, then calls right, and counts the hit rate over settled cards", () => {
     const rows = rankLedger(
       [card(a, 1, 9, 4_500n * WIF), card(a, 2, 3), card(b, 1, 9), card(c, 1, 4), card(c, 2, 1)],

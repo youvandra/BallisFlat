@@ -21,12 +21,23 @@ export interface LeaderRow {
   won: bigint;
   /** The winning card that paid the most per $WIF staked. */
   best: { matchId: number; playerId: number; multiple: number } | null;
+  /** Wanted cards pulled in the Hunt; each one's prize counts in `won`. */
+  huntFinds: number;
 }
+
+/** One wanted card pulled in the Hunt and the prize the team posted for it. */
+export interface LeaderFind {
+  winner: Address;
+  prize: bigint;
+}
+
+/** A Hunt-only wallet sorts after every wallet that picked, on an otherwise equal record. */
+const noPick = 2n ** 255n;
 
 const settledStates: ReadonlySet<MatchState> = new Set(["Final", "RolledOver"]);
 
 /**
- * One row per wallet, ranked by $WIF won, then calls right, hit rate and cards. A result is final once the
+ * One row per wallet, ranked by $WIF won (match payouts plus Hunt prizes), then calls right, hit rate and cards. A result is final once the
  * match is, so an unclaimed winning card already counts as won. Anything still level goes to the wallet
  * that picked first (lowest token id), so every rank is unique and the podium never shows two firsts.
  */
@@ -34,6 +45,7 @@ export function rankLedger(
   ledger: readonly LedgerCard[],
   matches: ReadonlyMap<number, LeaderMatch>,
   include: (matchId: number) => boolean = () => true,
+  huntFinds: readonly LeaderFind[] = [],
 ): LeaderRow[] {
   const rows = new Map<string, Omit<LeaderRow, "rank" | "hitRate"> & { firstPick: bigint }>();
   for (const card of ledger) {
@@ -47,6 +59,7 @@ export function rankLedger(
       callsRight: 0,
       won: 0n,
       best: null,
+      huntFinds: 0,
       firstPick: card.tokenId,
     };
     row.cards += 1;
@@ -61,6 +74,23 @@ export function rankLedger(
         row.best = { matchId: card.matchId, playerId: card.playerId, multiple };
       }
     }
+    rows.set(key, row);
+  }
+  // A find is final the moment its pack opens, like a final winning card, so its prize counts at once.
+  for (const find of huntFinds) {
+    const key = find.winner.toLowerCase();
+    const row = rows.get(key) ?? {
+      wallet: find.winner,
+      cards: 0,
+      settled: 0,
+      callsRight: 0,
+      won: 0n,
+      best: null,
+      huntFinds: 0,
+      firstPick: noPick,
+    };
+    row.huntFinds += 1;
+    row.won += find.prize;
     rows.set(key, row);
   }
   const ranked = [...rows.values()]

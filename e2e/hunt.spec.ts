@@ -83,6 +83,10 @@ test("a pack that finds a wanted card wins its prize; the deck stays open; admin
   await page.getByTestId("hunt-win").getByTestId("hunt-claim").click();
   await expect(page.getByTestId("hunt-win")).toContainText("Claimed");
 
+  // The prize counts on the leaderboard (All Time) as soon as the card is found.
+  await page.goto("/leaderboard");
+  await expect(page.getByTestId("leader-me").first()).toContainText("1 Hunt find");
+
   await page.goto("/ops");
   await page.getByRole("tab", { name: "Hunt · 1" }).click();
   const payout = page.getByTestId("payout");
