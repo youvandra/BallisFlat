@@ -30,6 +30,8 @@ export const game = {
   maxPerPlayer: 10,
   /** 500 bps = 5% of every market sale is burned, the rest goes to the seller. */
   saleBurnBps: 500,
+  /** $WIF burned from the share when a winner claims and keeps the card (setKeepFee; owner to confirm). */
+  keepFee: 50n * 10n ** 18n,
 } as const;
 
 /** Hunt: wanted-player packs. Tier index = contract tier id. */
@@ -43,8 +45,12 @@ export const hunt = {
   burnBps: 1000,
   /** $WIF to mint one drawn card into the binder (0 = gas only); set on chain with setMintPrice. */
   mintPrice: 0n,
-  /** Prize the team posts for round 1, paid by transfer to the winner (not from pack money). */
-  firstPrize: 10_000n * 10n ** 18n,
+  /** Cards in a round's deck; packs stop selling when it runs out. */
+  supply: 1000,
+  /** Wanted cards in the deck; a sold-out deck pays every one of them. */
+  winners: 3,
+  /** Prize the team posts per wanted card, paid by transfer to its finder (not from pack money; owner to confirm). */
+  prizeEach: 10_000n * 10n ** 18n,
   /** Parent-chain blocks a pack's draw stays readable (about 51 minutes on Robinhood Chain). */
   revealWindowBlocks: 256,
 } as const;

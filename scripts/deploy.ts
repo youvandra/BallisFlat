@@ -54,6 +54,7 @@ if (network === "mainnet" && !args.includes("--yes")) {
   throw new Error("mainnet deploy spends real ETH gas: re-run with --yes once the owner has approved it");
 }
 const seed = network === "local" && !args.includes("--no-seed");
+const ZERO_ROOT = `0x${"0".repeat(64)}` as Hex;
 const warmUpLead = Number(process.env.WARMUP_LEAD_SECONDS ?? 600);
 
 const rpcUrl =
@@ -152,6 +153,10 @@ async function main() {
   }
   console.log(`listed ${listed.length} matches in one transaction (gas ${receipt.gasUsed})`);
 
+  // Claim-and-keep burns this from a winner's share; the contract defaults to 0, so set it here.
+  await send(await client.writeContract({ ...contract, functionName: "setKeepFee", args: [game.keepFee] }));
+  console.log(`keep fee: ${game.keepFee / 10n ** 18n} $WIF`);
+
   const metadataBase = process.env.METADATA_BASE_URI;
   if (metadataBase) {
     const contractUri =
@@ -173,20 +178,17 @@ async function main() {
     await client.deployContract({
       abi: huntArtifact.abi,
       bytecode: huntArtifact.bytecode.object,
-      args: [
-        wifAddress,
-        (process.env.HUNT_TREASURY as Address | undefined) ?? owner.address,
-        hunt.burnBps,
-        hunt.tiers.map((tier) => ({ price: tier.price, cards: tier.cards })),
-      ],
+      args: [wifAddress, (process.env.HUNT_TREASURY as Address | undefined) ?? owner.address, hunt.burnBps],
     }),
   );
   const huntAddress = huntReceipt.contractAddress as Address;
   const huntContract = { address: huntAddress, abi: huntArtifact.abi } as const;
   const [targetTeam, targetName] = (process.env.HUNT_TARGET ?? "ENG:Harry Kane").split(":");
   const target = playerIdOf(targetTeam ?? "", targetName ?? "");
-  // HUNT_PRIZE is whole $WIF; the team pays it by transfer when someone finds the wanted card.
-  const huntPrize = process.env.HUNT_PRIZE ? BigInt(process.env.HUNT_PRIZE) * 10n ** 18n : hunt.firstPrize;
+  // HUNT_PRIZE is whole $WIF per wanted card; the team pays it by transfer to each finder.
+  const huntPrize = process.env.HUNT_PRIZE ? BigInt(process.env.HUNT_PRIZE) * 10n ** 18n : hunt.prizeEach;
+  const huntWinners = Number(process.env.HUNT_WINNERS ?? hunt.winners);
+  const huntSupply = Number(process.env.HUNT_SUPPLY ?? hunt.supply);
   const huntPool = [
     ...new Set(fixtures.filter((f) => !f.warmUp).flatMap((f) => f.players.map((p) => p.id))),
   ].sort((a, b) => a - b);
@@ -194,7 +196,14 @@ async function main() {
     await client.writeContract({
       ...huntContract,
       functionName: "startRound",
-      args: [target, huntPrize, huntPool],
+      args: [
+        target,
+        huntPrize,
+        huntWinners,
+        huntSupply,
+        huntPool,
+        hunt.tiers.map((tier) => ({ price: tier.price, cards: tier.cards, allowRoot: ZERO_ROOT })),
+      ],
     }),
   );
   if (metadataBase) {
@@ -202,7 +211,7 @@ async function main() {
     await send(await client.writeContract({ ...huntContract, functionName: "setBaseURI", args: [huntBase] }));
   }
   console.log(
-    `BallIsFlatHunt ${huntAddress}: round 1 hunts ${targetName} (${target}) across ${huntPool.length} players`,
+    `BallIsFlatHunt ${huntAddress}: round 1 hunts ${huntWinners} ${targetName} (${target}) in a deck of ${huntSupply} across ${huntPool.length} players`,
   );
 
   const record: Deployment = {
