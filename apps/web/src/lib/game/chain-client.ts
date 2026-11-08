@@ -594,6 +594,7 @@ export class ChainGameClient implements GameClient {
       // The draw needs the block after the purchase; wait for it (Robinhood Chain counts parent-chain blocks,
       // roughly 12 s each). A local anvil node only mines on transactions, so mine the blocks there.
       onStep("seal");
+      let hash: Hash | null = null;
       for (let attempt = 0; ; attempt += 1) {
         try {
           await publicClient.simulateContract({
@@ -605,6 +606,19 @@ export class ChainGameClient implements GameClient {
           break;
         } catch (error) {
           const named = toGameError(error);
+          // The settler bot opens packs as a keeper; it may have opened this one already.
+          if (named.code === "AlreadyOpened") return this.openedPack(packId);
+          if (named.code === "QueueTooLong") {
+            // Too many earlier packs wait unopened: open the front of the queue first (anyone may).
+            hash = await writeContract(config, {
+              ...hunt,
+              functionName: "openNext",
+              args: [40n],
+              chainId: chain.id,
+            });
+            await this.confirm(hash);
+            continue;
+          }
           if (named.code !== "TooEarly" || attempt > 60) throw named;
           if (env.VITE_NETWORK === "local") {
             await publicClient.request({ method: "anvil_mine" as never, params: ["0x2"] as never });
@@ -614,7 +628,7 @@ export class ChainGameClient implements GameClient {
         }
       }
       onStep("open");
-      const hash = await writeContract(config, {
+      hash = await writeContract(config, {
         ...hunt,
         functionName: "open",
         args: [packId],
@@ -629,6 +643,33 @@ export class ChainGameClient implements GameClient {
       const found = parseEventLogs({ abi: ballIsFlatHuntAbi, eventName: "TargetFound", logs: receipt.logs });
       return { hash, players: [...(opened?.args.players ?? [])], found: found.length > 0 };
     });
+  }
+
+  /** A pack someone else already opened: its draw and whether it found a wanted card, from chain. */
+  private async openedPack(packId: bigint): Promise<HuntOpenReceipt> {
+    const hunt = huntContract();
+    const [players, found] = await Promise.all([
+      readContract(config, { ...hunt, functionName: "drawn", args: [packId] }),
+      publicClient.getContractEvents({
+        address: hunt.address,
+        abi: ballIsFlatHuntAbi,
+        eventName: "TargetFound",
+        args: { packId },
+        fromBlock: deployBlock,
+      }),
+    ]);
+    const [opened] = await publicClient.getContractEvents({
+      address: hunt.address,
+      abi: ballIsFlatHuntAbi,
+      eventName: "PackOpened",
+      args: { packId },
+      fromBlock: deployBlock,
+    });
+    return {
+      hash: opened?.transactionHash ?? (`0x${"0".repeat(64)}` as Hash),
+      players: [...players],
+      found: found.length > 0,
+    };
   }
 
   mintHuntCard(packId: bigint, slot: number, onStep: (step: MintStep) => void): Promise<MintReceipt> {
