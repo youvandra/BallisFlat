@@ -14,6 +14,7 @@ export const facts = {
   disputeWindow: game.disputeWindowSeconds,
   maxPerPlayer: game.maxPerPlayer,
   saleBurnBps: game.saleBurnBps,
+  keepFee: game.keepFee,
   wifAddress: (deployment.contracts.WIF ?? wif.address) as Address,
   poolUrl: pool.dexscreener,
   explorerUrl: robinhoodChain.blockExplorers.default.url,

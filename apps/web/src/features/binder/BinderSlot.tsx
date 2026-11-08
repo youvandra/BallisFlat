@@ -16,7 +16,10 @@ type Props = {
   group: BinderGroup;
   justClaimed: boolean;
   busy: boolean;
+  /** $WIF burned from the share to keep the card instead of burning it. */
+  keepFee: bigint;
   onBurn: () => void;
+  onKeep: () => void;
   onSell: () => void;
 };
 
@@ -25,7 +28,9 @@ function resultLine(card: BinderCard, group: BinderGroup): string {
   if (group === "Claimed")
     return card.burned?.kind === "refunded"
       ? "Refunded after the match was called off."
-      : `Won with ${winners}.`;
+      : card.burned?.kind === "kept"
+        ? `Won with ${winners}. Paid out and kept.`
+        : `Won with ${winners}.`;
   if (group === "Claim") return `${winners} was the top-rated player. You called it.`;
   if (group === "Refund") return "Called off. Refund ready.";
   if (group === "Missed")
@@ -79,9 +84,10 @@ const labels: Record<BinderGroup, string> = {
  * rating source and the claim or refund. A sealed pack flips the same way to Open Pack and Sell.
  * Under every card sits only Open Match.
  */
-export function BinderSlot({ card, group, justClaimed, busy, onBurn, onSell }: Props) {
+export function BinderSlot({ card, group, justClaimed, busy, keepFee, onBurn, onKeep, onSell }: Props) {
   const team = card.player?.side === "away" ? card.fixture.away : card.fixture.home;
-  const ghost = group === "Claimed" || justClaimed;
+  const kept = card.burned?.kind === "kept";
+  const ghost = (group === "Claimed" && !kept) || justClaimed;
   // A burned card was seen when it was claimed; anything else stays sealed until its pack is torn.
   const opened = useOpened(card.tokenId) || card.opened || Boolean(card.burned);
   if (!card.player) return null;
@@ -93,14 +99,28 @@ export function BinderSlot({ card, group, justClaimed, busy, onBurn, onSell }: P
     if (justClaimed) return null;
     if (group === "Claim")
       return (
-        <Button
-          onClick={onBurn}
-          disabled={busy}
-          className="w-full whitespace-nowrap"
-          aria-label={`Burn To Claim ${formatWif(card.claimable)} $WIF`}
-        >
-          {busy ? "Burning…" : `Claim ${formatWifCompact(card.claimable)} $WIF`}
-        </Button>
+        <div className="flex w-full flex-col gap-2">
+          <Button
+            onClick={onBurn}
+            disabled={busy}
+            className="w-full whitespace-nowrap"
+            aria-label={`Burn To Claim ${formatWif(card.claimable)} $WIF`}
+          >
+            {busy ? "Confirm in Your Wallet…" : `Claim ${formatWifCompact(card.claimable)} $WIF`}
+          </Button>
+          {keepFee < card.claimable ? (
+            <Button
+              variant="secondary"
+              onClick={onKeep}
+              disabled={busy}
+              className="w-full whitespace-nowrap"
+              aria-label={`Claim ${formatWif(card.claimable - keepFee)} $WIF and keep the card, ${formatWif(keepFee)} $WIF burned`}
+              data-testid="claim-keep"
+            >
+              Claim &amp; Keep, {formatWifCompact(keepFee)} burned
+            </Button>
+          ) : null}
+        </div>
       );
     if (group === "Refund")
       return (
@@ -165,7 +185,7 @@ export function BinderSlot({ card, group, justClaimed, busy, onBurn, onSell }: P
           player={card.player}
           team={team}
           rarity={group === "Claim" ? "legendary" : group === "Waiting" ? "rare" : "common"}
-          label={labels[group]}
+          label={kept ? "Kept" : labels[group]}
           number={`#${card.serial}/${info.cards}`}
           setLabel={sleeveCodes(card.fixture)}
           back={{

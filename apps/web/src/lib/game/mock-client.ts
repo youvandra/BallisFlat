@@ -69,6 +69,8 @@ export interface MockHuntOptions {
 export interface MockOptions extends Omit<SeedConfig, "now"> {
   /** Hunt simulation; without it the Hunt reads as not deployed. */
   hunt?: MockHuntOptions;
+  /** $WIF burned when a winner keeps the card (game.keepFee). */
+  keepFee?: bigint;
   storage: KeyValueStore | null;
   storageKey?: string;
   /** Simulated confirmation time per transaction step. */
@@ -156,7 +158,7 @@ export class MockGameClient implements GameClient {
 
   private token(tokenId: bigint): MockToken {
     const token = this.state.tokens.find((candidate) => candidate.tokenId === tokenId.toString());
-    if (!token || token.burned) throw new GameError("NotCardOwner");
+    if (!token || (token.burned && token.burned.kind !== "kept")) throw new GameError("NotCardOwner");
     return token;
   }
 
@@ -289,7 +291,10 @@ export class MockGameClient implements GameClient {
         matchId: token.matchId,
         playerId: token.playerId,
         owner: token.minter,
-        claimed: token.burned?.kind === "claimed" ? BigInt(token.burned.amount) : null,
+        claimed:
+          token.burned?.kind === "claimed" || token.burned?.kind === "kept"
+            ? BigInt(token.burned.amount)
+            : null,
         refunded: token.burned?.kind === "refunded",
       }),
     );
@@ -722,13 +727,24 @@ export class MockGameClient implements GameClient {
     return { hash, tokenId };
   }
 
-  private async burnToken(tokenId: bigint, kind: "claimed" | "refunded"): Promise<ClaimReceipt> {
+  async keepFee(): Promise<bigint> {
+    return this.options.keepFee ?? 0n;
+  }
+
+  claimAndKeep(tokenId: bigint): Promise<ClaimReceipt> {
+    return this.burnToken(tokenId, "kept");
+  }
+
+  private async burnToken(tokenId: bigint, kind: "claimed" | "refunded" | "kept"): Promise<ClaimReceipt> {
     const owner = this.requireWallet();
     const token = this.token(tokenId);
     if (token.owner !== owner) throw new GameError("NotCardOwner");
     const match = this.match(token.matchId);
-    const amount = kind === "claimed" ? await this.claimable(tokenId) : BigInt(match.price);
-    if (kind === "claimed" && amount === 0n) throw new GameError("NotAWinner");
+    const share = kind === "refunded" ? BigInt(match.price) : await this.claimable(tokenId);
+    if (kind !== "refunded" && share === 0n) throw new GameError("NotAWinner");
+    const fee = kind === "kept" ? await this.keepFee() : 0n;
+    if (fee > share) throw new GameError("KeepFeeTooHigh");
+    const amount = share - fee;
     if (kind === "refunded" && match.status !== "Voided") throw new GameError("WrongStatus");
     const hash = await this.send();
     token.burned = { kind, amount: amount.toString(), hash };

@@ -38,7 +38,7 @@ export interface MockToken {
   opened: boolean;
   /** A live sale listing (sealed cards only, before kickoff). No escrow: the card stays with the seller. */
   listing?: { seller: Address; price: string } | null;
-  burned: { kind: "claimed" | "refunded"; amount: string; hash: Hash } | null;
+  burned: { kind: "claimed" | "refunded" | "kept"; amount: string; hash: Hash } | null;
 }
 
 export interface MockState {

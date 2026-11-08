@@ -59,7 +59,7 @@ export type ApiCard = {
   minter: `0x${string}`;
   owner: `0x${string}`;
   opened: boolean;
-  state: "live" | "claimed" | "refunded";
+  state: "live" | "claimed" | "refunded" | "kept";
   payout: string;
   mintedAt: string;
   mintTx: `0x${string}`;

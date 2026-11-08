@@ -42,6 +42,7 @@ async function createClient(): Promise<GameClient> {
     demoWallet,
     startingWif: facts.price * 5n,
     hunt: mockHunt(),
+    keepFee: facts.keepFee,
     storage: typeof localStorage === "undefined" ? null : localStorage,
     latencyMs: 900,
   });

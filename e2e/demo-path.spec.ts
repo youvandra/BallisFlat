@@ -138,6 +138,27 @@ test("binder: burn the warm-up winner to claim", async ({ page }) => {
   await expect(page.getByText("Claim · 1")).toHaveCount(0);
 });
 
+test("binder: claim and keep pays the share minus the burned keep fee, and the card stays", async ({
+  page,
+}) => {
+  await page.goto("/binder");
+  await page.getByTestId("wallet-gate").getByRole("button", { name: "Connect Wallet", exact: true }).click();
+  await expect(page.getByText("Claim · 1")).toBeVisible();
+  await page
+    .getByRole("button", { name: /card, click to flip/ })
+    .first()
+    .click();
+  const keep = page.getByTestId("claim-keep");
+  await expect(keep).toContainText("50 burned");
+  const label = (await keep.getAttribute("aria-label")) ?? "";
+  const amount = label.match(/Claim ([\d,]+) \$WIF/)?.[1] ?? "";
+  await keep.click();
+  await expect(page.getByText(`Claimed ${amount} $WIF`)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("and kept the card")).toBeVisible();
+  await expect(page.getByText("Claimed · 1")).toBeVisible();
+  await expect(page.getByText("Paid out and kept.")).toBeVisible();
+});
+
 test("an opened card never shows sealed again, even after a reload", async ({ page }) => {
   await mintFirstPlayer(page);
   const packUrl = new URL(page.url()).pathname;

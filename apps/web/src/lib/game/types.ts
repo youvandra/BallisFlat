@@ -44,7 +44,8 @@ export interface OwnedCard extends CardInfo {
   opened: boolean;
   /** Listed for sale by this wallet, or null. */
   listing: { price: bigint } | null;
-  burned: { kind: "claimed" | "refunded"; amount: bigint; hash: Hash } | null;
+  /** Paid out: burned for its share (claimed), refunded, or kept (share minus the burned keep fee). */
+  burned: { kind: "claimed" | "refunded" | "kept"; amount: bigint; hash: Hash } | null;
 }
 
 /**
@@ -229,6 +230,10 @@ export interface GameClient {
   // fan
   mint(matchId: number, playerId: number, onStep: (step: MintStep) => void): Promise<MintReceipt>;
   claim(tokenId: bigint): Promise<ClaimReceipt>;
+  /** Takes the share minus the keep fee (burned) and keeps the card. */
+  claimAndKeep(tokenId: bigint): Promise<ClaimReceipt>;
+  /** $WIF burned from the share when a winner keeps the card. */
+  keepFee(): Promise<bigint>;
   refund(tokenId: bigint): Promise<ClaimReceipt>;
   /** Tears the pack: one-way, owner only. Clears any listing. */
   open(tokenId: bigint): Promise<TxReceipt>;

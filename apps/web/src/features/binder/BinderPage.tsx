@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, ArrowUpRight, RotateCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
@@ -26,7 +26,7 @@ import { HuntShelf } from "./HuntShelf";
 import { SellSheet } from "./SellSheet";
 
 const groupNotes: Record<BinderGroup, string> = {
-  Claim: "Burn to take your share.",
+  Claim: "Burn to take your share, or keep it for a small burn.",
   Sealed: "Open it, or sell before kickoff.",
   Waiting: "Result pending.",
   Missed: "Kept as your record.",
@@ -50,7 +50,7 @@ const whole = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const burnMs = 1700;
 
 interface Receipt extends ClaimReceipt {
-  kind: "claimed" | "refunded";
+  kind: "claimed" | "refunded" | "kept";
   serial: number;
 }
 
@@ -104,16 +104,22 @@ function Binder() {
     return () => window.clearTimeout(timer);
   }, [burning]);
 
+  const keepFee = useQuery({ queryKey: ["keep-fee"], queryFn: () => client.keepFee(), staleTime: 60_000 });
   const burn = useMutation({
-    mutationFn: async (card: BinderCard) => {
+    mutationFn: async ({ card, keep }: { card: BinderCard; keep: boolean; tokenId: bigint }) => {
       const group = binderGroupOf(card, true);
-      const kind = group === "Refund" ? "refunded" : "claimed";
+      const kind = group === "Refund" ? "refunded" : keep ? "kept" : "claimed";
       const result =
-        kind === "claimed" ? await client.claim(card.tokenId) : await client.refund(card.tokenId);
+        kind === "refunded"
+          ? await client.refund(card.tokenId)
+          : kind === "kept"
+            ? await client.claimAndKeep(card.tokenId)
+            : await client.claim(card.tokenId);
       return { ...result, kind, group, serial: card.serial, tokenId: card.tokenId } as const;
     },
     onSuccess: async (result) => {
-      setBurning({ tokenId: result.tokenId, group: result.group });
+      // A kept card is not burned: no burn animation, it just moves to the Claimed shelf.
+      if (result.kind !== "kept") setBurning({ tokenId: result.tokenId, group: result.group });
       setReceipt(result);
       await queryClient.invalidateQueries();
     },
@@ -193,9 +199,10 @@ function Binder() {
           {receipt ? (
             <Notice tone="info">
               <span className="num text-ink">
-                {receipt.kind === "claimed" ? "Claimed" : "Refunded"} {formatWif(receipt.amount)} $WIF
+                {receipt.kind === "refunded" ? "Refunded" : "Claimed"} {formatWif(receipt.amount)} $WIF
               </span>{" "}
-              for card #{receipt.serial}.{" "}
+              for card #{receipt.serial}
+              {receipt.kind === "kept" ? ", and kept the card" : ""}.{" "}
               {client.mode === "chain" ? (
                 <a href={txUrl(receipt.hash)} target="_blank" rel="noreferrer" className="text-link">
                   View Transaction <ArrowUpRight size={14} strokeWidth={2} aria-hidden />
@@ -267,7 +274,9 @@ function Binder() {
                         group={group}
                         justClaimed={burning?.tokenId === card.tokenId}
                         busy={burn.isPending && burn.variables?.tokenId === card.tokenId}
-                        onBurn={() => burn.mutate(card)}
+                        keepFee={keepFee.data ?? 0n}
+                        onBurn={() => burn.mutate({ card, keep: false, tokenId: card.tokenId })}
+                        onKeep={() => burn.mutate({ card, keep: true, tokenId: card.tokenId })}
                         onSell={() => setSellingId(card.tokenId)}
                       />
                     </li>

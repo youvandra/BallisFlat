@@ -268,10 +268,11 @@ export class ChainGameClient implements GameClient {
       ),
     );
     const range = { address: contractAddress, fromBlock: deployBlock, toBlock: "latest" } as const;
-    const [mintedLogs, claimedLogs, refundedLogs] = await Promise.all([
+    const [mintedLogs, claimedLogs, refundedLogs, keptLogs] = await Promise.all([
       publicClient.getContractEvents({ ...range, abi: ballIsFlatAbi, eventName: "CardMinted" }),
       publicClient.getContractEvents({ ...range, abi: ballIsFlatAbi, eventName: "CardClaimed" }),
       publicClient.getContractEvents({ ...range, abi: ballIsFlatAbi, eventName: "CardRefunded" }),
+      publicClient.getContractEvents({ ...range, abi: ballIsFlatAbi, eventName: "CardKept" }),
     ]);
     const isMine = (owner: string | undefined) => owner?.toLowerCase() === wallet.toLowerCase();
     const burnedBy = new Map<bigint, NonNullable<OwnedCard["burned"]>>();
@@ -287,6 +288,14 @@ export class ChainGameClient implements GameClient {
       if (log.args.tokenId === undefined || !isMine(log.args.owner)) continue;
       burnedBy.set(log.args.tokenId, {
         kind: "refunded",
+        amount: log.args.amount ?? 0n,
+        hash: log.transactionHash,
+      });
+    }
+    for (const log of keptLogs) {
+      if (log.args.tokenId === undefined || !isMine(log.args.owner)) continue;
+      burnedBy.set(log.args.tokenId, {
+        kind: "kept",
         amount: log.args.amount ?? 0n,
         hash: log.transactionHash,
       });
@@ -352,18 +361,19 @@ export class ChainGameClient implements GameClient {
         matchId: Number(row.matchId),
         playerId: row.playerId,
         owner: row.minter,
-        claimed: row.state === "claimed" ? big(row.payout) : null,
+        claimed: row.state === "claimed" || row.state === "kept" ? big(row.payout) : null,
         refunded: row.state === "refunded",
       }));
     }
     const range = { address: contractAddress, fromBlock: deployBlock, toBlock: "latest" } as const;
-    const [mintedLogs, claimedLogs, refundedLogs] = await Promise.all([
+    const [mintedLogs, claimedLogs, refundedLogs, keptLogs] = await Promise.all([
       publicClient.getContractEvents({ ...range, abi: ballIsFlatAbi, eventName: "CardMinted" }),
       publicClient.getContractEvents({ ...range, abi: ballIsFlatAbi, eventName: "CardClaimed" }),
       publicClient.getContractEvents({ ...range, abi: ballIsFlatAbi, eventName: "CardRefunded" }),
+      publicClient.getContractEvents({ ...range, abi: ballIsFlatAbi, eventName: "CardKept" }),
     ]);
     const claimed = new Map<bigint, bigint>();
-    for (const log of claimedLogs) {
+    for (const log of [...claimedLogs, ...keptLogs]) {
       if (log.args.tokenId !== undefined) claimed.set(log.args.tokenId, log.args.amount ?? 0n);
     }
     const refunded = new Set(
@@ -799,9 +809,11 @@ export class ChainGameClient implements GameClient {
     });
   }
 
-  private burnCard(tokenId: bigint, functionName: "claim" | "refund"): Promise<ClaimReceipt> {
+  private burnCard(
+    tokenId: bigint,
+    functionName: "claim" | "refund" | "claimAndKeep",
+  ): Promise<ClaimReceipt> {
     return guard(async () => {
-      const amountBefore = functionName === "claim" ? await this.claimable(tokenId) : 0n;
       const hash = await writeContract(config, {
         ...contract,
         functionName,
@@ -809,10 +821,20 @@ export class ChainGameClient implements GameClient {
         chainId: chain.id,
       });
       const receipt = await this.confirm(hash);
-      const eventName = functionName === "claim" ? "CardClaimed" : "CardRefunded";
+      const eventName = ({ claim: "CardClaimed", refund: "CardRefunded", claimAndKeep: "CardKept" } as const)[
+        functionName
+      ];
       const [event] = parseEventLogs({ abi: ballIsFlatAbi, eventName, logs: receipt.logs });
-      return { hash, amount: event?.args.amount ?? amountBefore };
+      return { hash, amount: event?.args.amount ?? 0n };
     });
+  }
+
+  claimAndKeep(tokenId: bigint): Promise<ClaimReceipt> {
+    return this.burnCard(tokenId, "claimAndKeep");
+  }
+
+  keepFee(): Promise<bigint> {
+    return readContract(config, { ...contract, functionName: "keepFee" });
   }
 
   open(tokenId: bigint): Promise<TxReceipt> {
