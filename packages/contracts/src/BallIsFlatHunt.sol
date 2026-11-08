@@ -23,8 +23,9 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 ///           out, so waiting never improves a pack.
 ///         - The first opened pack holding the wanted card wins its round. The owner sets the wanted player,
 ///           prize and player pool per round and can close a round early.
-///         - Cards are ERC-721 collectibles bound to the wallet that opened them (no transfers), separate from
-///           Ball is Flat match picks.
+///         - Opening a pack records its draw; no card is minted. The buyer mints the cards they want to keep
+///           with `mintCard` (at `mintPrice`, split like a pack), one ERC-721 per drawn slot, bound to their
+///           wallet (no transfers) and separate from Ball is Flat match picks.
 contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -50,7 +51,7 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
         uint128 prize;
         uint64 packs;
         uint64 winningPack;
-        uint64 winningCard;
+        uint8 winningSlot;
         bool claimed;
         bool paid;
         bytes32 payment;
@@ -74,6 +75,11 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
     mapping(uint256 => Pack) internal _packs;
     mapping(uint256 => uint32) public cardPlayer;
     mapping(uint256 => uint32) public cardRound;
+    mapping(uint256 => uint256) public cardPack;
+    mapping(uint256 => uint32[]) internal _drawn;
+    /// @dev Bit i set = slot i of the pack is minted.
+    mapping(uint256 => uint32) public mintedSlots;
+    uint128 public mintPrice;
 
     uint256 public currentRound;
     uint256 public packCount;
@@ -92,12 +98,17 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
         uint256 burned,
         uint64 revealBlock
     );
-    event PackOpened(
-        uint256 indexed packId, uint256 indexed round, uint256 firstCardId, uint32[] players, bool expired
+    event PackOpened(uint256 indexed packId, uint256 indexed round, uint32[] players, bool expired);
+    event TargetFound(uint256 indexed round, uint256 indexed packId, address indexed winner, uint8 slot, uint256 prize);
+    event CardMinted(
+        uint256 indexed cardId,
+        uint256 indexed packId,
+        address indexed owner,
+        uint8 slot,
+        uint32 playerId,
+        uint256 price
     );
-    event TargetFound(
-        uint256 indexed round, uint256 indexed packId, address indexed winner, uint256 cardId, uint256 prize
-    );
+    event MintPriceSet(uint256 price);
     event PrizeClaimed(uint256 indexed round, address indexed winner, uint256 prize);
     event PrizePaid(uint256 indexed round, address indexed winner, uint256 prize, bytes32 payment);
     event TreasurySet(address treasury);
@@ -119,6 +130,10 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
     error NotWinner();
     error AlreadyClaimed();
     error CardBound();
+    error NotBuyer();
+    error NotOpened();
+    error BadSlot();
+    error AlreadyMinted();
 
     constructor(address wif_, address treasury_, uint16 burnBps_, Tier[TIERS] memory tiers_)
         ERC721("Ball is Flat Hunt", "BIFH")
@@ -182,6 +197,12 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
         emit TreasurySet(treasury_);
     }
 
+    /// @notice $WIF to mint one drawn card (0 = gas only); burns `burnBps`, the rest goes to the treasury.
+    function setMintPrice(uint128 price) external onlyOwner {
+        mintPrice = price;
+        emit MintPriceSet(price);
+    }
+
     function setPaused(bool on) external onlyOwner {
         paused = on;
         emit Paused(on);
@@ -215,8 +236,8 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
         emit PackBought(packId, msg.sender, currentRound, t, price, burned, reveal);
     }
 
-    /// @notice Opens a pack and mints its cards to the buyer. Anyone may call it; the outcome depends only on
-    ///         the pack and its reveal block.
+    /// @notice Opens a pack and records its draw (no card is minted). Anyone may call it; the outcome depends
+    ///         only on the pack and its reveal block.
     function open(uint256 packId) external nonReentrant returns (uint32[] memory players) {
         Pack storage p = _packs[packId];
         if (p.buyer == address(0)) revert UnknownPack();
@@ -233,30 +254,53 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
         uint256 n = _tiers[p.tier].cards;
         uint256 len = drawFrom.length;
         players = new uint32[](n);
-        uint256 first = cardCount + 1;
-        uint256 foundCard;
+        uint256 found = type(uint256).max;
 
         for (uint256 i; i < n; ++i) {
             uint256 idx = uint256(keccak256(abi.encode(seed, i))) % len;
             uint32 player = drawFrom[idx];
             if (expired && player == r.target) player = drawFrom[(idx + 1) % len];
             players[i] = player;
-            uint256 cardId = first + i;
-            cardPlayer[cardId] = player;
-            cardRound[cardId] = p.round;
-            _mint(p.buyer, cardId);
-            if (foundCard == 0 && player == r.target) foundCard = cardId;
+            if (found == type(uint256).max && player == r.target) found = i;
         }
-        cardCount = first + n - 1;
-        emit PackOpened(packId, p.round, first, players, expired);
+        _drawn[packId] = players;
+        emit PackOpened(packId, p.round, players, expired);
 
-        if (foundCard != 0 && r.status == Status.Open) {
+        if (found != type(uint256).max && r.status == Status.Open) {
             r.status = Status.Won;
             r.winner = p.buyer;
             r.winningPack = uint64(packId);
-            r.winningCard = uint64(foundCard);
-            emit TargetFound(p.round, packId, p.buyer, foundCard, r.prize);
+            r.winningSlot = uint8(found);
+            emit TargetFound(p.round, packId, p.buyer, uint8(found), r.prize);
         }
+    }
+
+    /// @notice Mints slot `slot` of an opened pack as a card in the buyer's wallet, at `mintPrice`.
+    function mintCard(uint256 packId, uint8 slot) external nonReentrant returns (uint256 cardId) {
+        Pack storage p = _packs[packId];
+        if (p.buyer == address(0)) revert UnknownPack();
+        if (msg.sender != p.buyer) revert NotBuyer();
+        if (!p.opened) revert NotOpened();
+        uint32[] storage slots = _drawn[packId];
+        if (slot >= slots.length) revert BadSlot();
+        uint32 bit = uint32(1) << slot;
+        if (mintedSlots[packId] & bit != 0) revert AlreadyMinted();
+        mintedSlots[packId] |= bit;
+
+        uint256 price = mintPrice;
+        if (price > 0) {
+            uint256 burned = (price * burnBps) / 10_000;
+            if (burned > 0) wif.safeTransferFrom(msg.sender, DEAD, burned);
+            if (price > burned) wif.safeTransferFrom(msg.sender, treasury, price - burned);
+        }
+
+        cardId = ++cardCount;
+        uint32 player = slots[slot];
+        cardPlayer[cardId] = player;
+        cardRound[cardId] = p.round;
+        cardPack[cardId] = packId;
+        _mint(msg.sender, cardId);
+        emit CardMinted(cardId, packId, msg.sender, slot, player, price);
     }
 
     /// @notice The winner asks the team for the prize of `roundId`. It moves no funds: it puts the round in the
@@ -283,6 +327,10 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
 
     function pool(uint256 id) external view returns (uint32[] memory) {
         return _pools[id];
+    }
+
+    function drawn(uint256 packId) external view returns (uint32[] memory) {
+        return _drawn[packId];
     }
 
     function pack(uint256 id) external view returns (Pack memory) {

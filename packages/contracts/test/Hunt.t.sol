@@ -218,30 +218,83 @@ contract HuntTest is Test {
         hunt.open(id);
     }
 
-    function test_open_mints_the_drawn_cards_to_the_buyer() public {
+    function test_open_records_the_draw_and_mints_nothing() public {
         uint32[] memory p = _pool(20);
         hunt.startRound(KANE, PRIZE, p);
         bytes32 h = _hashFor(1, 7, p, KANE, false);
         uint256 id = _buyAndReveal(alice, GOLD, h);
 
-        vm.prank(stranger); // anyone may open; cards still go to the buyer
+        vm.prank(stranger); // anyone may open; the draw belongs to the buyer's pack
         uint32[] memory got = hunt.open(id);
         uint32[] memory want = _expected(h, id, 7, p);
+        uint32[] memory stored = hunt.drawn(id);
         assertEq(got.length, 7);
         for (uint256 i; i < 7; ++i) {
             assertEq(got[i], want[i]);
-            assertEq(hunt.ownerOf(i + 1), alice);
-            assertEq(hunt.cardPlayer(i + 1), want[i]);
-            assertEq(hunt.cardRound(i + 1), 1);
+            assertEq(stored[i], want[i]);
         }
-        assertEq(hunt.cardCount(), 7);
-        assertEq(hunt.balanceOf(alice), 7);
+        assertEq(hunt.cardCount(), 0);
+        assertEq(hunt.balanceOf(alice), 0);
         assertEq(uint8(hunt.round(1).status), uint8(BallIsFlatHunt.Status.Open));
 
         vm.expectRevert(BallIsFlatHunt.AlreadyOpened.selector);
         hunt.open(id);
         vm.expectRevert(BallIsFlatHunt.UnknownPack.selector);
         hunt.open(99);
+    }
+
+    function test_mintCard_mints_one_drawn_slot_to_the_buyer() public {
+        uint32[] memory p = _pool(20);
+        hunt.startRound(KANE, PRIZE, p);
+        bytes32 h = _hashFor(1, 7, p, KANE, false);
+        uint256 id = _buyAndReveal(alice, GOLD, h);
+
+        vm.prank(alice);
+        vm.expectRevert(BallIsFlatHunt.NotOpened.selector);
+        hunt.mintCard(id, 0);
+        hunt.open(id);
+        uint32[] memory want = _expected(h, id, 7, p);
+
+        vm.prank(bob);
+        vm.expectRevert(BallIsFlatHunt.NotBuyer.selector);
+        hunt.mintCard(id, 0);
+        vm.prank(alice);
+        vm.expectRevert(BallIsFlatHunt.BadSlot.selector);
+        hunt.mintCard(id, 7);
+
+        vm.prank(alice);
+        uint256 card = hunt.mintCard(id, 3);
+        assertEq(card, 1);
+        assertEq(hunt.ownerOf(1), alice);
+        assertEq(hunt.cardPlayer(1), want[3]);
+        assertEq(hunt.cardRound(1), 1);
+        assertEq(hunt.cardPack(1), id);
+        assertEq(hunt.mintedSlots(id), uint32(1) << 3);
+        vm.prank(alice);
+        vm.expectRevert(BallIsFlatHunt.AlreadyMinted.selector);
+        hunt.mintCard(id, 3);
+        vm.prank(alice);
+        assertEq(hunt.mintCard(id, 0), 2);
+        assertEq(hunt.balanceOf(alice), 2);
+        assertEq(wif.balanceOf(treasury), 90e18); // the pack only: minting is free until a price is set
+    }
+
+    function test_mintPrice_is_split_like_a_pack() public {
+        uint32[] memory p = _pool(20);
+        hunt.startRound(KANE, PRIZE, p);
+        uint256 id = _buyAndReveal(alice, SILVER, _hashFor(1, 3, p, KANE, false));
+        hunt.open(id);
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger));
+        hunt.setMintPrice(1e18);
+        hunt.setMintPrice(20e18);
+        uint256 burnBefore = wif.balanceOf(DEAD);
+        uint256 treasuryBefore = wif.balanceOf(treasury);
+        vm.prank(alice);
+        hunt.mintCard(id, 1);
+        assertEq(wif.balanceOf(DEAD) - burnBefore, 2e18);
+        assertEq(wif.balanceOf(treasury) - treasuryBefore, 18e18);
+        assertEq(wif.balanceOf(address(hunt)), 0);
     }
 
     function test_finding_the_target_records_the_winner_and_payment() public {
@@ -260,7 +313,7 @@ contract HuntTest is Test {
         assertEq(uint8(r.status), uint8(BallIsFlatHunt.Status.Won));
         assertEq(r.winner, alice);
         assertEq(r.winningPack, id);
-        assertEq(hunt.cardPlayer(r.winningCard), KANE);
+        assertEq(got[r.winningSlot], KANE);
         assertTrue(_has(got, KANE));
         assertFalse(r.paid);
 
@@ -362,6 +415,8 @@ contract HuntTest is Test {
         uint256 id = _buyAndReveal(alice, SILVER, _hashFor(1, 3, p, KANE, false));
         hunt.open(id);
         vm.prank(alice);
+        hunt.mintCard(id, 0);
+        vm.prank(alice);
         vm.expectRevert(BallIsFlatHunt.CardBound.selector);
         hunt.transferFrom(alice, bob, 1);
         vm.prank(alice);
@@ -376,6 +431,10 @@ contract HuntTest is Test {
         hunt.startRound(KANE, PRIZE, p);
         uint256 id = _buyAndReveal(alice, SILVER, _hashFor(1, 3, p, KANE, false));
         hunt.open(id);
+        vm.startPrank(alice);
+        hunt.mintCard(id, 0);
+        hunt.mintCard(id, 1);
+        vm.stopPrank();
         assertEq(hunt.tokenURI(1), "");
         hunt.setBaseURI("https://wif-api.ballisflat.fun/hunt/cards/");
         assertEq(hunt.tokenURI(2), "https://wif-api.ballisflat.fun/hunt/cards/2");

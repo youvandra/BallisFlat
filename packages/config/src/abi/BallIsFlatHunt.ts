@@ -149,6 +149,25 @@ export const ballIsFlatHuntAbi = [
   },
   {
     type: "function",
+    name: "cardPack",
+    inputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "cardPlayer",
     inputs: [
       {
@@ -220,6 +239,25 @@ export const ballIsFlatHuntAbi = [
   },
   {
     type: "function",
+    name: "drawn",
+    inputs: [
+      {
+        name: "packId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "uint32[]",
+        internalType: "uint32[]",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "getApproved",
     inputs: [
       {
@@ -278,6 +316,62 @@ export const ballIsFlatHuntAbi = [
     ],
     outputs: [],
     stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "mintCard",
+    inputs: [
+      {
+        name: "packId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+      {
+        name: "slot",
+        type: "uint8",
+        internalType: "uint8",
+      },
+    ],
+    outputs: [
+      {
+        name: "cardId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "mintPrice",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "uint128",
+        internalType: "uint128",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "mintedSlots",
+    inputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "uint32",
+        internalType: "uint32",
+      },
+    ],
+    stateMutability: "view",
   },
   {
     type: "function",
@@ -488,9 +582,9 @@ export const ballIsFlatHuntAbi = [
             internalType: "uint64",
           },
           {
-            name: "winningCard",
-            type: "uint64",
-            internalType: "uint64",
+            name: "winningSlot",
+            type: "uint8",
+            internalType: "uint8",
           },
           {
             name: "claimed",
@@ -589,6 +683,19 @@ export const ballIsFlatHuntAbi = [
         name: "base",
         type: "string",
         internalType: "string",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "setMintPrice",
+    inputs: [
+      {
+        name: "price",
+        type: "uint128",
+        internalType: "uint128",
       },
     ],
     outputs: [],
@@ -852,6 +959,62 @@ export const ballIsFlatHuntAbi = [
   },
   {
     type: "event",
+    name: "CardMinted",
+    inputs: [
+      {
+        name: "cardId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "packId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "owner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "slot",
+        type: "uint8",
+        indexed: false,
+        internalType: "uint8",
+      },
+      {
+        name: "playerId",
+        type: "uint32",
+        indexed: false,
+        internalType: "uint32",
+      },
+      {
+        name: "price",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "MintPriceSet",
+    inputs: [
+      {
+        name: "price",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
     name: "OwnershipTransferred",
     inputs: [
       {
@@ -932,12 +1095,6 @@ export const ballIsFlatHuntAbi = [
         name: "round",
         type: "uint256",
         indexed: true,
-        internalType: "uint256",
-      },
-      {
-        name: "firstCardId",
-        type: "uint256",
-        indexed: false,
         internalType: "uint256",
       },
       {
@@ -1091,10 +1248,10 @@ export const ballIsFlatHuntAbi = [
         internalType: "address",
       },
       {
-        name: "cardId",
-        type: "uint256",
+        name: "slot",
+        type: "uint8",
         indexed: false,
-        internalType: "uint256",
+        internalType: "uint8",
       },
       {
         name: "prize",
@@ -1150,6 +1307,11 @@ export const ballIsFlatHuntAbi = [
   },
   {
     type: "error",
+    name: "AlreadyMinted",
+    inputs: [],
+  },
+  {
+    type: "error",
     name: "AlreadyOpened",
     inputs: [],
   },
@@ -1166,6 +1328,11 @@ export const ballIsFlatHuntAbi = [
   {
     type: "error",
     name: "BadPool",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "BadSlot",
     inputs: [],
   },
   {
@@ -1289,6 +1456,16 @@ export const ballIsFlatHuntAbi = [
   {
     type: "error",
     name: "NoOpenRound",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "NotBuyer",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "NotOpened",
     inputs: [],
   },
   {
