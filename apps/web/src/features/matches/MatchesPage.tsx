@@ -11,9 +11,9 @@ import { Notice } from "../../components/ui/Notice";
 import { TextButton } from "../../components/ui/TextButton";
 import { useNow } from "../../hooks/use-now";
 import { matchArtUrl, useCoverArtReady } from "../../lib/art";
-import { formatCountdown, formatKickoff, formatWif, surname } from "../../lib/format";
+import { formatCountdown, formatKickoff, formatKickoffShort, formatWif, surname } from "../../lib/format";
 import { facts } from "../../lib/game/facts";
-import { competitionOf, matchdayLabel, matchName, playerOf, shownKickoff } from "../../lib/game/fixtures";
+import { matchdayLabel, matchName, playerOf, shownKickoff } from "../../lib/game/fixtures";
 import { useOpenedSet } from "../../lib/game/opened";
 import { type BinderCard, type MatchView, useAccount, useBoard, useMyCards } from "../../lib/game/queries";
 import { type CardStatus, cardStatus, matchPhase } from "../../lib/game/status";
@@ -24,7 +24,6 @@ const loud: ReadonlySet<CardStatus> = new Set(["Sealed", "Joined", "Claim", "Ref
 /** Open matches lead the grid, settled ones trail it. */
 const phaseOrder = { Open: 0, Live: 1, Settled: 2 } as const;
 /** Competitions read as categories: "UEFA Nations League 2026-27" is "Nations League". */
-const categoryOf = (view: MatchView) => competitionOf(view.fixture).replace(/^UEFA\s+/, "");
 /** Matchday 5 is Pink, Matchday 6 cyan and the warm-up Note, exactly like the Framer Discipline Key. */
 const chipTone = (day: string) => {
   if (day === "Warm-up") return "bg-note";
@@ -185,7 +184,7 @@ export function MatchesPage() {
                           {status}
                         </Badge>
                       }
-                      kicker={`${matchdayLabel(view.fixture)} · ${categoryOf(view)}`}
+                      kicker={`${matchdayLabel(view.fixture)} · ${formatKickoffShort(shownKickoff(view.fixture, view.info.kickoff))}`}
                       title={matchName(view.fixture)}
                       headline={`Pot ${formatWif(view.info.pot)} $WIF`}
                       rows={[
@@ -213,11 +212,11 @@ export function MatchesPage() {
       <div className="playmat-col col-side hide-tablet">
         <Zone label="Next Kickoff" className="items-center px-4.5 pt-7.5 pb-4.5">
           {next ? (
-            <div className="h-full min-h-0 w-full max-tab:h-110">
+            <div className="aspect-sleeve max-h-full w-full max-w-70 max-tab:h-110">
               <SummonCard
-                title="Pick a player"
+                title={matchName(next.fixture)}
                 cost={`${formatWif(facts.price)} $WIF`}
-                prompt="Tap to flip"
+                prompt={`Picks close in ${formatCountdown(next.info.kickoff - now)}`}
                 heading={matchName(next.fixture)}
                 rows={`Kickoff:${formatKickoff(kickoff)}\nCloses in:${formatCountdown(next.info.kickoff - now)}\nPot:${formatWif(next.info.pot)} $WIF\nCards:${next.info.cards}`}
                 cta="Pick a Player"

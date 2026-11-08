@@ -84,6 +84,18 @@ export function formatKickoff(unixSeconds: number): string {
   return zone ? `${kickoffFormat.format(date)} ${zone}` : kickoffFormat.format(date);
 }
 
+const shortKickoffFormat = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** "12 Nov, 19:45": a kickoff short enough for a card's kicker line, in the viewer's time. */
+export function formatKickoffShort(unixSeconds: number): string {
+  return shortKickoffFormat.format(new Date(unixSeconds * 1000));
+}
+
 export function formatDay(unixSeconds: number): string {
   return dayFormat.format(new Date(unixSeconds * 1000));
 }
