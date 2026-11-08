@@ -45,8 +45,9 @@ takes the squad and kickoff from the API and links the fixture to its new match 
 
 ## If something goes wrong
 - Wrong squad before listing: fix the JSON and send it again (step 2).
-- Wrong squad after listing, before kickoff: the contract's `setPlayers` changes it from the owner wallet; there
-  is no /ops button for it yet, so ask Claude. The API refuses to replace a listed fixture.
+- Wrong squad after listing, before kickoff: /ops > Fixtures > "Listed, before kickoff", edit the lines, press
+  **Update Squad on Chain** (saves to the API, then `setPlayers` from the owner wallet). A player who already has
+  cards cannot be removed: the API refuses the whole change.
 - The settler logs `NEEDS A HUMAN` when a match is postponed. Cards of a voided match refund at their price.
 - Match postponed or abandoned: **Void Match** in /ops > Matches.
 - Top-rated player missing from the squad: the settler logs `NEEDS A HUMAN`; the settler wallet proposes by
