@@ -75,6 +75,11 @@ export function ensureOffchain(): Promise<void> {
       primary key (fixture_slug, player_id)
     )`;
     await sql`create index if not exists fixture_kickoff_idx on app.fixture (kickoff)`;
+    await sql`create table if not exists app.hunt_allowlist (
+      root text not null,
+      wallet text not null,
+      primary key (root, wallet)
+    )`;
     const [row] = await sql<{ count: string }[]>`select count(*)::text as count from app.fixture`;
     if (row?.count === "0") await seed();
   })();
@@ -261,4 +266,25 @@ export class AdminError extends Error {
   ) {
     super(message);
   }
+}
+
+// ---------- Hunt allowlists ----------
+
+/** Stores a free-pack allowlist under its merkle root (idempotent: the same list gives the same root). */
+export async function saveAllowlist(root: string, wallets: readonly string[]): Promise<void> {
+  await ensureOffchain();
+  const rows = wallets.map((wallet) => ({ root: root.toLowerCase(), wallet }));
+  await sql.begin(async (tx) => {
+    for (let i = 0; i < rows.length; i += 1000) {
+      await tx`insert into app.hunt_allowlist ${tx(rows.slice(i, i + 1000))} on conflict do nothing`;
+    }
+  });
+}
+
+/** Every wallet on the list with `root`, checksummed as stored; empty when the root is unknown. */
+export async function allowlistOf(root: string): Promise<string[]> {
+  await ensureOffchain();
+  const rows = await sql<{ wallet: string }[]>`
+    select wallet from app.hunt_allowlist where root = ${root.toLowerCase()}`;
+  return rows.map((row) => row.wallet);
 }

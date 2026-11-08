@@ -4,6 +4,7 @@
 
 import { db } from "ponder:api";
 import schema from "ponder:schema";
+import { allowProof, allowRoot, parseAllowlist } from "@app/core/allowlist";
 import { squadProof } from "@app/core/squad";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -16,6 +17,7 @@ import { huntCardView } from "./hunt";
 import { type CardView, cardSvg, huntCardSvg, huntMetadataJson, metadataJson } from "./metadata";
 import {
   AdminError,
+  allowlistOf,
   type FixtureInput,
   type FixtureRow,
   fixtureByMatchId,
@@ -23,6 +25,7 @@ import {
   linkFixture,
   listFixtures,
   playerById,
+  saveAllowlist,
   squadOf,
   teams,
   upsertFixture,
@@ -343,6 +346,19 @@ app.get("/hunt/cards/:id", async (c) => {
   return json(huntMetadataJson(view, publicUrl, appUrl), 200, 60);
 });
 
+/** A wallet's proof for a free-pack allowlist (root as set on chain with setTier). */
+app.get("/api/hunt/allowlist/:root/:wallet", async (c) => {
+  const root = c.req.param("root");
+  const wallet = c.req.param("wallet");
+  if (!/^0x[0-9a-fA-F]{64}$/.test(root)) return fail(400, "bad root");
+  if (!isAddress(wallet, { strict: false })) return fail(400, "bad address");
+  const wallets = await allowlistOf(root);
+  if (wallets.length === 0) return fail(404, "unknown allowlist");
+  const proof = allowProof(wallets, wallet);
+  if (!proof) return fail(404, "not on this allowlist");
+  return json({ root, wallet: getAddress(wallet), proof }, 200, 30);
+});
+
 app.get("/collection", () =>
   json(
     {
@@ -384,6 +400,20 @@ app.put("/api/admin/fixtures/:slug", async (c) => {
   if (Number.isNaN(Date.parse(body.kickoff))) throw new AdminError(400, "kickoff must be ISO 8601");
   if (!Array.isArray(body.players) || body.players.length < 2) throw new AdminError(400, "squad is empty");
   return json(await upsertFixture(body), 201);
+});
+
+/** Stores a Hunt free-pack allowlist and returns its merkle root for setTier. */
+app.post("/api/admin/hunt/allowlist", async (c) => {
+  requireAdmin(c.req.header("authorization"));
+  const body = (await c.req.json()) as { wallets?: unknown };
+  if (!Array.isArray(body.wallets)) throw new AdminError(400, "wallets must be a list of addresses");
+  const { wallets, invalid } = parseAllowlist(body.wallets.map(String).join("\n"));
+  if (invalid.length > 0) throw new AdminError(400, `not addresses: ${invalid.slice(0, 5).join(", ")}`);
+  if (wallets.length === 0) throw new AdminError(400, "empty allowlist");
+  if (wallets.length > 50_000) throw new AdminError(400, "at most 50,000 wallets per list");
+  const root = allowRoot(wallets);
+  await saveAllowlist(root, wallets);
+  return json({ root, count: wallets.length }, 201);
 });
 
 /** The exact arguments for listMatches: the admin panel sends them from the owner's wallet. */

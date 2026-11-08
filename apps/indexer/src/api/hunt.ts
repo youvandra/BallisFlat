@@ -1,6 +1,6 @@
 // Hunt cards are read straight from the BallIsFlatHunt contract: the indexer does not track Hunt, and a card
 // is a handful of view calls. What a card is (player, round, pack, tier) never changes once minted, so it is
-// cached; the round's state (claimed, paid) is read fresh on every request.
+// cached; whether its find was claimed or paid is read fresh on every request.
 import { ballIsFlatHuntAbi } from "@app/config/abi/BallIsFlatHunt";
 import { hunt } from "@app/config/constants";
 import { networks } from "@app/config/deployments";
@@ -60,6 +60,9 @@ async function fixedPart(tokenId: bigint): Promise<Fixed | null> {
 export async function huntCardView(tokenId: bigint): Promise<HuntCardView | null> {
   const base = await fixedPart(tokenId);
   if (!base || !contract) return null;
-  const r = await client.readContract({ ...contract, functionName: "round", args: [BigInt(base.round)] });
-  return { ...base, claimed: r.claimed, paid: r.paid };
+  if (!base.wanted) return { ...base, claimed: false, paid: false };
+  // Cards do not record their slot; a pack holding two wanted cards shows a find as soon as either is claimed.
+  const finds = await client.readContract({ ...contract, functionName: "finds", args: [BigInt(base.round)] });
+  const mine = finds.filter((find) => find.packId === base.packId);
+  return { ...base, claimed: mine.some((find) => find.claimed), paid: mine.some((find) => find.paid) };
 }
