@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./allowlist": "./src/allowlist.ts",
     "./errors": "./src/errors.ts",
     "./format": "./src/format.ts",
     "./payout": "./src/payout.ts",

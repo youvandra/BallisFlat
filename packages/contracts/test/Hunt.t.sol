@@ -262,6 +262,20 @@ contract HuntTest is Test {
         _buy(stranger, GOLD); // other tiers stay open to anyone
     }
 
+    /// Cross-checks the TypeScript tree in packages/core/src/allowlist.ts (same vector in allowlist.test.ts).
+    function test_free_silver_with_the_core_allowlist_vector() public {
+        _start(1, 100);
+        bytes32 root = 0x03e77b9c5c125fe5291407762aeb940d2671c1f85bb63af2a6fbcda457c08889;
+        hunt.setTier(SILVER, BallIsFlatHunt.Tier({price: 0, cards: 3, allowRoot: root}));
+        bytes32[] memory proof = new bytes32[](2);
+        proof[0] = 0x7740b371745000923b2b7cb0f43a638c71ba9d6a6f760f879e55fb1f075a434c;
+        proof[1] = 0xc7f1a6a03dd2a5a7b659fd4236187d678cb912ad644a3bc283783bd5d6f227a9;
+        address listed = address(0xA11cE);
+        vm.prank(listed);
+        hunt.buy(SILVER, proof);
+        assertTrue(hunt.allowUsed(1, SILVER, listed));
+    }
+
     // ------------------------------------------------------------------ opening
 
     function test_open_waits_for_the_reveal_block() public {
