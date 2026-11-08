@@ -109,7 +109,12 @@ export function LandingPage() {
       </div>
 
       <div className="playmat-col col-fill phone-first">
-        <Zone label="Field" field className="items-center justify-center max-tab:h-140">
+        <Zone
+          label="Field"
+          field
+          // Phone: the hero fits above the fixed Launch App dock on short screens (never under 440px).
+          className="items-center justify-center max-tab:h-[min(35rem,calc(100dvh-11rem))] max-tab:min-h-110"
+        >
           <div className="mat-art" aria-hidden />
           {field ? (
             <div className="absolute inset-0">

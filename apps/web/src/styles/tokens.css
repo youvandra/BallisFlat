@@ -541,6 +541,19 @@
     text-align: center;
   }
   /* Hunt pack tiers: the foil itself comes from PackRip's packFoil (src/framer), dark type on top. */
+  /* Hunt packs sit three across on every screen; on a phone the tile type steps down to fit. */
+  @media (max-width: 539.98px) {
+    .hunt-packs .pack-tile {
+      gap: 6px;
+      padding: 12px 6px;
+    }
+    .hunt-packs .pack-tile .t-title {
+      font-size: 15px;
+    }
+    .hunt-packs .pack-tile .pack-logo {
+      width: 28px;
+    }
+  }
   .pack-tile[data-tier] {
     color: var(--color-on-ink);
   }
@@ -732,9 +745,19 @@
     gap: 24px 20px;
     align-items: stretch;
   }
+  /* Phone: one column; a portrait tablet (540-809px) fits two, so the board stays short. */
   @media (max-width: 809.98px) {
     .grid-fixtures {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px 14px;
+    }
+  }
+  @media (max-width: 539.98px) {
+    .grid-fixtures {
       grid-template-columns: minmax(0, 1fr);
+    }
+    .grid-fixtures .match-card {
+      min-height: 260px;
     }
   }
   /* Match Card (board): a sleeve that turns over from its Details button (no hover motion). Face = cover art +
@@ -1423,6 +1446,12 @@
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 18px;
   }
+  /* A small phone reads the roadmap one step per row instead of squeezing two. */
+  @media (max-width: 539.98px) {
+    .grid-results {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
   /* Squad grid of Holo Cards: four across at 1280, two on a phone */
   .grid-squad {
     display: grid;
@@ -1435,11 +1464,18 @@
     grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
     gap: 28px 20px;
   }
+  /* Two across on a phone, three on a portrait tablet (540-809px) so the cards keep a card's size. */
   @media (max-width: 809.98px) {
     .grid-squad,
     .grid-binder {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 18px 12px;
+    }
+  }
+  @media (max-width: 539.98px) {
+    .grid-squad,
+    .grid-binder {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 

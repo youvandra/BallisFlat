@@ -235,7 +235,7 @@ function Hunt({ view }: { view: HuntView }) {
             </p>
           </div>
 
-          <ul className="grid grid-cols-1 gap-5 tab:grid-cols-3" aria-label="Packs">
+          <ul className="hunt-packs grid grid-cols-3 gap-3 tab:gap-5" aria-label="Packs">
             {view.tiers.map((tier) => {
               const gated = Boolean(tier.allowRoot);
               const canFree = gated && Boolean(free.data?.proof) && !free.data?.used;
@@ -243,7 +243,7 @@ function Hunt({ view }: { view: HuntView }) {
               return (
                 <li key={tier.id} className="flex flex-col gap-3">
                   <TierPack tier={tier} />
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-2 max-narrow:flex-col max-narrow:gap-0">
                     <p className="t-body-strong num whitespace-nowrap">
                       {tier.price === 0n ? "Free" : `${formatWif(tier.price)} $WIF`}
                     </p>
@@ -252,7 +252,7 @@ function Hunt({ view }: { view: HuntView }) {
                     </p>
                   </div>
                   <Button
-                    className="w-full"
+                    className="w-full whitespace-nowrap max-tab:px-3"
                     variant={tier.id === 2 || canFree ? "primary" : "secondary"}
                     disabled={
                       !isOpen ||
@@ -268,7 +268,7 @@ function Hunt({ view }: { view: HuntView }) {
                     {soldOut
                       ? "Sold Out"
                       : !gated
-                        ? `Buy ${tier.name}`
+                        ? buyLabel(tier.name)
                         : canFree
                           ? `Open Free ${tier.name}`
                           : free.data?.used
@@ -433,6 +433,16 @@ function Hunt({ view }: { view: HuntView }) {
 }
 
 /** A tier's sealed pack: Silver in Ink, Gold in Note, Diamond in cyan over pink. */
+/** "Buy Diamond" on wide screens; a phone's three-across row only has room for "Buy". */
+function buyLabel(name: string) {
+  return (
+    <>
+      {/* Flex drops the space between the spans visually; it stays in the accessible name. */}
+      <span>Buy</span> <span className="max-narrow:sr-only">{name}</span>
+    </>
+  );
+}
+
 function TierPack({ tier }: { tier: HuntTier }) {
   return (
     <span
