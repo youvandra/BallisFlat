@@ -15,7 +15,7 @@ and burn the card to take your share of the pot when your player comes out on to
 [![Chain](https://img.shields.io/badge/Robinhood_Chain-4663-ff4fa3?style=flat-square)](packages/config/src/chain.ts)
 [![Token](https://img.shields.io/badge/token-%24WIF-3fe0ff?style=flat-square)](https://dexscreener.com/robinhood/0x71ef4106340f0a3b9c19ec994eef4fc44a1d2513f38faac39d7636b156548c79)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.28-141416?style=flat-square&logo=solidity)](packages/contracts/src/BallIsFlat.sol)
-[![Foundry tests](https://img.shields.io/badge/forge_tests-126_passing-2ea44f?style=flat-square)](packages/contracts/test)
+[![Foundry tests](https://img.shields.io/badge/forge_tests-127_passing-2ea44f?style=flat-square)](packages/contracts/test)
 [![E2E](https://img.shields.io/badge/e2e-28_passing-2ea44f?style=flat-square)](e2e)
 [![Hackathon](https://img.shields.io/badge/world_is_flat-hackathon_entry-ffe800?style=flat-square)](https://worldisflat.fun/build)
 
@@ -273,7 +273,7 @@ Then point the app at it with `VITE_API_URL=http://localhost:42069`. Every varia
 
 | Suite | Count | Covers |
 |---|---|---|
-| Foundry | 126 tests | Mint, caps, squads, settle, correct, void, finalize, burn, rollover, claim, claim and keep, refund, market, transfer lock, reentrancy, payout conservation fuzz; Hunt decks, tiers, allowlist, reveal window, "wanted cards == winners" fuzz |
+| Foundry | 127 tests | Mint, caps, squads, settle, correct, void, finalize, burn, rollover, claim, claim and keep, refund, market, transfer lock, reentrancy, payout conservation fuzz; Hunt decks, tiers, allowlist, reveal window, "wanted cards == winners" fuzz |
 | Vitest | 76 tests | Payout math, squad and allowlist tree vectors (pinned to Solidity), FotMob settlement on a real match, fixtures, mock client, formatting, leaderboard, card metadata |
 | Playwright | 14 flows × desktop + mobile | Landing, pick and mint, pack opening, binder, sell and cancel, claim, claim and keep, Hunt packs, finds and payouts, free Silver allowlist |
 | Slither 0.11.6 | No defects | Every result reviewed in [`docs/security.md`](docs/security.md), including the Hunt's block-hash draw |

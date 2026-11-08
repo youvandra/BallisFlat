@@ -5,7 +5,7 @@ Scope: `packages/contracts/src/BallIsFlat.sol`, `IBallIsFlat.sol` and `BallIsFla
 
 ## Tests
 
-126 Foundry tests (9 Nov 2026). Earlier summary, still true for BallIsFlat: 99 Foundry tests (unit, fuzz and reentrancy mocks): mint, squad proofs for squads of 1 to 60 players, batch
+127 Foundry tests (9 Nov 2026). Earlier summary, still true for BallIsFlat: 99 Foundry tests (unit, fuzz and reentrancy mocks): mint, squad proofs for squads of 1 to 60 players, batch
 listing, squad updates before kickoff, settle, correct, dispute window, void and refund, finalize with burn and
 rollover, claim, sealed-card market, metadata URIs and ERC-4906 events. The squad tree is pinned to the same
 vector in Solidity and in `packages/core/src/squad.test.ts`.
