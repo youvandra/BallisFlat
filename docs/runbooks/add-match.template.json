@@ -1,0 +1,16 @@
+{
+  "slug": "england-v-wales",
+  "competition": "International Friendly",
+  "matchday": 1,
+  "kickoff": "2027-03-26T19:45:00Z",
+  "home": { "code": "ENG", "name": "England", "colour": "#ffffff" },
+  "away": { "code": "WAL", "name": "Wales", "colour": "#c8102e" },
+  "squadSourceUrl": "https://www.englandfootball.com/articles/2027/Mar/18/england-squad",
+  "squadReadOn": "2027-03-18",
+  "players": [
+    { "side": "home", "number": 1, "name": "Jordan Pickford", "position": "GK" },
+    { "side": "home", "number": 9, "name": "Harry Kane", "position": "FW" },
+    { "side": "away", "number": 1, "name": "Danny Ward", "position": "GK" },
+    { "side": "away", "number": 11, "name": "Brennan Johnson", "position": "FW" }
+  ]
+}
