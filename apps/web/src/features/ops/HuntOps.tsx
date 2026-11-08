@@ -165,7 +165,7 @@ function TierEditor({ tier, open }: { tier: HuntTier; open: boolean }) {
           <label className="t-small flex flex-col gap-1">
             Wallets (paste addresses or a CSV)
             <textarea
-              className="field-input min-h-24 font-mono"
+              className="field-input num min-h-24"
               value={list}
               placeholder="0x…"
               onChange={(event) => setList(event.target.value)}
