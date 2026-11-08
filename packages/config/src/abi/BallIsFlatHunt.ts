@@ -187,6 +187,19 @@ export const ballIsFlatHuntAbi = [
   },
   {
     type: "function",
+    name: "claim",
+    inputs: [
+      {
+        name: "roundId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "closeRound",
     inputs: [],
     outputs: [],
@@ -478,6 +491,11 @@ export const ballIsFlatHuntAbi = [
             name: "winningCard",
             type: "uint64",
             internalType: "uint64",
+          },
+          {
+            name: "claimed",
+            type: "bool",
+            internalType: "bool",
           },
           {
             name: "paid",
@@ -952,6 +970,31 @@ export const ballIsFlatHuntAbi = [
   },
   {
     type: "event",
+    name: "PrizeClaimed",
+    inputs: [
+      {
+        name: "round",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "winner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "prize",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
     name: "PrizePaid",
     inputs: [
       {
@@ -1102,6 +1145,11 @@ export const ballIsFlatHuntAbi = [
   },
   {
     type: "error",
+    name: "AlreadyClaimed",
+    inputs: [],
+  },
+  {
+    type: "error",
     name: "AlreadyOpened",
     inputs: [],
   },
@@ -1241,6 +1289,11 @@ export const ballIsFlatHuntAbi = [
   {
     type: "error",
     name: "NoOpenRound",
+    inputs: [],
+  },
+  {
+    type: "error",
+    name: "NotWinner",
     inputs: [],
   },
   {

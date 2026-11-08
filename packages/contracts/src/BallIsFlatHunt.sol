@@ -51,6 +51,7 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
         uint64 packs;
         uint64 winningPack;
         uint64 winningCard;
+        bool claimed;
         bool paid;
         bytes32 payment;
     }
@@ -97,6 +98,7 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
     event TargetFound(
         uint256 indexed round, uint256 indexed packId, address indexed winner, uint256 cardId, uint256 prize
     );
+    event PrizeClaimed(uint256 indexed round, address indexed winner, uint256 prize);
     event PrizePaid(uint256 indexed round, address indexed winner, uint256 prize, bytes32 payment);
     event TreasurySet(address treasury);
     event Paused(bool paused);
@@ -114,6 +116,8 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
     error TooEarly();
     error NotWon();
     error AlreadyPaid();
+    error NotWinner();
+    error AlreadyClaimed();
     error CardBound();
 
     constructor(address wif_, address treasury_, uint16 burnBps_, Tier[TIERS] memory tiers_)
@@ -253,6 +257,17 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
             r.winningCard = uint64(foundCard);
             emit TargetFound(p.round, packId, p.buyer, foundCard, r.prize);
         }
+    }
+
+    /// @notice The winner asks the team for the prize of `roundId`. It moves no funds: it puts the round in the
+    ///         team's payout queue, and `markPaid` records the transfer once it is sent.
+    function claim(uint256 roundId) external {
+        Round storage r = _rounds[roundId];
+        if (r.status != Status.Won) revert NotWon();
+        if (msg.sender != r.winner) revert NotWinner();
+        if (r.claimed) revert AlreadyClaimed();
+        r.claimed = true;
+        emit PrizeClaimed(roundId, msg.sender, r.prize);
     }
 
     // ------------------------------------------------------------------ views

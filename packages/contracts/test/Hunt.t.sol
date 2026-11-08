@@ -269,6 +269,16 @@ contract HuntTest is Test {
         vm.expectRevert(BallIsFlatHunt.NoOpenRound.selector);
         hunt.buy(SILVER);
 
+        vm.prank(bob);
+        vm.expectRevert(BallIsFlatHunt.NotWinner.selector);
+        hunt.claim(1);
+        vm.prank(alice);
+        hunt.claim(1);
+        assertTrue(hunt.round(1).claimed);
+        vm.prank(alice);
+        vm.expectRevert(BallIsFlatHunt.AlreadyClaimed.selector);
+        hunt.claim(1);
+
         bytes32 payment = keccak256("prize transfer");
         hunt.markPaid(1, payment);
         r = hunt.round(1);
@@ -327,6 +337,8 @@ contract HuntTest is Test {
         hunt.closeRound();
         vm.expectRevert(BallIsFlatHunt.NotWon.selector);
         hunt.markPaid(1, bytes32(uint256(1)));
+        vm.expectRevert(BallIsFlatHunt.NotWon.selector);
+        hunt.claim(1);
         hunt.startRound(KANE, PRIZE, _pool(20));
         assertEq(hunt.currentRound(), 2);
     }
