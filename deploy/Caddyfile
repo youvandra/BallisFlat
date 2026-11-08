@@ -2,15 +2,10 @@
 # ballisflat.fun is the Ball is Flat profile page; each hackathon edition is its own app on its own subdomain
 # (wif = $WIF on Robinhood Chain; near comes later), so one edition can change without touching the other.
 
-ballisflat.fun {
-	root * /srv/ballisflat/site
-	encode zstd gzip
-	try_files {path} {path}.html /index.html
-	file_server
-}
-
-www.ballisflat.fun {
-	redir https://ballisflat.fun{uri} permanent
+# Until the profile page exists, the root sends visitors to the $WIF edition (302, so browsers do not cache it).
+# Profile page later: root * /srv/ballisflat/site, encode zstd gzip, try_files {path} {path}.html /index.html, file_server.
+ballisflat.fun, www.ballisflat.fun {
+	redir https://wif.ballisflat.fun{uri} 302
 }
 
 wif.ballisflat.fun {
