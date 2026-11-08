@@ -115,6 +115,26 @@ const particles = new Set([
   "el",
 ]);
 
+/**
+ * Card names for one squad: the surname, or "J. Bellingham" where two players in the list share one, so
+ * the grid never shows the same name twice.
+ */
+export function cardNames(players: readonly { id: number; name: string }[]): Map<number, string> {
+  const counts = new Map<string, number>();
+  for (const player of players) {
+    const last = surname(player.name).toLowerCase();
+    counts.set(last, (counts.get(last) ?? 0) + 1);
+  }
+  return new Map(
+    players.map((player) => {
+      const last = surname(player.name);
+      const shared = (counts.get(last.toLowerCase()) ?? 0) > 1;
+      const initial = player.name.trim()[0];
+      return [player.id, shared && initial ? `${initial}. ${last}` : last];
+    }),
+  );
+}
+
 /** The name printed big on a card: the last name, keeping particles ("van Dijk", "de Jong"). */
 export function surname(name: string): string {
   const parts = name.trim().split(/\s+/);

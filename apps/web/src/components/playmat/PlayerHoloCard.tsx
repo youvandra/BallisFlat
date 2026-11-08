@@ -34,6 +34,8 @@ type Props = {
   footer?: ReactNode;
   /** The squad grid's tile: surname, the big number and the footer only. */
   compact?: boolean;
+  /** The big name when the surname alone is ambiguous (two Bellinghams); defaults to the surname. */
+  displayName?: string;
   className?: string;
 };
 
@@ -81,6 +83,7 @@ export function PlayerHoloCard({
   footer,
   backAction,
   compact = false,
+  displayName,
   className = "",
 }: Props) {
   const results = back?.results ?? [];
@@ -88,7 +91,7 @@ export function PlayerHoloCard({
   return (
     <div className={`aspect-card w-full ${className}`}>
       <HoloCard
-        name={surname(player.name)}
+        name={displayName ?? surname(player.name)}
         subName={compact ? "" : player.name}
         footer={footer}
         number={compact ? "" : (number ?? `No. ${String(player.number).padStart(2, "0")}`)}

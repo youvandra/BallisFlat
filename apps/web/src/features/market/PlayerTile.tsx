@@ -7,6 +7,8 @@ import type { PlayerLine } from "../../lib/game/queries";
 
 type Props = {
   line: PlayerLine;
+  /** The big name on the card ("J. Bellingham" when the squad has two); the surname by default. */
+  name?: string;
   team: Team;
   tone: "default" | "winner" | "dim";
   showMultiple: boolean;
@@ -20,7 +22,7 @@ type Props = {
  * One player in the squad grid, kept to what a pick needs: the surname, the shirt number big in the middle,
  * "×N if he wins" and the share of picks. The full name, position and team are in the confirm sheet.
  */
-export function PlayerTile({ line, team, tone, showMultiple: open, isMine, soldOut, onPick }: Props) {
+export function PlayerTile({ line, name, team, tone, showMultiple: open, isMine, soldOut, onPick }: Props) {
   const { player, cardsOn, multiple, pickShare } = line;
   // A sold-out player has no payout to offer a new card; your own card on him still opens.
   const showMultiple = open && !soldOut;
@@ -77,6 +79,7 @@ export function PlayerTile({ line, team, tone, showMultiple: open, isMine, soldO
         label=""
         footer={footer}
         compact
+        displayName={name}
       />
       {isMine ? <PickBadge className="absolute -top-2.5 left-1/2 z-10 -translate-x-1/2" /> : null}
     </button>

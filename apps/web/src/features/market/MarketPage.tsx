@@ -15,7 +15,7 @@ import { TextButton } from "../../components/ui/TextButton";
 import { Toast } from "../../components/ui/Toast";
 import { useNow } from "../../hooks/use-now";
 import { matchArtUrl, useCoverArtReady } from "../../lib/art";
-import { formatCountdown, formatKickoff, formatWif } from "../../lib/format";
+import { cardNames, formatCountdown, formatKickoff, formatWif } from "../../lib/format";
 import { fixtureBySlug, matchName, shownKickoff } from "../../lib/game/fixtures";
 import { type MarketView, type PlayerLine, useAccount, useListings, useMarket } from "../../lib/game/queries";
 import type { Listing, MatchState } from "../../lib/game/types";
@@ -138,6 +138,7 @@ export function MarketPage() {
     () => (market.data?.lines ?? []).filter((line) => line.player.side === side).sort(comparators[sort]),
     [market.data, side, sort],
   );
+  const names = useMemo(() => cardNames(lines.map((line) => line.player)), [lines]);
 
   if (!fixture) {
     return (
@@ -311,6 +312,7 @@ export function MarketPage() {
                         <li key={line.player.id}>
                           <PlayerTile
                             line={line}
+                            name={names.get(line.player.id)}
                             team={team}
                             showMultiple={isOpen}
                             isMine={held.data?.playerId === line.player.id}
