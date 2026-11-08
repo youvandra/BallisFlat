@@ -254,6 +254,61 @@ export async function upsertFixture(input: FixtureInput): Promise<{ slug: string
   return { slug: input.slug, created };
 }
 
+export type SquadInput = FixtureInput["players"];
+
+/**
+ * Replaces the squad of a fixture already listed on chain (the owner then sends setPlayers). Rows of players
+ * still on the on-chain squad (`onchainIds`) are kept until the chain update is indexed: the API only ever
+ * shows the on-chain squad, so nobody disappears from the board between the two steps. Returns the new ids.
+ */
+export async function replaceListedSquad(
+  slug: string,
+  players: SquadInput,
+  onchainIds: readonly number[],
+  /** Players who already have cards: dropping one rolls the whole change back. */
+  mustStay: readonly number[] = [],
+): Promise<{ playerIds: number[]; created: number }> {
+  await ensureOffchain();
+  let created = 0;
+  const ids: number[] = [];
+  await sql.begin(async (tx) => {
+    const [fixture] = await tx<{ home_code: string; away_code: string; match_id: string | null }[]>`
+      select home_code, away_code, match_id::text from app.fixture where slug = ${slug} for update`;
+    if (!fixture) throw new AdminError(404, "no such fixture");
+    if (!fixture.match_id) throw new AdminError(409, "not listed yet: edit the fixture instead");
+    for (const p of players) {
+      const teamCode = p.side === "home" ? fixture.home_code : fixture.away_code;
+      const [found] = await tx<{ id: number }[]>`
+        select id from app.player where team_code = ${teamCode} and name = ${p.name}`;
+      let person = found;
+      if (!person) {
+        [person] = await tx<{ id: number }[]>`
+          insert into app.player (id, team_code, name, position)
+          values ((select coalesce(max(id), 0) + 1 from app.player), ${teamCode}, ${p.name}, ${p.position})
+          returning id`;
+        created++;
+      }
+      if (!person) throw new AdminError(409, `could not create ${p.name}`);
+      ids.push(person.id);
+      await tx`insert into app.fixture_player ${tx({
+        fixture_slug: slug,
+        player_id: person.id,
+        number: p.number,
+        side: p.side,
+        position: p.position,
+      })} on conflict (fixture_slug, player_id) do update set number = excluded.number,
+        side = excluded.side, position = excluded.position`;
+    }
+    const dropped = mustStay.filter((id) => !ids.includes(id));
+    if (dropped.length > 0) {
+      throw new AdminError(409, `players with cards cannot leave the squad: ids ${dropped.join(", ")}`);
+    }
+    const keep = [...new Set([...ids, ...onchainIds])];
+    await tx`delete from app.fixture_player where fixture_slug = ${slug} and not (player_id = any(${keep}))`;
+  });
+  return { playerIds: [...new Set(ids)].sort((a, b) => a - b), created };
+}
+
 export async function linkFixture(slug: string, matchId: bigint) {
   await ensureOffchain();
   await sql`update app.fixture set match_id = ${matchId.toString()} where slug = ${slug}`;

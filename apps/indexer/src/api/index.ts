@@ -25,6 +25,7 @@ import {
   linkFixture,
   listFixtures,
   playerById,
+  replaceListedSquad,
   saveAllowlist,
   squadOf,
   teams,
@@ -427,6 +428,30 @@ app.get("/api/admin/fixtures/:slug/listing", async (c) => {
     kickoff: Math.floor(fixture.kickoff.getTime() / 1000),
     playerIds: [...new Set(squad.map((p) => p.playerId))].sort((a, b) => a - b),
   });
+});
+
+/**
+ * Replaces the squad of a listed match before kickoff and returns the ids for setPlayers (owner wallet).
+ * Refuses to drop a player who already has cards: those cards could never win.
+ */
+app.put("/api/admin/fixtures/:slug/squad", async (c) => {
+  requireAdmin(c.req.header("authorization"));
+  const fixture = await getFixture(c.req.param("slug"));
+  if (!fixture?.matchId) throw new AdminError(409, "fixture is not listed on chain");
+  const [row] = await db
+    .select()
+    .from(schema.match)
+    .where(eq(schema.match.id, BigInt(fixture.matchId)));
+  if (!row) throw new AdminError(404, "match not indexed yet");
+  if (Number(row.kickoff) <= Math.floor(Date.now() / 1000)) throw new AdminError(409, "kickoff has passed");
+  const { players } = (await c.req.json()) as { players: FixtureInput["players"] };
+  if (!Array.isArray(players) || players.length < 2) throw new AdminError(400, "squad is empty");
+  const sides = new Set(players.map((p) => p.side));
+  if (!sides.has("home") || !sides.has("away")) throw new AdminError(400, "both teams need players");
+  const picks = await db.select().from(schema.pick).where(eq(schema.pick.matchId, row.id));
+  const withCards = picks.filter((p) => p.cards > 0).map((p) => p.playerId);
+  const result = await replaceListedSquad(fixture.slug, players, row.playerIds, withCards);
+  return json({ slug: fixture.slug, matchId: fixture.matchId, ...result });
 });
 
 /** Links a fixture to the match the owner just listed, once the indexer has it and the squads agree. */
