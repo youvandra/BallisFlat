@@ -123,7 +123,7 @@ function Ops() {
   const board = useBoard();
   const hunt = useHunt();
   const [tab, setTab] = useState<Tab>("matches");
-  const unpaid = (hunt.data?.history ?? []).filter((r) => r.status === "Won" && !r.paid).length;
+  const unpaid = (hunt.data?.history ?? []).flatMap((r) => r.finds).filter((find) => !find.paid).length;
   const toSettle = (board.data ?? []).filter(
     (view) => view.state === "Locked" || view.state === "Proposed",
   ).length;

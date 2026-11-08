@@ -1,7 +1,8 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
 // The Hunt against the mock chain: a pack is bought, drawn one block later, torn, and its cards are dealt
-// into the binder. Each test starts from the mock seed (Harry Kane wanted, 10,000 $WIF prize).
+// into the binder. Each test starts from the mock seed (three Harry Kane cards in a 1,000-card deck,
+// 10,000 $WIF prize each).
 
 async function connect(page: Page) {
   await page
@@ -13,11 +14,11 @@ async function connect(page: Page) {
   await expect(sheet).toBeHidden();
 }
 
-async function buyAndTear(page: Page, tier: "silver" | "gold" | "diamond"): Promise<Locator> {
+async function buyAndTear(page: Page, tier: "silver" | "gold" | "diamond", free = false): Promise<Locator> {
   await page.getByTestId(`buy-${tier}`).click();
   // The page blurs behind the stage: wallet steps first, then the pack large in the middle.
   const stage = page.getByRole("dialog", { name: "Your pack" });
-  await expect(stage.getByText(/^Approve \$WIF/)).toBeVisible();
+  if (!free) await expect(stage.getByText(/^Approve \$WIF/)).toBeVisible();
   await expect(stage.getByTestId("hunt-pack")).toBeVisible({ timeout: 15_000 });
   await stage.getByRole("button", { name: "Drag across the top to open" }).focus();
   await page.keyboard.press("Enter");
@@ -31,6 +32,7 @@ test("buy a Silver pack, tear it, mint the one card you want; only that card rea
   await page.goto("/hunt");
   await expect(page.getByRole("heading", { name: "Find Kane" })).toBeVisible();
   await expect(page.getByTestId("hunt-prize")).toHaveText("10,000");
+  await expect(page.getByTestId("hunt-wanted-left")).toHaveText("3 of 3");
 
   await expect(page.getByTestId("connect-inline")).toBeVisible();
   await expect(page.getByTestId("buy-silver")).toBeDisabled();
@@ -63,7 +65,9 @@ test("buy a Silver pack, tear it, mint the one card you want; only that card rea
   await expect(page.getByTestId("hunt-shelf").locator("li")).toHaveCount(1);
 });
 
-test("a pack that finds the wanted player wins; admin records the payment", async ({ page }) => {
+test("a pack that finds a wanted card wins its prize; the deck stays open; admin records the payment", async ({
+  page,
+}) => {
   await page.goto("/ops");
   await connect(page);
   await page.getByRole("tab", { name: /^Hunt/ }).click();
@@ -74,7 +78,8 @@ test("a pack that finds the wanted player wins; admin records the payment", asyn
   await expect(stage.getByText("You found Kane")).toBeVisible();
   await stage.getByRole("button", { name: "Close", exact: true }).last().click();
   await expect(page.getByTestId("hunt-win")).toContainText("10,000");
-  await expect(page.getByTestId("buy-gold")).toBeDisabled();
+  await expect(page.getByTestId("hunt-wanted-left")).toHaveText("2 of 3");
+  await expect(page.getByTestId("buy-gold")).toBeEnabled();
   await page.getByTestId("hunt-win").getByTestId("hunt-claim").click();
   await expect(page.getByTestId("hunt-win")).toContainText("Claimed");
 
@@ -86,4 +91,27 @@ test("a pack that finds the wanted player wins; admin records the payment", asyn
   await payout.getByRole("button", { name: "Mark Paid" }).click();
   await expect(payout).toContainText("Paid");
   await expect(page.getByRole("tab", { name: "Hunt", exact: true })).toBeVisible();
+});
+
+test("a free Silver allowlist gives each listed wallet one pack", async ({ page }) => {
+  await page.goto("/ops");
+  await connect(page);
+  await page.getByRole("tab", { name: /^Hunt/ }).click();
+  const silver = page.getByTestId("tier-editor-0");
+  await silver.getByLabel("Price in $WIF").fill("0");
+  await silver.getByRole("checkbox").check();
+  await silver
+    .getByTestId("tier-allowlist-0")
+    .fill("wallet\n0xba11f1a70000000000000000000000000000fa11\n0x0000000000000000000000000000000000000b0b\n");
+  await expect(silver).toContainText("2 wallets");
+  await page.getByTestId("tier-save-0").click();
+  await expect(silver).toContainText("now free");
+
+  await page.goto("/hunt");
+  await expect(page.getByTestId("buy-silver")).toHaveText("Open Free Silver");
+  const stage = await buyAndTear(page, "silver", true);
+  await expect(stage.getByTestId("hunt-deck-count")).toContainText("1 / 3");
+  await stage.getByRole("button", { name: "Close", exact: true }).last().click();
+  await expect(page.getByTestId("buy-silver")).toHaveText("Free Pack Used");
+  await expect(page.getByTestId("buy-silver")).toBeDisabled();
 });

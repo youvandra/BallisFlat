@@ -1,12 +1,15 @@
 // A simulated Ball is Flat contract that runs in the browser, so every screen is demoable without a
 // wallet or a chain. Rules follow IBallIsFlat; the money math is the shared @app/core/payout.
+import { verifyAllowProof } from "@app/core/allowlist";
 import { burnAmount, claimShare, payPool, saleSplit } from "@app/core/payout";
 import { keccak256, toHex } from "viem";
 import {
   createSeed,
   crowdLedger,
   type MockHunt,
+  type MockHuntFind,
   type MockHuntRound,
+  type MockHuntTier,
   type MockMatch,
   type MockState,
   type MockToken,
@@ -26,6 +29,7 @@ import {
   type HuntRound,
   type HuntStep,
   type HuntTier,
+  type HuntTierSpec,
   type HuntView,
   type LedgerCard,
   type Listing,
@@ -34,6 +38,7 @@ import {
   type MintReceipt,
   type MintStep,
   type OwnedCard,
+  type StartHuntRound,
   type TxReceipt,
 } from "./types";
 
@@ -46,9 +51,11 @@ export interface KeyValueStore {
 export interface MockHuntOptions {
   tiers: readonly HuntTier[];
   burnBps: number;
-  /** Wanted player and posted prize of round 1. */
+  /** Wanted player, prize per wanted card and deck of round 1. */
   target: number;
-  prize: bigint;
+  prizeEach: bigint;
+  winners: number;
+  supply: number;
   /** Strictly ascending player ids round 1 draws from. */
   pool: readonly number[];
   /** Packs the simulated crowd already bought. */
@@ -67,6 +74,16 @@ export interface MockOptions extends Omit<SeedConfig, "now"> {
   /** Simulated confirmation time per transaction step. */
   latencyMs: number;
   clock?: () => number; // unix seconds
+}
+
+function mockTier(spec: HuntTierSpec): MockHuntTier {
+  return { price: spec.price.toString(), cards: spec.cards, allowRoot: spec.allowRoot };
+}
+
+/** Same rules as BallIsFlatHunt._setTier. */
+function assertTier(spec: HuntTierSpec) {
+  if (spec.cards < 1 || spec.cards > 20) throw new GameError("BadTier");
+  if (spec.price === 0n && !spec.allowRoot) throw new GameError("BadTier");
 }
 
 const sum = (values: number[]) => values.reduce((acc, value) => acc + value, 0);
@@ -284,27 +301,34 @@ export class MockGameClient implements GameClient {
   private huntOrNull(): MockHunt | null {
     const options = this.options.hunt;
     if (!options) return null;
-    if (this.state.hunt?.version !== 2) {
+    if (this.state.hunt?.version !== 3) {
+      // The crowd's packs were all Gold and are opened already, none of them found the wanted player.
+      const crowdCards = options.seedPacks * (options.tiers[1]?.cards ?? 7);
       this.state.hunt = {
-        version: 2,
+        version: 3,
         rounds: [
           {
             id: 1,
             target: options.target,
             status: "Open",
-            winner: null,
-            prize: options.prize.toString(),
+            winners: options.winners,
+            found: 0,
+            lost: 0,
+            supply: options.supply,
+            sold: crowdCards,
+            drawn: crowdCards,
+            prizeEach: options.prizeEach.toString(),
             packs: options.seedPacks,
             pool: [...options.pool],
-            winningPack: null,
-            paid: false,
-            payment: null,
+            tiers: options.tiers.map(mockTier),
+            finds: [],
           },
         ],
         allowance: "0",
         nextPack: options.seedPacks + 1,
         nextCard: 1,
         mine: [],
+        allowUsed: [],
       };
       this.save();
     }
@@ -320,18 +344,36 @@ export class MockGameClient implements GameClient {
   }
 
   private huntRoundView(round: MockHuntRound): HuntRound {
+    const names = this.options.hunt?.tiers ?? [];
     return {
       id: round.id,
       target: round.target,
       status: round.status,
-      winner: round.winner,
-      prize: BigInt(round.prize),
+      winners: round.winners,
+      found: round.found,
+      lost: round.lost,
+      supply: round.supply,
+      sold: round.sold,
+      drawn: round.drawn,
       packs: round.packs,
+      prizeEach: BigInt(round.prizeEach),
       poolSize: round.pool.length,
-      winningPack: round.winningPack === null ? null : BigInt(round.winningPack),
-      claimed: Boolean(round.claimed),
-      paid: round.paid,
-      payment: round.payment,
+      tiers: round.tiers.map((tier, id) => ({
+        id,
+        name: names[id]?.name ?? `Tier ${id}`,
+        price: BigInt(tier.price),
+        cards: tier.cards,
+        allowRoot: tier.allowRoot,
+      })),
+      finds: round.finds.map((find, index) => ({
+        index,
+        winner: find.winner,
+        packId: BigInt(find.packId),
+        slot: find.slot,
+        claimed: find.claimed,
+        paid: find.paid,
+        payment: find.payment,
+      })),
     };
   }
 
@@ -357,8 +399,14 @@ export class MockGameClient implements GameClient {
       burnBps: options.burnBps,
       mintPrice: options.mintPrice,
       treasury: options.treasury,
-      tiers: [...options.tiers],
+      tiers: history[0]?.tiers ?? [],
     };
+  }
+
+  async huntAllowUsed(round: number, tier: number, wallet: Address): Promise<boolean> {
+    const hunt = this.huntOrNull();
+    if (!hunt || wallet.toLowerCase() !== this.options.demoWallet.toLowerCase()) return false;
+    return hunt.allowUsed.includes(`${round}:${tier}`);
   }
 
   async huntPacks(wallet: Address): Promise<HuntPack[]> {
@@ -380,30 +428,44 @@ export class MockGameClient implements GameClient {
     }));
   }
 
-  async buyHuntPack(tier: number, onStep: (step: HuntStep) => void): Promise<HuntBuyReceipt> {
-    this.requireWallet();
-    const { hunt, options, round } = this.requireHunt();
-    const spec = options.tiers.find((candidate) => candidate.id === tier);
+  async buyHuntPack(
+    tier: number,
+    onStep: (step: HuntStep) => void,
+    proof: Hash[] = [],
+  ): Promise<HuntBuyReceipt> {
+    const wallet = this.requireWallet();
+    const { hunt, round } = this.requireHunt();
+    const spec = round.tiers[tier];
     if (!spec) throw new GameError("BadTier");
     if (round.status !== "Open") throw new GameError("NoOpenRound");
-    if (BigInt(this.state.wallet.wif) < spec.price) throw new GameError("InsufficientBalance");
-    if (BigInt(hunt.allowance) < spec.price) {
+    if (round.sold + spec.cards > round.supply) throw new GameError("SoldOut");
+    const key = `${round.id}:${tier}`;
+    if (spec.allowRoot) {
+      if (hunt.allowUsed.includes(key)) throw new GameError("AllowUsed");
+      if (!verifyAllowProof(spec.allowRoot, wallet, proof)) throw new GameError("NotListed");
+    }
+    const price = BigInt(spec.price);
+    if (BigInt(this.state.wallet.wif) < price) throw new GameError("InsufficientBalance");
+    if (price > 0n && BigInt(hunt.allowance) < price) {
       onStep("approve");
       await this.send();
-      hunt.allowance = spec.price.toString();
+      hunt.allowance = price.toString();
       this.commit();
     }
     onStep("buy");
     const hash = await this.send();
-    this.state.wallet.wif = (BigInt(this.state.wallet.wif) - spec.price).toString();
-    hunt.allowance = (BigInt(hunt.allowance) - spec.price).toString();
+    this.state.wallet.wif = (BigInt(this.state.wallet.wif) - price).toString();
+    if (price > 0n) hunt.allowance = (BigInt(hunt.allowance) - price).toString();
+    if (spec.allowRoot) hunt.allowUsed.push(key);
     round.packs += 1;
+    round.sold += spec.cards;
     const packId = hunt.nextPack;
     hunt.nextPack += 1;
     hunt.mine.push({
       packId: packId.toString(),
       tier,
       round: round.id,
+      cards: spec.cards,
       opened: false,
       players: [],
       minted: [],
@@ -415,66 +477,98 @@ export class MockGameClient implements GameClient {
   }
 
   async openHuntPack(packId: bigint, onStep: (step: HuntStep) => void): Promise<HuntOpenReceipt> {
-    this.requireWallet();
-    const { hunt, options } = this.requireHunt();
+    const wallet = this.requireWallet();
+    const { hunt } = this.requireHunt();
     const pack = hunt.mine.find((candidate) => candidate.packId === packId.toString());
     if (!pack) throw new GameError("UnknownPack");
     if (pack.opened) throw new GameError("AlreadyOpened");
-    const spec = options.tiers.find((candidate) => candidate.id === pack.tier);
     const round = hunt.rounds.find((candidate) => candidate.id === pack.round);
-    if (!spec || !round) throw new GameError("BadTier");
+    if (!round) throw new GameError("UnknownPack");
+    const cards = pack.cards ?? round.tiers[pack.tier]?.cards ?? 0;
     onStep("seal");
     await wait(this.options.latencyMs);
     onStep("open");
     const hash = await this.send();
+    // Same draw as the contract: each card is wanted with chance (wanted left) / (deck left).
     const seed = keccak256(toHex(`${hash}-${pack.packId}`));
     const players: number[] = [];
-    for (let i = 0; i < spec.cards; i += 1) {
+    let found = false;
+    for (let i = 0; i < cards; i += 1) {
       const roll = BigInt(keccak256(toHex(`${seed}-${i}`)));
-      players.push(round.pool[Number(roll % BigInt(round.pool.length))] as number);
-    }
-    if (hunt.rigged && round.status === "Open") {
-      players[players.length - 1] = round.target;
-      hunt.rigged = false;
+      const wantedLeft = round.winners - round.found - round.lost;
+      const deckLeft = Math.max(1, round.supply - round.drawn);
+      round.drawn += 1;
+      const rigged = hunt.rigged && i === cards - 1;
+      if (wantedLeft > 0 && (rigged || Number(roll % BigInt(deckLeft)) < wantedLeft)) {
+        round.found += 1;
+        round.finds.push({
+          winner: wallet,
+          packId: pack.packId,
+          slot: i,
+          claimed: false,
+          paid: false,
+          payment: null,
+        });
+        players.push(round.target);
+        found = true;
+        if (rigged) hunt.rigged = false;
+        continue;
+      }
+      players.push(round.pool[Number((roll >> 8n) % BigInt(round.pool.length))] as number);
     }
     pack.opened = true;
     pack.players = players;
     pack.minted = players.map(() => null);
-    const found = players.includes(round.target) && round.status === "Open";
-    if (found) {
-      round.status = "Won";
-      round.winner = this.options.demoWallet;
-      round.winningPack = pack.packId;
-      pack.found = true;
-    }
+    pack.found = found;
+    if (round.found + round.lost === round.winners && round.status === "Open") round.status = "Done";
     this.commit();
     return { hash, players, found };
   }
 
-  async startHuntRound(target: number, prize: bigint, pool: number[]): Promise<TxReceipt> {
+  async startHuntRound(input: StartHuntRound): Promise<TxReceipt> {
     this.requireWallet();
     const { hunt, round } = this.requireHunt();
     if (round.status === "Open") throw new GameError("RoundStillOpen");
+    if (input.winners < 1 || input.supply < input.winners) throw new GameError("BadDeck");
+    const pool = input.pool;
     if (
       pool.length < 2 ||
-      !pool.includes(target) ||
+      !pool.includes(input.target) ||
       pool.some((id, i) => i > 0 && id <= (pool[i - 1] ?? 0))
     ) {
       throw new GameError("BadPool");
     }
+    if (input.tiers.length !== 3) throw new GameError("BadTier");
+    input.tiers.forEach(assertTier);
     const hash = await this.send();
     hunt.rounds.push({
       id: round.id + 1,
-      target,
+      target: input.target,
       status: "Open",
-      winner: null,
-      prize: prize.toString(),
+      winners: input.winners,
+      found: 0,
+      lost: 0,
+      supply: input.supply,
+      sold: 0,
+      drawn: 0,
+      prizeEach: input.prizeEach.toString(),
       packs: 0,
-      pool: [...pool],
-      winningPack: null,
-      paid: false,
-      payment: null,
+      pool: pool.filter((id) => id !== input.target),
+      tiers: input.tiers.map(mockTier),
+      finds: [],
     });
+    this.commit();
+    return { hash };
+  }
+
+  async setHuntTier(tier: number, spec: HuntTierSpec): Promise<TxReceipt> {
+    this.requireWallet();
+    const { round } = this.requireHunt();
+    if (tier < 0 || tier > 2) throw new GameError("BadTier");
+    if (round.status !== "Open") throw new GameError("NoOpenRound");
+    assertTier(spec);
+    const hash = await this.send();
+    round.tiers[tier] = mockTier(spec);
     this.commit();
     return { hash };
   }
@@ -517,28 +611,31 @@ export class MockGameClient implements GameClient {
     return { hash, tokenId: BigInt(cardId) };
   }
 
-  async claimHuntPrize(roundId: number): Promise<TxReceipt> {
-    const winner = this.requireWallet();
+  private huntFind(roundId: number, findIndex: number): MockHuntFind {
     const { hunt } = this.requireHunt();
-    const round = hunt.rounds.find((candidate) => candidate.id === roundId);
-    if (round?.status !== "Won") throw new GameError("NotWon");
-    if (round.winner?.toLowerCase() !== winner.toLowerCase()) throw new GameError("NotWinner");
-    if (round.claimed) throw new GameError("AlreadyClaimed");
+    const find = hunt.rounds.find((candidate) => candidate.id === roundId)?.finds[findIndex];
+    if (!find) throw new GameError("UnknownFind");
+    return find;
+  }
+
+  async claimHuntPrize(roundId: number, findIndex: number): Promise<TxReceipt> {
+    const wallet = this.requireWallet();
+    const find = this.huntFind(roundId, findIndex);
+    if (find.winner.toLowerCase() !== wallet.toLowerCase()) throw new GameError("NotWinner");
+    if (find.claimed) throw new GameError("AlreadyClaimed");
     const hash = await this.send();
-    round.claimed = true;
+    find.claimed = true;
     this.commit();
     return { hash };
   }
 
-  async markHuntPaid(roundId: number, payment: Hash): Promise<TxReceipt> {
+  async markHuntPaid(roundId: number, findIndex: number, payment: Hash): Promise<TxReceipt> {
     this.requireWallet();
-    const { hunt } = this.requireHunt();
-    const round = hunt.rounds.find((candidate) => candidate.id === roundId);
-    if (round?.status !== "Won") throw new GameError("NotWon");
-    if (round.paid) throw new GameError("AlreadyPaid");
+    const find = this.huntFind(roundId, findIndex);
+    if (find.paid) throw new GameError("AlreadyPaid");
     const hash = await this.send();
-    round.paid = true;
-    round.payment = payment;
+    find.paid = true;
+    find.payment = payment;
     this.commit();
     return { hash };
   }

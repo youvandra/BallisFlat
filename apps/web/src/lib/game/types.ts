@@ -95,14 +95,33 @@ export interface ClaimReceipt extends TxReceipt {
 
 // ---------- Hunt ----------
 
-export type HuntStatus = "None" | "Open" | "Won" | "Closed";
-export const huntStatuses: readonly HuntStatus[] = ["None", "Open", "Won", "Closed"];
+/** Done = every wanted card in the deck was found (or lost to an expired pack); Closed = ended early. */
+export type HuntStatus = "None" | "Open" | "Done" | "Closed";
+export const huntStatuses: readonly HuntStatus[] = ["None", "Open", "Done", "Closed"];
 
-export interface HuntTier {
-  id: number;
-  name: string;
+export interface HuntTierSpec {
   price: bigint;
   cards: number;
+  /** Merkle root of wallets allowed one pack each; null = anyone. */
+  allowRoot: Hash | null;
+}
+
+export interface HuntTier extends HuntTierSpec {
+  id: number;
+  name: string;
+}
+
+/** One wanted card pulled from the deck. The team pays its prize by transfer, then records it (markPaid). */
+export interface HuntFind {
+  index: number;
+  winner: Address;
+  packId: bigint;
+  slot: number;
+  /** The winner asked for the prize (it is in the team's payout queue). */
+  claimed: boolean;
+  paid: boolean;
+  /** Transaction hash of the prize transfer, once the team recorded it. */
+  payment: Hash | null;
 }
 
 export interface HuntRound {
@@ -110,17 +129,21 @@ export interface HuntRound {
   /** The wanted player's global id. */
   target: number;
   status: HuntStatus;
-  winner: Address | null;
-  /** $WIF the team posted for this round, paid by transfer to the winner. */
-  prize: bigint;
+  /** Wanted cards in the deck. */
+  winners: number;
+  found: number;
+  /** Wanted cards drawn by packs opened after their reveal window (nobody wins them). */
+  lost: number;
+  /** Cards in the deck; packs stop selling when `sold` reaches it. */
+  supply: number;
+  sold: number;
+  drawn: number;
   packs: number;
+  /** $WIF the team posts for each wanted card, paid by transfer to its finder. */
+  prizeEach: bigint;
   poolSize: number;
-  winningPack: bigint | null;
-  /** The winner asked for the prize (it is in the team's payout queue). */
-  claimed: boolean;
-  paid: boolean;
-  /** Transaction hash of the prize transfer, once the team recorded it. */
-  payment: Hash | null;
+  tiers: HuntTier[];
+  finds: HuntFind[];
 }
 
 export interface HuntView {
@@ -133,7 +156,19 @@ export interface HuntView {
   /** $WIF to mint one drawn card (0 = gas only). */
   mintPrice: bigint;
   treasury: Address | null;
+  /** Tiers of the current round (empty without one). */
   tiers: HuntTier[];
+}
+
+export interface StartHuntRound {
+  target: number;
+  prizeEach: bigint;
+  winners: number;
+  supply: number;
+  /** Strictly ascending player ids, including the target. */
+  pool: number[];
+  /** Silver, Gold, Diamond. */
+  tiers: HuntTierSpec[];
 }
 
 export interface HuntPack {
@@ -213,19 +248,23 @@ export interface GameClient {
   // hunt (wanted-player packs)
   huntState(): Promise<HuntView>;
   huntPacks(wallet: Address): Promise<HuntPack[]>;
-  /** Approves $WIF if needed, then buys one pack of `tier`. */
-  buyHuntPack(tier: number, onStep: (step: HuntStep) => void): Promise<HuntBuyReceipt>;
+  /** Approves $WIF if needed, then buys one pack of `tier` (`proof` when the tier has an allowlist). */
+  buyHuntPack(tier: number, onStep: (step: HuntStep) => void, proof?: Hash[]): Promise<HuntBuyReceipt>;
+  /** The wallet already used its one allowlist pack of `tier` in `round`. */
+  huntAllowUsed(round: number, tier: number, wallet: Address): Promise<boolean>;
   /** Waits for the pack's reveal block, then opens it (cards go to the buyer). */
   openHuntPack(packId: bigint, onStep: (step: HuntStep) => void): Promise<HuntOpenReceipt>;
   /** Approves $WIF if the mint has a price, then mints one drawn slot of an opened pack. */
   mintHuntCard(packId: bigint, slot: number, onStep: (step: MintStep) => void): Promise<MintReceipt>;
-  /** The winner asks the team for the round's prize (moves no funds). */
-  claimHuntPrize(round: number): Promise<TxReceipt>;
+  /** The finder asks the team for one find's prize (moves no funds). */
+  claimHuntPrize(round: number, findIndex: number): Promise<TxReceipt>;
   // hunt owner
-  startHuntRound(target: number, prize: bigint, pool: number[]): Promise<TxReceipt>;
+  startHuntRound(input: StartHuntRound): Promise<TxReceipt>;
+  /** Changes one tier of the open round (price, cards, allowlist). */
+  setHuntTier(tier: number, spec: HuntTierSpec): Promise<TxReceipt>;
   closeHuntRound(): Promise<TxReceipt>;
-  /** Records the prize transfer for a won round. */
-  markHuntPaid(round: number, payment: Hash): Promise<TxReceipt>;
+  /** Records the prize transfer for one find. */
+  markHuntPaid(round: number, findIndex: number, payment: Hash): Promise<TxReceipt>;
   /** Subscribes to state changes (mock writes, chain blocks). Returns an unsubscribe function. */
   subscribe(listener: () => void): () => void;
 }

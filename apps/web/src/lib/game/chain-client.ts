@@ -46,6 +46,7 @@ import {
   type HuntPack,
   type HuntRound,
   type HuntStep,
+  type HuntTierSpec,
   type HuntView,
   huntStatuses,
   type LedgerCard,
@@ -56,6 +57,7 @@ import {
   type MintStep,
   matchStates,
   type OwnedCard,
+  type StartHuntRound,
   statuses,
   type TxReceipt,
 } from "./types";
@@ -77,6 +79,12 @@ const contract = { address: contractAddress, abi: ballIsFlatAbi } as const;
 function huntContract() {
   if (!huntAddress) throw new GameError("HuntUnavailable");
   return { address: huntAddress, abi: ballIsFlatHuntAbi } as const;
+}
+
+const zeroHash: Hash = `0x${"0".repeat(64)}`;
+
+function tierArg(spec: HuntTierSpec) {
+  return { price: spec.price, cards: spec.cards, allowRoot: spec.allowRoot ?? zeroHash };
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -381,23 +389,46 @@ export class ChainGameClient implements GameClient {
 
   private async huntRound(id: bigint): Promise<HuntRound> {
     const hunt = huntContract();
-    const [r, pool] = await Promise.all([
+    const [r, pool, finds, tiers] = await Promise.all([
       readContract(config, { ...hunt, functionName: "round", args: [id] }),
       readContract(config, { ...hunt, functionName: "pool", args: [id] }),
+      readContract(config, { ...hunt, functionName: "finds", args: [id] }),
+      Promise.all(
+        huntConfig.tiers.map(async (tier) => {
+          const onChain = await readContract(config, { ...hunt, functionName: "tier", args: [id, tier.id] });
+          return {
+            id: tier.id,
+            name: tier.name,
+            price: onChain.price,
+            cards: onChain.cards,
+            allowRoot: onChain.allowRoot === zeroHash ? null : onChain.allowRoot,
+          };
+        }),
+      ),
     ]);
-    const zeroHash = `0x${"0".repeat(64)}`;
     return {
       id: Number(id),
       target: r.target,
       status: huntStatuses[r.status] ?? "None",
-      winner: r.winner === "0x0000000000000000000000000000000000000000" ? null : r.winner,
-      prize: r.prize,
+      winners: r.winners,
+      found: r.found,
+      lost: r.lost,
+      supply: r.supply,
+      sold: r.sold,
+      drawn: r.drawn,
       packs: Number(r.packs),
+      prizeEach: r.prizeEach,
       poolSize: pool.length,
-      winningPack: r.winningPack === 0n ? null : r.winningPack,
-      claimed: r.claimed,
-      paid: r.paid,
-      payment: r.payment === zeroHash ? null : r.payment,
+      tiers,
+      finds: finds.map((find, index) => ({
+        index,
+        winner: find.winner,
+        packId: find.packId,
+        slot: find.slot,
+        claimed: find.claimed,
+        paid: find.paid,
+        payment: find.payment === zeroHash ? null : find.payment,
+      })),
     };
   }
 
@@ -420,23 +451,27 @@ export class ChainGameClient implements GameClient {
       readContract(config, { ...hunt, functionName: "treasury" }),
       readContract(config, { ...hunt, functionName: "mintPrice" }),
     ]);
-    const tiers = await Promise.all(
-      huntConfig.tiers.map(async (tier) => {
-        const onChain = await readContract(config, { ...hunt, functionName: "tier", args: [tier.id] });
-        return { id: tier.id, name: tier.name, price: onChain.price, cards: onChain.cards };
-      }),
-    );
     const ids = Array.from({ length: Number(current) }, (_, i) => current - BigInt(i));
     const history = await Promise.all(ids.map((id) => this.huntRound(id)));
+    const round = history[0] ?? null;
     return {
       available: true,
-      round: history[0] ?? null,
+      round,
       history,
       burnBps: Number(burnBps),
       mintPrice,
       treasury,
-      tiers,
+      tiers: round?.tiers ?? [],
     };
+  }
+
+  async huntAllowUsed(round: number, tier: number, wallet: Address): Promise<boolean> {
+    if (!huntAddress) return false;
+    return readContract(config, {
+      ...huntContract(),
+      functionName: "allowUsed",
+      args: [BigInt(round), tier, wallet],
+    });
   }
 
   /** Packs bought by `wallet`, from PackBought and PackOpened logs (cards are bound, so this is the binder). */
@@ -504,19 +539,20 @@ export class ChainGameClient implements GameClient {
     });
   }
 
-  buyHuntPack(tier: number, onStep: (step: HuntStep) => void): Promise<HuntBuyReceipt> {
+  buyHuntPack(tier: number, onStep: (step: HuntStep) => void, proof: Hash[] = []): Promise<HuntBuyReceipt> {
     return guard(async () => {
       const hunt = huntContract();
       const current = getAccount(config);
       if (!current.address) throw new GameError("NotConnected");
-      const spec = await readContract(config, { ...hunt, functionName: "tier", args: [tier] });
+      const round = await readContract(config, { ...hunt, functionName: "currentRound" });
+      const spec = await readContract(config, { ...hunt, functionName: "tier", args: [round, tier] });
       const allowance = await readContract(config, {
         address: wifAddress,
         abi: erc20Abi,
         functionName: "allowance",
         args: [current.address, hunt.address],
       });
-      if (allowance < spec.price) {
+      if (spec.price > 0n && allowance < spec.price) {
         onStep("approve");
         const approveHash = await writeContract(config, {
           address: wifAddress,
@@ -531,7 +567,7 @@ export class ChainGameClient implements GameClient {
       const hash = await writeContract(config, {
         ...hunt,
         functionName: "buy",
-        args: [tier],
+        args: [tier, proof],
         chainId: chain.id,
       });
       const receipt = await this.confirm(hash);
@@ -625,7 +661,7 @@ export class ChainGameClient implements GameClient {
   }
 
   private huntWrite(
-    functionName: "startRound" | "closeRound" | "markPaid" | "claim",
+    functionName: "startRound" | "setTier" | "closeRound" | "markPaid" | "claim",
     args: readonly unknown[],
   ) {
     return guard(async () => {
@@ -640,20 +676,31 @@ export class ChainGameClient implements GameClient {
     });
   }
 
-  claimHuntPrize(round: number): Promise<TxReceipt> {
-    return this.huntWrite("claim", [BigInt(round)]);
+  claimHuntPrize(round: number, findIndex: number): Promise<TxReceipt> {
+    return this.huntWrite("claim", [BigInt(round), BigInt(findIndex)]);
   }
 
-  startHuntRound(target: number, prize: bigint, pool: number[]): Promise<TxReceipt> {
-    return this.huntWrite("startRound", [target, prize, pool]);
+  startHuntRound(input: StartHuntRound): Promise<TxReceipt> {
+    return this.huntWrite("startRound", [
+      input.target,
+      input.prizeEach,
+      input.winners,
+      input.supply,
+      input.pool,
+      input.tiers.map(tierArg),
+    ]);
+  }
+
+  setHuntTier(tier: number, spec: HuntTierSpec): Promise<TxReceipt> {
+    return this.huntWrite("setTier", [tier, tierArg(spec)]);
   }
 
   closeHuntRound(): Promise<TxReceipt> {
     return this.huntWrite("closeRound", []);
   }
 
-  markHuntPaid(round: number, payment: Hash): Promise<TxReceipt> {
-    return this.huntWrite("markPaid", [BigInt(round), payment]);
+  markHuntPaid(round: number, findIndex: number, payment: Hash): Promise<TxReceipt> {
+    return this.huntWrite("markPaid", [BigInt(round), BigInt(findIndex), payment]);
   }
 
   // ---------- wallet ----------

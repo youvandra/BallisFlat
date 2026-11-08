@@ -7,16 +7,18 @@ import type { GameClient } from "./types";
 // The demo wallet only exists in mock mode; it is the settler there so /ops works too.
 const demoWallet = "0xba11f1a70000000000000000000000000000fa11" as const;
 
-/** Mock Hunt: round 1 hunts Harry Kane across every listed squad after 46 crowd packs. */
+/** Mock Hunt: round 1 hunts three Harry Kane cards in a 1,000-card deck after 46 crowd packs. */
 function mockHunt() {
   const pool = [
     ...new Set(fixtures.filter((f) => !f.warmUp).flatMap((f) => f.players.map((p) => p.id))),
   ].sort((a, b) => a - b);
   return {
-    tiers: hunt.tiers.map((tier) => ({ ...tier })),
+    tiers: hunt.tiers.map((tier) => ({ ...tier, allowRoot: null })),
     burnBps: hunt.burnBps,
     target: playerIdOf("ENG", "Harry Kane"),
-    prize: hunt.firstPrize,
+    prizeEach: hunt.prizeEach,
+    winners: hunt.winners,
+    supply: hunt.supply,
     pool,
     seedPacks: 46,
     treasury: demoWallet,

@@ -59,6 +59,8 @@ export interface MockHuntPack {
   packId: string;
   tier: number;
   round: number;
+  /** Cards the pack was bought with (tiers can change mid-round). */
+  cards?: number;
   opened: boolean;
   players: number[];
   /** Per slot: minted card id, or null. */
@@ -67,29 +69,49 @@ export interface MockHuntPack {
   boughtAt: number;
 }
 
-export interface MockHuntRound {
-  id: number;
-  target: number;
-  status: "Open" | "Won" | "Closed";
-  winner: Address | null;
-  prize: string;
-  packs: number;
-  pool: number[];
-  winningPack: string | null;
-  claimed?: boolean;
+export interface MockHuntTier {
+  price: string;
+  cards: number;
+  allowRoot: Hash | null;
+}
+
+export interface MockHuntFind {
+  winner: Address;
+  packId: string;
+  slot: number;
+  claimed: boolean;
   paid: boolean;
   payment: Hash | null;
 }
 
+export interface MockHuntRound {
+  id: number;
+  target: number;
+  status: "Open" | "Done" | "Closed";
+  winners: number;
+  found: number;
+  lost: number;
+  supply: number;
+  sold: number;
+  drawn: number;
+  prizeEach: string;
+  packs: number;
+  pool: number[];
+  tiers: MockHuntTier[];
+  finds: MockHuntFind[];
+}
+
 export interface MockHunt {
-  version: 2;
+  version: 3;
   /** Newest last. */
   rounds: MockHuntRound[];
   allowance: string;
   nextPack: number;
   nextCard: number;
   mine: MockHuntPack[];
-  /** Demo only: the next opened pack holds the wanted player. */
+  /** `${round}:${tier}` allowlist packs the demo wallet already took. */
+  allowUsed: string[];
+  /** Demo only: the next opened pack holds a wanted card. */
   rigged?: boolean;
 }
 
