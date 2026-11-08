@@ -1,14 +1,28 @@
 # Contract security
 
-Scope: `packages/contracts/src/BallIsFlat.sol` and `IBallIsFlat.sol`, compiled with solc 0.8.28 (pinned), EVM
+Scope: `packages/contracts/src/BallIsFlat.sol`, `IBallIsFlat.sol` and `BallIsFlatHunt.sol`, compiled with solc 0.8.28 (pinned), EVM
 `cancun`. Robinhood Chain is an Arbitrum Orbit chain, so PUSH0 and the Cancun opcodes are available.
 
 ## Tests
 
-99 Foundry tests (unit, fuzz and reentrancy mocks): mint, squad proofs for squads of 1 to 60 players, batch
+126 Foundry tests (9 Nov 2026). Earlier summary, still true for BallIsFlat: 99 Foundry tests (unit, fuzz and reentrancy mocks): mint, squad proofs for squads of 1 to 60 players, batch
 listing, squad updates before kickoff, settle, correct, dispute window, void and refund, finalize with burn and
 rollover, claim, sealed-card market, metadata URIs and ERC-4906 events. The squad tree is pinned to the same
 vector in Solidity and in `packages/core/src/squad.test.ts`.
+
+## Slither re-run 9 Nov 2026 (Hunt v2 decks + claimAndKeep)
+
+**Slither 0.11.6** (`--exclude-informational --exclude-dependencies`): 19 results, none a defect. New since 7 Nov,
+all in `BallIsFlatHunt`:
+
+| Detector | Verdict |
+|---|---|
+| weak-prng (`_open`, `_drawsWanted`) | Known and accepted: a pack draws from the blockhash of the block after its purchase, unknown when the buyer pays. On Robinhood Chain (Arbitrum Orbit) that hash comes from the sequencer, which could in principle bias it. Hunt holds no funds (pack money goes to the treasury and burn at purchase; prizes are paid by hand and recorded with `markPaid`), so the worst case is a biased pack, which the team can see in the open record before paying. Packs are opened strictly in purchase order, so nobody can pick which pack a draw lands on |
+| uninitialized-state (`_pools`, `_finds`) | Mappings filled by `startRound` and `_recordFind`; false positive |
+| uninitialized-local (`hasTarget`) | `false` is the intended start |
+
+Matches contract: same findings as 7 Nov below (timestamp, incorrect-equality, uninitialized-local,
+shadowing-local). `claimAndKeep` adds none: checks, then state (`_kept`), then transfers, under `nonReentrant`.
 
 ## Static analysis (Slither re-run 7 Nov 2026 after CardLocked + pot burn; Aderyn last run 6 Nov)
 
