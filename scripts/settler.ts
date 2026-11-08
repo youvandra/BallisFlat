@@ -9,6 +9,10 @@
 // Flat API, for squads of fixtures added through /ops; without it the bundled fixtures are used),
 // SETTLE_AFTER_MINUTES (wait after full time so ratings settle, default 30), SETTLER_INTERVAL (default 300).
 //
+// Each pass also opens Hunt packs whose draw is ready (openNext), so no pack waits past its reveal window.
+// Finalize goes in rollover order: a match whose uncalled pot rolls into another is finalized first, and the
+// receiving match waits while a feeder still has a pot coming its way.
+//
 // It never guesses: if a top-rated person is not on the listed squad, or a match is postponed, it logs
 // "NEEDS A HUMAN" and leaves that match alone. The owner then settles or voids it from /ops.
 
@@ -26,6 +30,7 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { ballIsFlatAbi } from "../packages/config/src/abi/BallIsFlat.ts";
+import { ballIsFlatHuntAbi } from "../packages/config/src/abi/BallIsFlatHunt.ts";
 import { robinhoodChain } from "../packages/config/src/chain.ts";
 import type { Deployment, Network } from "../packages/config/src/deployments.ts";
 import { fixtures as bundledFixtures } from "../packages/config/src/fixtures.ts";
@@ -69,6 +74,8 @@ const wallet = key
   ? createWalletClient({ account: privateKeyToAccount(key), chain, transport: http() }).extend(publicActions)
   : null;
 const contract = { address, abi: ballIsFlatAbi } as const;
+const huntAddress = deployment.contracts.BallIsFlatHunt as Address | undefined;
+const hunt = huntAddress ? ({ address: huntAddress, abi: ballIsFlatHuntAbi } as const) : null;
 
 // IBallIsFlat.State
 const STATE = ["None", "Open", "Locked", "Proposed", "Final", "RolledOver", "Void"] as const;
@@ -81,6 +88,8 @@ interface Listed {
   /** The real kickoff (the warm-up is listed on chain with a later one). */
   kickoff: string;
   squad: SquadPlayer[];
+  /** The squad as listed on chain: proofs are built from these ids. */
+  onchainIds: number[];
   fotmobId: string | null;
 }
 
@@ -106,6 +115,7 @@ async function listedMatches(): Promise<Listed[]> {
     };
     type ApiDetail = {
       squad: { playerId: number; name: string; number: number; side: "home" | "away" }[];
+      onchain: { playerIds: number[] } | null;
     };
     const [fixtures, teams] = await Promise.all([
       getJson<ApiFixture[]>(`${apiUrl}/api/fixtures`),
@@ -123,6 +133,7 @@ async function listedMatches(): Promise<Listed[]> {
           away: teamName.get(f.awayCode) ?? f.awayCode,
           kickoff: f.kickoff,
           squad: detail.squad.map((p) => ({ id: p.playerId, name: p.name, number: p.number, side: p.side })),
+          onchainIds: detail.onchain?.playerIds ?? detail.squad.map((p) => p.playerId),
           fotmobId: null,
         };
       }),
@@ -139,6 +150,7 @@ async function listedMatches(): Promise<Listed[]> {
         away: f.away.name,
         kickoff: f.kickoff,
         squad: f.players.map((p) => ({ id: p.id, name: p.name, number: p.number, side: p.side })),
+        onchainIds: f.players.map((p) => p.id),
         fotmobId: f.fotmobId ?? null,
       },
     ];
@@ -171,20 +183,89 @@ async function ratedMatch(match: Listed): Promise<{ rated: RatedMatch; flipped: 
   return { rated: parseFotmobMatch(json), flipped: found.flipped };
 }
 
-async function send(slug: string, functionName: "propose" | "correct" | "finalize", fnArgs: unknown[]) {
+type Target = { address: Address; abi: readonly unknown[] };
+
+async function send(slug: string, functionName: string, fnArgs: unknown[], target: Target = contract) {
   if (dryRun || !wallet) {
-    log(
-      slug,
-      `${dryRun ? "dry run" : "no key"}: would call ${functionName}(${JSON.stringify(fnArgs, (_k, v) => (typeof v === "bigint" ? v.toString() : v))})`,
-    );
+    const shown = JSON.stringify(fnArgs, (_k, v) => (typeof v === "bigint" ? v.toString() : v));
+    log(slug, `${dryRun ? "dry run" : "no key"}: would call ${functionName}(${shown})`);
     return;
   }
-  const hash = await wallet.writeContract({ ...contract, functionName, args: fnArgs } as never);
+  const hash = await wallet.writeContract({ ...target, functionName, args: fnArgs } as never);
   const receipt = await wallet.waitForTransactionReceipt({ hash });
   log(slug, `${functionName} ${receipt.status} ${hash}`);
 }
 
-async function settleOne(match: Listed, disputeWindow: bigint, now: number) {
+// IBallIsFlat.Status
+const PROPOSED = 2;
+
+/**
+ * True while some match that rolls an uncalled pot into `matchId` is still Proposed and nobody holds a
+ * card on its posted winners: finalizing `matchId` first would make that pot burn instead of rolling in.
+ */
+async function waitsForFeeder(matchId: bigint, matches: Listed[]): Promise<string | null> {
+  for (const other of matches) {
+    const info = await publicClient.readContract({
+      ...contract,
+      functionName: "matchInfo",
+      args: [other.matchId],
+    });
+    if (info.nextMatch !== matchId || info.status !== PROPOSED) continue;
+    const winners = await publicClient.readContract({
+      ...contract,
+      functionName: "winnersOf",
+      args: [other.matchId],
+    });
+    const cards = await Promise.all(
+      winners.map((id) =>
+        publicClient.readContract({ ...contract, functionName: "cardsOn", args: [other.matchId, id] }),
+      ),
+    );
+    const rollsIn = cards.every((count) => count === 0) && info.pot > 0n;
+    if (rollsIn) return other.slug;
+  }
+  return null;
+}
+
+/** Hops along nextMatch to the end of its rollover chain; deeper matches are finalized first. */
+async function rolloverDepth(matches: Listed[]): Promise<Map<bigint, number>> {
+  const next = new Map<bigint, bigint>();
+  await Promise.all(
+    matches.map(async (m) => {
+      const info = await publicClient.readContract({
+        ...contract,
+        functionName: "matchInfo",
+        args: [m.matchId],
+      });
+      next.set(m.matchId, info.nextMatch);
+    }),
+  );
+  const depth = new Map<bigint, number>();
+  for (const m of matches) {
+    let hops = 0;
+    for (let id = next.get(m.matchId); id && next.has(id) && hops < matches.length; id = next.get(id)) hops++;
+    depth.set(m.matchId, hops);
+  }
+  return depth;
+}
+
+/** Opens Hunt packs whose draw is ready, front of the queue first (anyone may; it costs only gas). */
+async function keepHunt() {
+  if (!hunt || !wallet) return;
+  try {
+    const { result } = await publicClient.simulateContract({
+      ...hunt,
+      functionName: "openNext",
+      args: [40n],
+      account: wallet.account,
+    });
+    if (result > 0n) await send("hunt", "openNext", [40n], hunt);
+  } catch (error) {
+    human("hunt", `openNext: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+async function settleOne(match: Listed, matches: Listed[], disputeWindow: bigint, now: number) {
   const [stateIndex, info] = await Promise.all([
     publicClient.readContract({ ...contract, functionName: "stateOf", args: [match.matchId] }),
     publicClient.readContract({ ...contract, functionName: "matchInfo", args: [match.matchId] }),
@@ -193,6 +274,8 @@ async function settleOne(match: Listed, disputeWindow: bigint, now: number) {
   if (state !== "Locked" && state !== "Proposed") return;
 
   if (state === "Proposed" && now >= Number(info.proposedAt + disputeWindow)) {
+    const feeder = await waitsForFeeder(match.matchId, matches);
+    if (feeder) return log(match.slug, `finalize waits for ${feeder}, whose uncalled pot rolls in here`);
     await send(match.slug, "finalize", [match.matchId]);
     return;
   }
@@ -224,7 +307,7 @@ async function settleOne(match: Listed, disputeWindow: bigint, now: number) {
     );
     return;
   }
-  const ids = squadIds(match.squad.map((p) => p.id));
+  const ids = squadIds(match.onchainIds);
   const proofs = result.winners.map((id) => squadProof(ids, id) ?? []);
   const names = result.top.map((p) => `${p.name} ${p.rating}`).join(", ");
 
@@ -253,9 +336,12 @@ async function pass() {
     publicClient.getBlock(),
   ]);
   const now = Number(block.timestamp);
-  for (const match of matches) {
+  await keepHunt();
+  const depth = await rolloverDepth(matches);
+  const ordered = [...matches].sort((a, b) => (depth.get(b.matchId) ?? 0) - (depth.get(a.matchId) ?? 0));
+  for (const match of ordered) {
     try {
-      await settleOne(match, disputeWindow, now);
+      await settleOne(match, matches, disputeWindow, now);
     } catch (error) {
       human(match.slug, `error: ${error instanceof Error ? error.message : String(error)}`);
     }
