@@ -75,6 +75,8 @@ interface IBallIsFlat {
         uint256 indexed matchId, uint32 winningCards, uint256 burned, uint256 payPool, uint256 rolledTo
     );
     event CardClaimed(uint256 indexed tokenId, uint256 indexed matchId, address owner, uint256 amount);
+    /// A winner took their share minus `burned` (the keep fee, sent to the burn address) and kept the card.
+    event CardKept(uint256 indexed tokenId, uint256 indexed matchId, address owner, uint256 amount, uint256 burned);
     event MatchVoided(uint256 indexed matchId);
     event CardRefunded(uint256 indexed tokenId, uint256 indexed matchId, address owner, uint256 amount);
     event CardOpened(uint256 indexed tokenId, uint256 indexed matchId, address owner);
@@ -109,6 +111,8 @@ interface IBallIsFlat {
     error PriceAboveMax(uint256 price, uint256 maxPrice);
     error CannotBuyOwnCard(uint256 tokenId);
     error ZeroPrice();
+    error AlreadyKept(uint256 tokenId);
+    error KeepFeeTooHigh(uint256 fee, uint256 share);
 
     // ---------- reads ----------
     function wif() external view returns (address);
@@ -141,6 +145,10 @@ interface IBallIsFlat {
     function mint(uint256 matchId, uint32 playerId, bytes32[] calldata proof) external returns (uint256 tokenId);
     /// Burns a winning card of a finalized match and pays payPool / winningCards.
     function claim(uint256 tokenId) external returns (uint256 amount);
+    /// Pays a winning card's share minus `keepFee` (burned) and keeps the card as a collectible. Claimed once.
+    function claimAndKeep(uint256 tokenId) external returns (uint256 amount);
+    function keepFee() external view returns (uint128);
+    function isKept(uint256 tokenId) external view returns (bool);
     /// Burns a card of a voided match and returns its price.
     function refund(uint256 tokenId) external returns (uint256 amount);
     /// Owner only, one-way. An opened card can never be listed or bought.

@@ -79,6 +79,10 @@ contract BallIsFlat is IBallIsFlat, IERC4906, ERC721Enumerable, Ownable, Reentra
     mapping(uint256 => mapping(address => uint256)) private _cardOf;
     mapping(uint256 => CardInfo) private _cardInfo;
     mapping(uint256 => bool) private _opened;
+    /// Winning cards claimed with claimAndKeep: paid, still owned, never claimable again.
+    mapping(uint256 => bool) private _kept;
+    /// $WIF burned from the share when a winner keeps the card (owner-set, deploy sets it).
+    uint128 public override keepFee;
 
     struct Listing {
         address seller;
@@ -89,6 +93,7 @@ contract BallIsFlat is IBallIsFlat, IERC4906, ERC721Enumerable, Ownable, Reentra
 
     event SettlerSet(address indexed settler);
     event MintPausedSet(bool paused);
+    event KeepFeeSet(uint256 fee);
     /// ERC-7572: the collection's metadata moved.
     event ContractURIUpdated();
 
@@ -150,7 +155,7 @@ contract BallIsFlat is IBallIsFlat, IERC4906, ERC721Enumerable, Ownable, Reentra
         CardInfo storage c = _cardInfo[tokenId];
         MatchInfo storage m = _matches[c.matchId];
         if (m.status != Status.Finalized || m.winningCards == 0) return 0;
-        if (!_isWinner(c.matchId, c.playerId)) return 0;
+        if (_kept[tokenId] || !_isWinner(c.matchId, c.playerId)) return 0;
         return m.payPool / m.winningCards;
     }
 
@@ -229,11 +234,36 @@ contract BallIsFlat is IBallIsFlat, IERC4906, ERC721Enumerable, Ownable, Reentra
         MatchInfo storage m = _matches[matchId];
         if (m.status != Status.Finalized) revert WrongStatus(matchId, m.status);
         if (m.winningCards == 0 || !_isWinner(matchId, c.playerId)) revert NotAWinner(tokenId);
+        if (_kept[tokenId]) revert AlreadyKept(tokenId);
 
         amount = m.payPool / m.winningCards;
         _burn(tokenId);
         IERC20(wif).safeTransfer(msg.sender, amount);
         emit CardClaimed(tokenId, matchId, msg.sender, amount);
+    }
+
+    function claimAndKeep(uint256 tokenId) external nonReentrant returns (uint256 amount) {
+        if (_ownerOf(tokenId) != msg.sender) revert NotCardOwner(tokenId);
+        CardInfo storage c = _cardInfo[tokenId];
+        uint256 matchId = c.matchId;
+        MatchInfo storage m = _matches[matchId];
+        if (m.status != Status.Finalized) revert WrongStatus(matchId, m.status);
+        if (m.winningCards == 0 || !_isWinner(matchId, c.playerId)) revert NotAWinner(tokenId);
+        if (_kept[tokenId]) revert AlreadyKept(tokenId);
+
+        uint256 share = m.payPool / m.winningCards;
+        uint256 fee = keepFee;
+        if (fee > share) revert KeepFeeTooHigh(fee, share);
+        _kept[tokenId] = true;
+        amount = share - fee;
+        if (fee > 0) IERC20(wif).safeTransfer(DEAD, fee);
+        if (amount > 0) IERC20(wif).safeTransfer(msg.sender, amount);
+        emit CardKept(tokenId, matchId, msg.sender, amount, fee);
+        emit MetadataUpdate(tokenId);
+    }
+
+    function isKept(uint256 tokenId) external view returns (bool) {
+        return _kept[tokenId];
     }
 
     function refund(uint256 tokenId) external nonReentrant returns (uint256 amount) {
@@ -425,6 +455,11 @@ contract BallIsFlat is IBallIsFlat, IERC4906, ERC721Enumerable, Ownable, Reentra
         if (settler_ == address(0)) revert ZeroAddress();
         settler = settler_;
         emit SettlerSet(settler_);
+    }
+
+    function setKeepFee(uint128 fee) external onlyOwner {
+        keepFee = fee;
+        emit KeepFeeSet(fee);
     }
 
     function setMintPaused(bool paused) external onlyOwner {

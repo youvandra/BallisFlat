@@ -499,6 +499,66 @@ contract BallIsFlatTest is Test {
         bif.claim(t);
     }
 
+    function test_ClaimAndKeep_BurnsFeeKeepsCardOnce() public {
+        uint256 id = _list();
+        uint256 a = _mint(alice, id, KANE);
+        uint256 b = _mint(bob, id, KANE);
+        uint256 loser = _mint(carol, id, MODRIC);
+        _settle(id, _one(KANE));
+        uint256 share = bif.claimable(a);
+
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.NotCardOwner.selector, a));
+        bif.claimAndKeep(a);
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger));
+        bif.setKeepFee(1);
+
+        bif.setKeepFee(50e18);
+        assertEq(bif.keepFee(), 50e18);
+        uint256 dead = wif.balanceOf(DEAD);
+        uint256 before = wif.balanceOf(alice);
+        vm.expectEmit(true, true, false, true);
+        emit IBallIsFlat.CardKept(a, id, alice, share - 50e18, 50e18);
+        vm.prank(alice);
+        assertEq(bif.claimAndKeep(a), share - 50e18);
+        assertEq(wif.balanceOf(alice), before + share - 50e18);
+        assertEq(wif.balanceOf(DEAD), dead + 50e18);
+        assertEq(bif.ownerOf(a), alice, "kept card stays");
+        assertTrue(bif.isKept(a));
+        assertEq(bif.claimable(a), 0);
+
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.AlreadyKept.selector, a));
+        bif.claimAndKeep(a);
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.AlreadyKept.selector, a));
+        bif.claim(a);
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(BallIsFlat.CardLocked.selector, a));
+        bif.transferFrom(alice, bob, a);
+
+        vm.prank(carol);
+        vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.NotAWinner.selector, loser));
+        bif.claimAndKeep(loser);
+
+        // the other winner's share is untouched by the keep
+        vm.prank(bob);
+        assertEq(bif.claim(b), share);
+        assertLt(wif.balanceOf(address(bif)), 2, "only rounding dust remains");
+    }
+
+    function test_ClaimAndKeep_FeeAboveShareReverts() public {
+        uint256 id = _list();
+        uint256 a = _mint(alice, id, KANE);
+        _settle(id, _one(KANE));
+        uint256 share = bif.claimable(a);
+        bif.setKeepFee(uint128(share + 1));
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(IBallIsFlat.KeepFeeTooHigh.selector, share + 1, share));
+        bif.claimAndKeep(a);
+    }
+
     function test_Claim_NonWinnerReverts() public {
         uint256 id = _list();
         _mint(alice, id, KANE);
