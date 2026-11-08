@@ -23,7 +23,7 @@ sudo cp deploy/ballisflat-api.service /etc/systemd/system/ && sudo systemctl ena
 ## Settler bot
 Posts each result from FotMob's ratings, follows FotMob during the 2h window (correct), then finalizes.
 ```bash
-sudo cp deploy/settler.env.example /etc/ballisflat/settler.env && sudo chmod 600 /etc/ballisflat/settler.env   # SETTLER_KEY
+sudo install -m 600 -o root -g root deploy/settler.env.example /etc/ballisflat/settler.env   # SETTLER_KEY = owner key (owner is the settler)
 sudo cp deploy/ballisflat-settler.{service,timer} /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now ballisflat-settler.timer
 node scripts/settler.ts --network mainnet --once --dry-run    # read-only check, sends nothing
