@@ -1,6 +1,6 @@
 // Adds or replaces a fixture and its squads in the API from one JSON file (docs/runbooks/add-match.md).
 //
-//   API_URL=https://wif-api.ballisflat.fun ADMIN_TOKEN=… node scripts/add-match.ts my-match.json
+//   API_URL=https://api.ballisflat.fun ADMIN_TOKEN=… node scripts/add-match.ts my-match.json
 //   node scripts/add-match.ts my-match.json --check        validate only, send nothing
 //
 // The file follows docs/runbooks/add-match.template.json. Listing it on chain is a separate step the owner

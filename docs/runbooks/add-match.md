@@ -27,18 +27,18 @@ Rules that matter:
 ## 2. Check and send it
 ```bash
 node scripts/add-match.ts my-match.json --check
-API_URL=https://wif-api.ballisflat.fun ADMIN_TOKEN=… node scripts/add-match.ts my-match.json
+API_URL=https://api.ballisflat.fun ADMIN_TOKEN=… node scripts/add-match.ts my-match.json
 ```
 `--check` lists every problem in plain words and sends nothing. The admin token is on the server:
 `sudo grep ADMIN_TOKEN /etc/ballisflat/api.env`. Sending again before step 3 replaces the fixture.
 
 ## 3. List it on chain (owner wallet)
-Open `https://wif.ballisflat.fun/ops`, tab **Fixtures**, unlock with the admin token. Under "Not on chain yet",
+Open `https://ballisflat.fun/ops`, tab **Fixtures**, unlock with the admin token. Under "Not on chain yet",
 pick the match its uncalled pot rolls into, press **List on Chain** and confirm in the owner wallet. The app
 takes the squad and kickoff from the API and links the fixture to its new match id by itself.
 
 ## 4. Check
-- The match shows on `/matches` with both squads, and `https://wif-api.ballisflat.fun/api/board` lists it.
+- The match shows on `/matches` with both squads, and `https://api.ballisflat.fun/api/board` lists it.
 - `node scripts/settler.ts --network mainnet --once --dry-run` on the server prints nothing for it before
   kickoff. After full time plus 30 minutes it posts the top FotMob rating by itself (see deploy/README.md,
   "Settler bot"), and finalizes after the 2-hour window.

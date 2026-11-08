@@ -538,8 +538,8 @@ contract HuntTest is Test {
         hunt.mintCard(id, 1);
         vm.stopPrank();
         assertEq(hunt.tokenURI(1), "");
-        hunt.setBaseURI("https://wif-api.ballisflat.fun/hunt/cards/");
-        assertEq(hunt.tokenURI(2), "https://wif-api.ballisflat.fun/hunt/cards/2");
+        hunt.setBaseURI("https://api.ballisflat.fun/hunt/cards/");
+        assertEq(hunt.tokenURI(2), "https://api.ballisflat.fun/hunt/cards/2");
     }
 
     // ------------------------------------------------------------------ accounting
