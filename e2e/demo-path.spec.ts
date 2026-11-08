@@ -70,12 +70,15 @@ test("the landing is the Framer board; Launch App goes straight to matches", asy
   await expect(page.getByTestId("match-england-v-croatia")).toContainText("Not Joined");
 });
 
-test("the binder asks for a wallet in place, then opens", async ({ page }) => {
+test("the binder asks for a wallet in words, then opens once the masthead connects", async ({ page }) => {
   await page.goto("/binder");
   await expect(page).toHaveURL(/\/binder$/);
   const gate = page.getByTestId("wallet-gate");
   await expect(gate.getByRole("heading", { name: "Connect to open your binder" })).toBeVisible();
-  await gate.getByRole("button", { name: "Connect Wallet", exact: true }).click();
+  // The gate points at the masthead instead of drawing its own button.
+  await expect(gate.getByRole("button")).toHaveCount(0);
+  await expect(gate.getByTestId("wallet-hint")).toContainText("Connect Wallet at the top right");
+  await connect(page);
   await expect(page.getByRole("heading", { name: "Your binder" })).toBeVisible();
   await expect(page).toHaveURL(/\/binder$/);
 });
@@ -84,6 +87,8 @@ test("pick a player, approve and mint, then tear the pack open", async ({ page }
   await mintFirstPlayer(page);
   await expect(page.getByRole("heading", { name: "Your pack is here" })).toBeVisible();
 
+  // Raw mouse moves skip Playwright's actionability wait, so let the loading veil lift first.
+  await expect(page.locator(".loading-veil")).toBeHidden();
   // Drag across the crimped top to tear it (the landing's Pack Rip names its tear strip by the hint).
   const strip = page.getByRole("button", { name: "Drag across the top to open" });
   const box = await strip.boundingBox();
@@ -122,7 +127,7 @@ test("a second mint for the same match is blocked", async ({ page }) => {
 
 test("binder: burn the warm-up winner to claim", async ({ page }) => {
   await page.goto("/binder");
-  await page.getByTestId("wallet-gate").getByRole("button", { name: "Connect Wallet", exact: true }).click();
+  await connect(page);
   await expect(page.getByText("Claim · 1")).toBeVisible();
   // Claim lives on the back of the card: flip it first.
   await page
@@ -142,7 +147,7 @@ test("binder: claim and keep pays the share minus the burned keep fee, and the c
   page,
 }) => {
   await page.goto("/binder");
-  await page.getByTestId("wallet-gate").getByRole("button", { name: "Connect Wallet", exact: true }).click();
+  await connect(page);
   await expect(page.getByText("Claim · 1")).toBeVisible();
   await page
     .getByRole("button", { name: /card, click to flip/ })

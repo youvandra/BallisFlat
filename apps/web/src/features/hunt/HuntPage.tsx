@@ -18,7 +18,7 @@ import { facts, txUrl } from "../../lib/game/facts";
 import { huntPlayer, tierKeys, useHunt, useHuntPacks } from "../../lib/game/hunt";
 import { useGame } from "../../lib/game/queries";
 import type { Account, Hash, HuntFind, HuntRound, HuntStep, HuntTier, HuntView } from "../../lib/game/types";
-import { ConnectWallet } from "../connect/ConnectWallet";
+import { WalletHint } from "../connect/WalletHint";
 import { HuntStage, type Stage } from "./HuntStage";
 
 /**
@@ -281,9 +281,8 @@ function Hunt({ view }: { view: HuntView }) {
           </ul>
 
           {!current?.isRightChain ? (
-            <div className="flex flex-col gap-3" data-testid="connect-inline">
-              <p className="t-body-strong">Connect a wallet to buy packs.</p>
-              <ConnectWallet />
+            <div data-testid="connect-inline">
+              <WalletHint action="buy packs" />
             </div>
           ) : !isOpen ? (
             <Notice>No one is wanted right now. Your cards stay in your binder.</Notice>

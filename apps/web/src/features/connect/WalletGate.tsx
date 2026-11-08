@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { PackLoader } from "../../components/playmat/PackLoader";
 import { Zone } from "../../components/playmat/Zone";
 import { useAccount } from "../../lib/game/queries";
-import { ConnectWallet } from "./ConnectWallet";
+import { WalletHint } from "./WalletHint";
 
 type Props = {
   /** Zone label of the gate, e.g. "Binder". */
@@ -17,7 +17,7 @@ type Props = {
 
 /**
  * Pages that only make sense with a wallet (Binder, Pack, Ops) render their content once a wallet is on
- * Robinhood Chain; until then the page itself asks: a Zone with the heading, one line and the wallet card.
+ * Robinhood Chain; until until then the page says so in words and points at the wallet control in the masthead.
  */
 export function WalletGate({ label, title, line, aside, children }: Props) {
   const account = useAccount();
@@ -32,9 +32,7 @@ export function WalletGate({ label, title, line, aside, children }: Props) {
             <div className="flex flex-col gap-2">
               <h1 className="t-heading text-balance">{title}</h1>
               <p className="t-small">{line}</p>
-            </div>
-            <div className="drawer">
-              <ConnectWallet />
+              <WalletHint />
             </div>
           </div>
         </Zone>
