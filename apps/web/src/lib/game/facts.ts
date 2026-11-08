@@ -19,6 +19,8 @@ export const facts = {
   explorerUrl: robinhoodChain.blockExplorers.default.url,
   contractAddress: (deployment.contracts.BallIsFlat ??
     "0x0000000000000000000000000000000000000000") as Address,
+  /** Null until the Hunt contract is deployed on this network. */
+  huntAddress: (deployment.contracts.BallIsFlatHunt ?? null) as Address | null,
 } as const;
 
 export function txUrl(hash: string): string {

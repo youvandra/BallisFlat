@@ -21,6 +21,7 @@ import { sleeveCodes } from "../../lib/game/sleeve";
 import type { ClaimReceipt } from "../../lib/game/types";
 import { WalletGate } from "../connect/WalletGate";
 import { BinderSlot } from "./BinderSlot";
+import { HuntShelf } from "./HuntShelf";
 import { SellSheet } from "./SellSheet";
 
 const groupNotes: Record<BinderGroup, string> = {
@@ -259,6 +260,7 @@ function Binder() {
               </Zone>
             ))
           )}
+          <HuntShelf account={current} />
         </div>
       </div>
 

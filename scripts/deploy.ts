@@ -29,9 +29,9 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { robinhoodChain } from "../packages/config/src/chain.ts";
-import { game, wif } from "../packages/config/src/constants.ts";
+import { game, hunt, wif } from "../packages/config/src/constants.ts";
 import type { Deployment, Network } from "../packages/config/src/deployments.ts";
-import { fixtures } from "../packages/config/src/fixtures.ts";
+import { fixtures, playerIdOf } from "../packages/config/src/fixtures.ts";
 import { squadIds, squadProof } from "../packages/core/src/squad.ts";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -166,10 +166,47 @@ async function main() {
     console.log(`metadata: ${metadataBase} (+ ${contractUri})`);
   }
 
+  // Hunt: wanted-player packs. Round 1 hunts HUNT_TARGET ("TEAM:Name", default Harry Kane) across every
+  // player in the listed Nations League squads (the warm-up sheet is a subset of them).
+  const huntArtifact = artifact("BallIsFlatHunt.sol", "BallIsFlatHunt");
+  const huntReceipt = await send(
+    await client.deployContract({
+      abi: huntArtifact.abi,
+      bytecode: huntArtifact.bytecode.object,
+      args: [
+        wifAddress,
+        hunt.burnBps,
+        hunt.winnerBps,
+        hunt.tiers.map((tier) => ({ price: tier.price, cards: tier.cards })),
+      ],
+    }),
+  );
+  const huntAddress = huntReceipt.contractAddress as Address;
+  const huntContract = { address: huntAddress, abi: huntArtifact.abi } as const;
+  const [targetTeam, targetName] = (process.env.HUNT_TARGET ?? "ENG:Harry Kane").split(":");
+  const target = playerIdOf(targetTeam ?? "", targetName ?? "");
+  const huntPool = [
+    ...new Set(fixtures.filter((f) => !f.warmUp).flatMap((f) => f.players.map((p) => p.id))),
+  ].sort((a, b) => a - b);
+  await send(
+    await client.writeContract({ ...huntContract, functionName: "startRound", args: [target, huntPool] }),
+  );
+  if (metadataBase) {
+    const huntBase = `${metadataBase.replace(/\/cards\/?$/, "")}/hunt/cards/`;
+    await send(await client.writeContract({ ...huntContract, functionName: "setBaseURI", args: [huntBase] }));
+  }
+  console.log(
+    `BallIsFlatHunt ${huntAddress}: round 1 hunts ${targetName} (${target}) across ${huntPool.length} players`,
+  );
+
   const record: Deployment = {
     chainId,
     deployBlock: Number(deployReceipt.blockNumber),
-    contracts: { BallIsFlat: address, ...(network === "local" ? { WIF: wifAddress } : {}) },
+    contracts: {
+      BallIsFlat: address,
+      BallIsFlatHunt: huntAddress,
+      ...(network === "local" ? { WIF: wifAddress } : {}),
+    },
     matches,
   };
   const all = JSON.parse(readFileSync(deploymentsPath, "utf8"));

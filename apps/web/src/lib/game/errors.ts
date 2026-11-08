@@ -31,6 +31,15 @@ const appSentences: Record<string, string> = {
   InvalidBurnBps: "The burn share is out of range.",
   InvalidListing: "The match listing is invalid.",
   InvalidWinners: "The winner list is invalid for this match.",
+  HuntUnavailable: "The Hunt is not live on this network yet.",
+  NoOpenRound: "No one is wanted right now. The next poster goes up soon.",
+  BadTier: "That pack does not exist.",
+  UnknownPack: "That pack does not exist.",
+  NothingToClaim: "There is no prize waiting for this wallet.",
+  RoundStillOpen: "Close the current Hunt round before starting the next one.",
+  BadPool: "The player pool must be ascending, unique and include the wanted player.",
+  IsPaused: "Pack sales are paused for now. Opening and claiming still work.",
+  CardBound: "Hunt cards stay with the wallet that opened them.",
 };
 
 /** One plain sentence for any failure a game call can throw. */

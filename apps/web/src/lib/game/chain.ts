@@ -11,5 +11,6 @@ export const chain: Chain = defineChain({
 
 export const contractAddress = facts.contractAddress;
 export const wifAddress = facts.wifAddress;
+export const huntAddress = facts.huntAddress;
 // Event scans start at the block the deploy script recorded.
 export const deployBlock = BigInt(deployment.deployBlock);

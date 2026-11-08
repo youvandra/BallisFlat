@@ -51,6 +51,35 @@ export interface MockState {
   wallet: { connected: boolean; wif: string; allowance: string; gas: string };
   /** $WIF burned by sales (5% of each), for the record. */
   saleBurned: string;
+  /** Hunt state; created on first use so saves from before Hunt keep working. */
+  hunt?: MockHunt;
+}
+
+export interface MockHuntPack {
+  packId: string;
+  tier: number;
+  round: number;
+  opened: boolean;
+  players: number[];
+  firstCardId: string | null;
+  found: boolean;
+  boughtAt: number;
+}
+
+export interface MockHunt {
+  round: number;
+  target: number;
+  status: "Open" | "Won" | "Closed";
+  winner: Address | null;
+  pot: string;
+  packs: number;
+  pool: number[];
+  carry: string;
+  claimable: string;
+  allowance: string;
+  nextPack: number;
+  nextCard: number;
+  mine: MockHuntPack[];
 }
 
 export interface SeedConfig {

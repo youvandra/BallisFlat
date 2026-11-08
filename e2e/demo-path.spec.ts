@@ -64,7 +64,7 @@ test("the landing is the Framer board; Launch App goes straight to matches", asy
   await expect(page).toHaveURL(/\/matches$/);
   // Browsing needs no wallet: the dock and the board are there, every match reads Not Joined.
   const nav = page.getByRole("navigation", { name: "Main" });
-  await expect(nav.getByRole("link")).toHaveText(["Matches", "Binder", "Leaderboard"]);
+  await expect(nav.getByRole("link")).toHaveText(["Matches", "Hunt", "Binder", "Leaderboard"]);
   await expect(page.getByTestId("match-england-v-croatia")).toContainText("Not Joined");
   await connect(page);
   await expect(page.getByTestId("match-england-v-croatia")).toContainText("Not Joined");

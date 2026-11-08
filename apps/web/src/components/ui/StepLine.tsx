@@ -1,10 +1,26 @@
 import { Check } from "lucide-react";
-import type { MintStep } from "../../lib/game/types";
+import type { HuntStep, MintStep } from "../../lib/game/types";
 
-const stepLabels: Record<MintStep, string> = { approve: "Approve $WIF", mint: "Mint Card", buy: "Buy Card" };
+type Step = MintStep | HuntStep;
 
-/** The two-step progress line (approve, then mint or buy), one row per wallet signature. */
-export function StepLine({ steps, current }: { steps: MintStep[]; current: MintStep | null }) {
+const stepLabels: Record<Step, string> = {
+  approve: "Approve $WIF",
+  mint: "Mint Card",
+  buy: "Buy Card",
+  seal: "Wait for the Next Block",
+  open: "Open Pack",
+};
+
+/** The progress line (approve, then mint or buy), one row per wallet signature or wait. */
+export function StepLine<S extends Step>({
+  steps,
+  current,
+  labels,
+}: {
+  steps: S[];
+  current: S | null;
+  labels?: Partial<Record<S, string>>;
+}) {
   return (
     <ol className="flex flex-col gap-1.5" aria-label="Progress">
       {steps.map((step, index) => {
@@ -20,7 +36,7 @@ export function StepLine({ steps, current }: { steps: MintStep[]; current: MintS
             </span>
             {/* The circle already numbers the step, so the label is the action alone. */}
             <span>
-              {stepLabels[step]}
+              {labels?.[step] ?? stepLabels[step]}
               {active ? "…" : ""}
             </span>
           </li>

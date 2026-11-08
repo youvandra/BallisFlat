@@ -15,7 +15,7 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "guard:tokens": "node scripts/check-design-tokens.mjs apps/web/src --allow apps/web/src/framer",
-    "guard:dupes": "jscpd apps/web/src packages/core/src packages/config/src --min-tokens 60 --threshold 3 --ignore \"**/*.test.*,**/src/framer/**\" --silent",
+    "guard:dupes": "jscpd apps/web/src packages/core/src packages/config/src --min-tokens 60 --threshold 3 --ignore \"**/*.test.*,**/src/framer/**,**/src/abi/**\" --silent",
     "guard:dead": "knip",
     "verify": "npm run lint && npm run typecheck && npm run test && npm run guard:tokens && npm run guard:design && npm run guard:dupes && npm run build",
     "kit-check": "node scripts/kit-check.mjs .",

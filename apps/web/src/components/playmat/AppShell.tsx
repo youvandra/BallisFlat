@@ -25,6 +25,8 @@ function metaFor(pathname: string): PageMeta {
     return { overprint: "PACK", folio: "Rulebook, page 3. Your pack.", backdrop: "quiet" };
   if (pathname.startsWith("/m/"))
     return { overprint: "MATCH", folio: "Rulebook, page 3. Match card.", backdrop: "quiet" };
+  if (pathname === "/hunt")
+    return { overprint: "WANTED", folio: "Rulebook, page 2. The hunt.", backdrop: "quiet" };
   if (pathname === "/binder")
     return { overprint: "PICKS", folio: "Rulebook, page 2. Your binder.", backdrop: "quiet" };
   if (pathname === "/rules")

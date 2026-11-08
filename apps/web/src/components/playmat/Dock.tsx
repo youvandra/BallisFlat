@@ -1,10 +1,11 @@
 import { Rocket } from "lucide-react";
 import { Link, useLocation } from "react-router";
 
-type DockStop = "matches" | "binder" | "leaderboard" | null;
+type DockStop = "matches" | "hunt" | "binder" | "leaderboard" | null;
 
 const items = [
   { key: "matches", to: "/matches", label: "Matches" },
+  { key: "hunt", to: "/hunt", label: "Hunt" },
   { key: "binder", to: "/binder", label: "Binder" },
   { key: "leaderboard", to: "/leaderboard", label: "Leaderboard" },
 ] as const;
@@ -12,6 +13,7 @@ const items = [
 /** Which stop a path belongs to: the match list and every match under it, the binder, the leaderboard. */
 function dockStopFor(pathname: string): DockStop {
   if (/^\/matches\/?$/.test(pathname) || /^\/m\/[^/]+(\/open\/[^/]+)?\/?$/.test(pathname)) return "matches";
+  if (/^\/hunt\/?$/.test(pathname)) return "hunt";
   if (/^\/binder\/?$/.test(pathname)) return "binder";
   if (/^\/leaderboard\/?$/.test(pathname)) return "leaderboard";
   return null;

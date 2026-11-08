@@ -20,7 +20,8 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 ///         - The first opened pack holding the wanted card wins `winnerBps` of the pot as a claimable balance;
 ///           the rest carries into the next round. The owner sets the wanted player and the player pool per
 ///           round and can close a round early (its whole pot carries over). The owner cannot take any pot.
-///         - Cards are plain ERC-721 collectibles, separate from Ball is Flat match picks.
+///         - Cards are ERC-721 collectibles bound to the wallet that opened them (no transfers), separate from
+///           Ball is Flat match picks.
 contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -107,6 +108,7 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
     error AlreadyOpened();
     error TooEarly();
     error NothingToClaim();
+    error CardBound();
 
     constructor(address wif_, uint16 burnBps_, uint16 winnerBps_, Tier[TIERS] memory tiers_)
         ERC721("Ball is Flat Hunt", "BIFH")
@@ -259,6 +261,13 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
 
     function pack(uint256 id) external view returns (Pack memory) {
         return _packs[id];
+    }
+
+    /// @dev Cards are minted once and never move.
+    function _update(address to, uint256 tokenId, address auth) internal override returns (address) {
+        address from = _ownerOf(tokenId);
+        if (from != address(0)) revert CardBound();
+        return super._update(to, tokenId, auth);
     }
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {

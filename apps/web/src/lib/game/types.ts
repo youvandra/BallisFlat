@@ -93,6 +93,68 @@ export interface ClaimReceipt extends TxReceipt {
   amount: bigint;
 }
 
+// ---------- Hunt ----------
+
+export type HuntStatus = "None" | "Open" | "Won" | "Closed";
+export const huntStatuses: readonly HuntStatus[] = ["None", "Open", "Won", "Closed"];
+
+export interface HuntTier {
+  id: number;
+  name: string;
+  price: bigint;
+  cards: number;
+}
+
+export interface HuntRound {
+  id: number;
+  /** The wanted player's global id. */
+  target: number;
+  status: HuntStatus;
+  winner: Address | null;
+  /** $WIF in the pot (for a won round: the pot it was won with). */
+  pot: bigint;
+  packs: number;
+  poolSize: number;
+}
+
+export interface HuntView {
+  /** False until a Hunt contract is deployed on this network. */
+  available: boolean;
+  round: HuntRound | null;
+  /** Pot carried into the next round (after a find or an early close). */
+  carry: bigint;
+  burnBps: number;
+  winnerBps: number;
+  tiers: HuntTier[];
+}
+
+export interface HuntPack {
+  packId: bigint;
+  tier: number;
+  round: number;
+  opened: boolean;
+  /** Player ids drawn, in card order; empty until opened. */
+  players: number[];
+  /** First card id of the pack (cards are firstCardId..firstCardId+n-1). */
+  firstCardId: bigint | null;
+  /** This pack found its round's wanted player. */
+  found: boolean;
+  /** Opened after the reveal window: drawn without the wanted player. */
+  expired: boolean;
+  boughtAt: number;
+}
+
+export interface HuntBuyReceipt extends TxReceipt {
+  packId: bigint;
+}
+
+export interface HuntOpenReceipt extends TxReceipt {
+  players: number[];
+  found: boolean;
+}
+
+export type HuntStep = "approve" | "buy" | "seal" | "open";
+
 /**
  * Reads and writes the app needs from the contract. `mock` simulates them in the browser,
  * `chain` calls the deployment on Robinhood Chain.
@@ -140,6 +202,18 @@ export interface GameClient {
   // settler
   propose(matchId: number, winners: number[], sourceUrl: string): Promise<TxReceipt>;
   voidMatch(matchId: number): Promise<TxReceipt>;
+  // hunt (wanted-player packs)
+  huntState(): Promise<HuntView>;
+  huntPacks(wallet: Address): Promise<HuntPack[]>;
+  huntClaimable(wallet: Address): Promise<bigint>;
+  /** Approves $WIF if needed, then buys one pack of `tier`. */
+  buyHuntPack(tier: number, onStep: (step: HuntStep) => void): Promise<HuntBuyReceipt>;
+  /** Waits for the pack's reveal block, then opens it (cards go to the buyer). */
+  openHuntPack(packId: bigint, onStep: (step: HuntStep) => void): Promise<HuntOpenReceipt>;
+  claimHunt(): Promise<ClaimReceipt>;
+  // hunt owner
+  startHuntRound(target: number, pool: number[]): Promise<TxReceipt>;
+  closeHuntRound(): Promise<TxReceipt>;
   /** Subscribes to state changes (mock writes, chain blocks). Returns an unsubscribe function. */
   subscribe(listener: () => void): () => void;
 }

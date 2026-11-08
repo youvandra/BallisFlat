@@ -33,6 +33,10 @@ export const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import("../features/pack/PackPage")).PackPage }),
       },
       {
+        path: "hunt",
+        lazy: async () => ({ Component: (await import("../features/hunt/HuntPage")).HuntPage }),
+      },
+      {
         path: "binder",
         lazy: async () => ({ Component: (await import("../features/binder/BinderPage")).BinderPage }),
       },

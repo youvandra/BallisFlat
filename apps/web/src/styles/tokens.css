@@ -540,6 +540,23 @@
     box-shadow: var(--shadow-result);
     text-align: center;
   }
+  /* Hunt pack tiers: Silver in Ink, Gold in Note, Diamond in cyan over pink (the foil is the only place
+     these tints mix). */
+  .pack-tile[data-tier="silver"] {
+    background:
+      radial-gradient(circle at 30% 25%, rgb(242 242 238 / 0.42), transparent 55%),
+      radial-gradient(circle at 75% 80%, rgb(242 242 238 / 0.18), transparent 55%), var(--color-card);
+  }
+  .pack-tile[data-tier="gold"] {
+    background:
+      radial-gradient(circle at 30% 25%, rgb(255 232 0 / 0.55), transparent 55%),
+      radial-gradient(circle at 75% 80%, rgb(255 232 0 / 0.25), transparent 55%), var(--color-card);
+  }
+  .pack-tile[data-tier="diamond"] {
+    background:
+      radial-gradient(circle at 30% 25%, rgb(63 224 255 / 0.6), transparent 55%),
+      radial-gradient(circle at 75% 80%, rgb(255 79 163 / 0.4), transparent 55%), var(--color-card);
+  }
   .pack-tile::before,
   .pack-tile::after {
     content: "";

@@ -13,6 +13,7 @@ import { MockGameClient } from "../../lib/game/mock-client";
 import { type MatchView, useBoard, useGame } from "../../lib/game/queries";
 import { WalletGate } from "../connect/WalletGate";
 import { AdminFixtures } from "./AdminFixtures";
+import { HuntOps } from "./HuntOps";
 
 function MatchOps({ view }: { view: MatchView }) {
   const client = useGame();
@@ -142,6 +143,12 @@ function Ops() {
             {(board.data ?? []).map((view) => (
               <MatchOps key={view.fixture.slug} view={view} />
             ))}
+            <details className="surface-card rounded-card bg-card p-4 shadow-result">
+              <summary className="t-title cursor-pointer">Owner: Hunt</summary>
+              <div className="mt-4">
+                <HuntOps />
+              </div>
+            </details>
             {apiUrl ? (
               <details className="surface-card rounded-card bg-card p-4 shadow-result">
                 <summary className="t-title cursor-pointer">Owner: Fixtures and Listing</summary>

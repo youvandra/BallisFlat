@@ -32,6 +32,21 @@ export const game = {
   saleBurnBps: 500,
 } as const;
 
+/** Hunt: wanted-player packs. Tier index = contract tier id. */
+export const hunt = {
+  tiers: [
+    { id: 0, name: "Silver", price: 50n * 10n ** 18n, cards: 3 },
+    { id: 1, name: "Gold", price: 100n * 10n ** 18n, cards: 7 },
+    { id: 2, name: "Diamond", price: 150n * 10n ** 18n, cards: 12 },
+  ],
+  /** 1000 bps = 10% of every pack burns; the rest grows the pot. */
+  burnBps: 1000,
+  /** 8000 bps = 80% of the pot goes to the finder; 20% carries into the next round. */
+  winnerBps: 8000,
+  /** Parent-chain blocks a pack's draw stays readable (about 51 minutes on Robinhood Chain). */
+  revealWindowBlocks: 256,
+} as const;
+
 export const links = {
   rules: "https://worldisflat.fun/build/rules",
 } as const;

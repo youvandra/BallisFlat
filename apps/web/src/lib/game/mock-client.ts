@@ -5,6 +5,7 @@ import { keccak256, toHex } from "viem";
 import {
   createSeed,
   crowdLedger,
+  type MockHunt,
   type MockMatch,
   type MockState,
   type MockToken,
@@ -18,6 +19,12 @@ import {
   type GameClient,
   GameError,
   type Hash,
+  type HuntBuyReceipt,
+  type HuntOpenReceipt,
+  type HuntPack,
+  type HuntStep,
+  type HuntTier,
+  type HuntView,
   type LedgerCard,
   type Listing,
   type MatchInfo,
@@ -34,7 +41,22 @@ export interface KeyValueStore {
   removeItem(key: string): void;
 }
 
+export interface MockHuntOptions {
+  tiers: readonly HuntTier[];
+  burnBps: number;
+  winnerBps: number;
+  /** Wanted player of round 1. */
+  target: number;
+  /** Strictly ascending player ids round 1 draws from. */
+  pool: readonly number[];
+  /** Packs the simulated crowd already bought, and the pot they built. */
+  seedPacks: number;
+  seedPot: bigint;
+}
+
 export interface MockOptions extends Omit<SeedConfig, "now"> {
+  /** Hunt simulation; without it the Hunt reads as not deployed. */
+  hunt?: MockHuntOptions;
   storage: KeyValueStore | null;
   storageKey?: string;
   /** Simulated confirmation time per transaction step. */
@@ -250,6 +272,205 @@ export class MockGameClient implements GameClient {
       }),
     );
     return [...crowdLedger(this.state.matches, this.state.tokens), ...own];
+  }
+
+  // ---------- hunt ----------
+
+  private huntOrNull(): MockHunt | null {
+    const options = this.options.hunt;
+    if (!options) return null;
+    if (!this.state.hunt) {
+      this.state.hunt = {
+        round: 1,
+        target: options.target,
+        status: "Open",
+        winner: null,
+        pot: options.seedPot.toString(),
+        packs: options.seedPacks,
+        pool: [...options.pool],
+        carry: "0",
+        claimable: "0",
+        allowance: "0",
+        nextPack: options.seedPacks + 1,
+        nextCard: 1,
+        mine: [],
+      };
+      this.save();
+    }
+    return this.state.hunt;
+  }
+
+  private huntState_(): MockHunt {
+    const hunt = this.huntOrNull();
+    if (!hunt) throw new GameError("HuntUnavailable");
+    return hunt;
+  }
+
+  async huntState(): Promise<HuntView> {
+    const options = this.options.hunt;
+    const hunt = this.huntOrNull();
+    if (!options || !hunt) {
+      return { available: false, round: null, carry: 0n, burnBps: 0, winnerBps: 0, tiers: [] };
+    }
+    return {
+      available: true,
+      round: {
+        id: hunt.round,
+        target: hunt.target,
+        status: hunt.status,
+        winner: hunt.winner,
+        pot: BigInt(hunt.pot),
+        packs: hunt.packs,
+        poolSize: hunt.pool.length,
+      },
+      carry: BigInt(hunt.carry),
+      burnBps: options.burnBps,
+      winnerBps: options.winnerBps,
+      tiers: [...options.tiers],
+    };
+  }
+
+  async huntPacks(wallet: Address): Promise<HuntPack[]> {
+    const hunt = this.huntOrNull();
+    if (!hunt || wallet.toLowerCase() !== this.options.demoWallet.toLowerCase()) return [];
+    return hunt.mine.map((pack) => ({
+      packId: BigInt(pack.packId),
+      tier: pack.tier,
+      round: pack.round,
+      opened: pack.opened,
+      players: [...pack.players],
+      firstCardId: pack.firstCardId === null ? null : BigInt(pack.firstCardId),
+      found: pack.found,
+      expired: false,
+      boughtAt: pack.boughtAt,
+    }));
+  }
+
+  async huntClaimable(wallet: Address): Promise<bigint> {
+    const hunt = this.huntOrNull();
+    if (!hunt || wallet.toLowerCase() !== this.options.demoWallet.toLowerCase()) return 0n;
+    return BigInt(hunt.claimable);
+  }
+
+  async buyHuntPack(tier: number, onStep: (step: HuntStep) => void): Promise<HuntBuyReceipt> {
+    this.requireWallet();
+    const options = this.options.hunt;
+    const hunt = this.huntState_();
+    const spec = options?.tiers.find((candidate) => candidate.id === tier);
+    if (!options || !spec) throw new GameError("BadTier");
+    if (hunt.status !== "Open") throw new GameError("NoOpenRound");
+    if (BigInt(this.state.wallet.wif) < spec.price) throw new GameError("InsufficientBalance");
+    if (BigInt(hunt.allowance) < spec.price) {
+      onStep("approve");
+      await this.send();
+      hunt.allowance = spec.price.toString();
+      this.commit();
+    }
+    onStep("buy");
+    const hash = await this.send();
+    const burned = (spec.price * BigInt(options.burnBps)) / 10_000n;
+    this.state.wallet.wif = (BigInt(this.state.wallet.wif) - spec.price).toString();
+    hunt.allowance = (BigInt(hunt.allowance) - spec.price).toString();
+    hunt.pot = (BigInt(hunt.pot) + spec.price - burned).toString();
+    hunt.packs += 1;
+    const packId = hunt.nextPack;
+    hunt.nextPack += 1;
+    hunt.mine.push({
+      packId: packId.toString(),
+      tier,
+      round: hunt.round,
+      opened: false,
+      players: [],
+      firstCardId: null,
+      found: false,
+      boughtAt: this.now(),
+    });
+    this.commit();
+    return { hash, packId: BigInt(packId) };
+  }
+
+  async openHuntPack(packId: bigint, onStep: (step: HuntStep) => void): Promise<HuntOpenReceipt> {
+    this.requireWallet();
+    const options = this.options.hunt;
+    const hunt = this.huntState_();
+    const pack = hunt.mine.find((candidate) => candidate.packId === packId.toString());
+    if (!options || !pack) throw new GameError("UnknownPack");
+    if (pack.opened) throw new GameError("AlreadyOpened");
+    const spec = options.tiers.find((candidate) => candidate.id === pack.tier);
+    if (!spec) throw new GameError("BadTier");
+    onStep("seal");
+    await wait(this.options.latencyMs);
+    onStep("open");
+    const hash = await this.send();
+    const seed = keccak256(toHex(`${hash}-${pack.packId}`));
+    const players: number[] = [];
+    for (let i = 0; i < spec.cards; i += 1) {
+      const roll = BigInt(keccak256(toHex(`${seed}-${i}`)));
+      players.push(hunt.pool[Number(roll % BigInt(hunt.pool.length))] as number);
+    }
+    pack.opened = true;
+    pack.players = players;
+    pack.firstCardId = hunt.nextCard.toString();
+    hunt.nextCard += players.length;
+    const found = players.includes(hunt.target) && hunt.status === "Open" && pack.round === hunt.round;
+    if (found) {
+      const pot = BigInt(hunt.pot);
+      const prize = (pot * BigInt(options.winnerBps)) / 10_000n;
+      hunt.status = "Won";
+      hunt.winner = this.options.demoWallet;
+      hunt.claimable = (BigInt(hunt.claimable) + prize).toString();
+      hunt.carry = (BigInt(hunt.carry) + pot - prize).toString();
+      pack.found = true;
+    }
+    this.commit();
+    return { hash, players, found };
+  }
+
+  async claimHunt(): Promise<ClaimReceipt> {
+    this.requireWallet();
+    const hunt = this.huntState_();
+    const amount = BigInt(hunt.claimable);
+    if (amount === 0n) throw new GameError("NothingToClaim");
+    const hash = await this.send();
+    hunt.claimable = "0";
+    this.state.wallet.wif = (BigInt(this.state.wallet.wif) + amount).toString();
+    this.commit();
+    return { hash, amount };
+  }
+
+  async startHuntRound(target: number, pool: number[]): Promise<TxReceipt> {
+    this.requireWallet();
+    const hunt = this.huntState_();
+    if (hunt.status === "Open") throw new GameError("RoundStillOpen");
+    if (
+      pool.length < 2 ||
+      !pool.includes(target) ||
+      pool.some((id, i) => i > 0 && id <= (pool[i - 1] ?? 0))
+    ) {
+      throw new GameError("BadPool");
+    }
+    const hash = await this.send();
+    hunt.round += 1;
+    hunt.target = target;
+    hunt.status = "Open";
+    hunt.winner = null;
+    hunt.pot = hunt.carry;
+    hunt.carry = "0";
+    hunt.packs = 0;
+    hunt.pool = [...pool];
+    this.commit();
+    return { hash };
+  }
+
+  async closeHuntRound(): Promise<TxReceipt> {
+    this.requireWallet();
+    const hunt = this.huntState_();
+    if (hunt.status !== "Open") throw new GameError("NoOpenRound");
+    const hash = await this.send();
+    hunt.status = "Closed";
+    hunt.carry = (BigInt(hunt.carry) + BigInt(hunt.pot)).toString();
+    this.commit();
+    return { hash };
   }
 
   // ---------- wallet ----------

@@ -1,6 +1,8 @@
 // The real client: viem reads and wagmi's injected connector (MetaMask, Rabby, Robinhood Wallet) against
 // the BallIsFlat deployment on Robinhood Chain. Loaded only when VITE_DATA_MODE=chain.
 import { ballIsFlatAbi } from "@app/config/abi/BallIsFlat";
+import { ballIsFlatHuntAbi } from "@app/config/abi/BallIsFlatHunt";
+import { hunt as huntConfig } from "@app/config/constants";
 import { squadProof } from "@app/core/squad";
 import type { Hex } from "viem";
 import {
@@ -29,7 +31,7 @@ import {
 import { injected, mock } from "wagmi/connectors";
 import { type ApiCard, api, apiUrl, big } from "../api";
 import { env } from "../env";
-import { chain, contractAddress, deployBlock, wifAddress } from "./chain";
+import { chain, contractAddress, deployBlock, huntAddress, wifAddress } from "./chain";
 import { fixtureById } from "./fixtures";
 import {
   type Account,
@@ -39,6 +41,12 @@ import {
   type GameClient,
   GameError,
   type Hash,
+  type HuntBuyReceipt,
+  type HuntOpenReceipt,
+  type HuntPack,
+  type HuntStep,
+  type HuntView,
+  huntStatuses,
   type LedgerCard,
   type Listing,
   type MatchInfo,
@@ -64,6 +72,13 @@ const config = createConfig({
 const publicClient = createPublicClient({ chain, transport: http(undefined, { batch: true }) });
 
 const contract = { address: contractAddress, abi: ballIsFlatAbi } as const;
+
+function huntContract() {
+  if (!huntAddress) throw new GameError("HuntUnavailable");
+  return { address: huntAddress, abi: ballIsFlatHuntAbi } as const;
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Turns a viem failure into a named GameError the UI has a sentence for. */
 function toGameError(error: unknown): GameError {
@@ -358,6 +373,219 @@ export class ChainGameClient implements GameClient {
           refunded: refunded.has(tokenId),
         },
       ];
+    });
+  }
+
+  // ---------- hunt ----------
+
+  async huntState(): Promise<HuntView> {
+    if (!huntAddress)
+      return { available: false, round: null, carry: 0n, burnBps: 0, winnerBps: 0, tiers: [] };
+    const hunt = huntContract();
+    const [current, carry, burnBps, winnerBps] = await Promise.all([
+      readContract(config, { ...hunt, functionName: "currentRound" }),
+      readContract(config, { ...hunt, functionName: "carry" }),
+      readContract(config, { ...hunt, functionName: "burnBps" }),
+      readContract(config, { ...hunt, functionName: "winnerBps" }),
+    ]);
+    const tiers = await Promise.all(
+      huntConfig.tiers.map(async (tier) => {
+        const onChain = await readContract(config, { ...hunt, functionName: "tier", args: [tier.id] });
+        return { id: tier.id, name: tier.name, price: onChain.price, cards: onChain.cards };
+      }),
+    );
+    let round: HuntView["round"] = null;
+    if (current > 0n) {
+      const [r, pool] = await Promise.all([
+        readContract(config, { ...hunt, functionName: "round", args: [current] }),
+        readContract(config, { ...hunt, functionName: "pool", args: [current] }),
+      ]);
+      round = {
+        id: Number(current),
+        target: r.target,
+        status: huntStatuses[r.status] ?? "None",
+        winner: r.winner === "0x0000000000000000000000000000000000000000" ? null : r.winner,
+        pot: r.pot,
+        packs: Number(r.packs),
+        poolSize: pool.length,
+      };
+    }
+    return { available: true, round, carry, burnBps: Number(burnBps), winnerBps: Number(winnerBps), tiers };
+  }
+
+  /** Packs bought by `wallet`, from PackBought and PackOpened logs (cards are bound, so this is the binder). */
+  async huntPacks(wallet: Address): Promise<HuntPack[]> {
+    if (!huntAddress) return [];
+    const bought = await publicClient.getContractEvents({
+      address: huntAddress,
+      abi: ballIsFlatHuntAbi,
+      eventName: "PackBought",
+      args: { buyer: wallet },
+      fromBlock: deployBlock,
+    });
+    if (bought.length === 0) return [];
+    const ids = bought.map((log) => log.args.packId ?? 0n);
+    const [opened, found] = await Promise.all([
+      publicClient.getContractEvents({
+        address: huntAddress,
+        abi: ballIsFlatHuntAbi,
+        eventName: "PackOpened",
+        args: { packId: ids },
+        fromBlock: deployBlock,
+      }),
+      publicClient.getContractEvents({
+        address: huntAddress,
+        abi: ballIsFlatHuntAbi,
+        eventName: "TargetFound",
+        args: { winner: wallet },
+        fromBlock: deployBlock,
+      }),
+    ]);
+    const blocks = new Map<bigint, number>();
+    await Promise.all(
+      [...new Set(bought.map((log) => log.blockNumber))].map(async (number) => {
+        const block = await publicClient.getBlock({ blockNumber: number });
+        blocks.set(number, Number(block.timestamp));
+      }),
+    );
+    return bought.map((log) => {
+      const packId = log.args.packId ?? 0n;
+      const open = opened.find((event) => event.args.packId === packId);
+      return {
+        packId,
+        tier: Number(log.args.tier ?? 0),
+        round: Number(log.args.round ?? 0n),
+        opened: Boolean(open),
+        players: open ? [...(open.args.players ?? [])] : [],
+        firstCardId: open?.args.firstCardId ?? null,
+        found: found.some((event) => event.args.packId === packId),
+        expired: Boolean(open?.args.expired),
+        boughtAt: blocks.get(log.blockNumber) ?? 0,
+      };
+    });
+  }
+
+  async huntClaimable(wallet: Address): Promise<bigint> {
+    if (!huntAddress) return 0n;
+    return readContract(config, { ...huntContract(), functionName: "claimable", args: [wallet] });
+  }
+
+  buyHuntPack(tier: number, onStep: (step: HuntStep) => void): Promise<HuntBuyReceipt> {
+    return guard(async () => {
+      const hunt = huntContract();
+      const current = getAccount(config);
+      if (!current.address) throw new GameError("NotConnected");
+      const spec = await readContract(config, { ...hunt, functionName: "tier", args: [tier] });
+      const allowance = await readContract(config, {
+        address: wifAddress,
+        abi: erc20Abi,
+        functionName: "allowance",
+        args: [current.address, hunt.address],
+      });
+      if (allowance < spec.price) {
+        onStep("approve");
+        const approveHash = await writeContract(config, {
+          address: wifAddress,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [hunt.address, spec.price],
+          chainId: chain.id,
+        });
+        await this.confirm(approveHash);
+      }
+      onStep("buy");
+      const hash = await writeContract(config, {
+        ...hunt,
+        functionName: "buy",
+        args: [tier],
+        chainId: chain.id,
+      });
+      const receipt = await this.confirm(hash);
+      const [event] = parseEventLogs({ abi: ballIsFlatHuntAbi, eventName: "PackBought", logs: receipt.logs });
+      return { hash, packId: event?.args.packId ?? 0n };
+    });
+  }
+
+  openHuntPack(packId: bigint, onStep: (step: HuntStep) => void): Promise<HuntOpenReceipt> {
+    return guard(async () => {
+      const hunt = huntContract();
+      const current = getAccount(config);
+      if (!current.address) throw new GameError("NotConnected");
+      // The draw needs the block after the purchase; wait for it (Robinhood Chain counts parent-chain blocks,
+      // roughly 12 s each). A local anvil node only mines on transactions, so mine the blocks there.
+      onStep("seal");
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          await publicClient.simulateContract({
+            ...hunt,
+            functionName: "open",
+            args: [packId],
+            account: current.address,
+          });
+          break;
+        } catch (error) {
+          const named = toGameError(error);
+          if (named.code !== "TooEarly" || attempt > 60) throw named;
+          if (env.VITE_NETWORK === "local") {
+            await publicClient.request({ method: "anvil_mine" as never, params: ["0x2"] as never });
+          } else {
+            await sleep(3_000);
+          }
+        }
+      }
+      onStep("open");
+      const hash = await writeContract(config, {
+        ...hunt,
+        functionName: "open",
+        args: [packId],
+        chainId: chain.id,
+      });
+      const receipt = await this.confirm(hash);
+      const [opened] = parseEventLogs({
+        abi: ballIsFlatHuntAbi,
+        eventName: "PackOpened",
+        logs: receipt.logs,
+      });
+      const found = parseEventLogs({ abi: ballIsFlatHuntAbi, eventName: "TargetFound", logs: receipt.logs });
+      return { hash, players: [...(opened?.args.players ?? [])], found: found.length > 0 };
+    });
+  }
+
+  claimHunt(): Promise<ClaimReceipt> {
+    return guard(async () => {
+      const hash = await writeContract(config, {
+        ...huntContract(),
+        functionName: "claim",
+        chainId: chain.id,
+      });
+      const receipt = await this.confirm(hash);
+      const [event] = parseEventLogs({ abi: ballIsFlatHuntAbi, eventName: "Claimed", logs: receipt.logs });
+      return { hash, amount: event?.args.amount ?? 0n };
+    });
+  }
+
+  startHuntRound(target: number, pool: number[]): Promise<TxReceipt> {
+    return guard(async () => {
+      const hash = await writeContract(config, {
+        ...huntContract(),
+        functionName: "startRound",
+        args: [target, pool],
+        chainId: chain.id,
+      });
+      await this.confirm(hash);
+      return { hash };
+    });
+  }
+
+  closeHuntRound(): Promise<TxReceipt> {
+    return guard(async () => {
+      const hash = await writeContract(config, {
+        ...huntContract(),
+        functionName: "closeRound",
+        chainId: chain.id,
+      });
+      await this.confirm(hash);
+      return { hash };
     });
   }
 

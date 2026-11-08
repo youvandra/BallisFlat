@@ -331,6 +331,21 @@ contract HuntTest is Test {
         assertEq(uint8(hunt.round(2).status), uint8(BallIsFlatHunt.Status.Open));
     }
 
+    function test_cards_are_bound_to_the_opener() public {
+        uint32[] memory p = _pool(20);
+        hunt.startRound(KANE, p);
+        uint256 id = _buyAndReveal(alice, SILVER, _hashFor(1, 3, p, KANE, false));
+        hunt.open(id);
+        vm.prank(alice);
+        vm.expectRevert(BallIsFlatHunt.CardBound.selector);
+        hunt.transferFrom(alice, bob, 1);
+        vm.prank(alice);
+        hunt.approve(bob, 1);
+        vm.prank(bob);
+        vm.expectRevert(BallIsFlatHunt.CardBound.selector);
+        hunt.transferFrom(alice, bob, 1);
+    }
+
     function test_tokenURI() public {
         uint32[] memory p = _pool(20);
         hunt.startRound(KANE, p);

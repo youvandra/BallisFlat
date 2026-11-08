@@ -8,7 +8,7 @@ export type Deployment = {
   chainId: number;
   /** Block the contract was deployed in; event scans start here. */
   deployBlock: number;
-  contracts: Partial<Record<"BallIsFlat" | "WIF", `0x${string}`>>;
+  contracts: Partial<Record<"BallIsFlat" | "BallIsFlatHunt" | "WIF", `0x${string}`>>;
   /** Fixture slug to on-chain match id, filled as the deploy script lists matches. */
   matches: Record<string, number>;
 };
