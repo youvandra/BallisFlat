@@ -50,6 +50,18 @@ describe("card art", () => {
     const up = vi.fn(async () => ok());
     expect(await inlineArt(url, up as unknown as typeof fetch)).toMatch(/^data:image\/png;base64,/);
   });
+  it("re-encodes WebP art as PNG so the rasterised card shows it", async () => {
+    const sharp = (await import("sharp")).default;
+    const webp = await sharp({ create: { width: 4, height: 4, channels: 4, background: "#ff4fa3" } })
+      .webp()
+      .toBuffer();
+    const fetcher = vi.fn(
+      async () =>
+        new Response(new Uint8Array(webp), { status: 200, headers: { "content-type": "image/webp" } }),
+    );
+    const url = "https://d29qeiydx3h9k2.cloudfront.net/players/test-webp.webp";
+    expect(await inlineArt(url, fetcher as unknown as typeof fetch)).toMatch(/^data:image\/png;base64,/);
+  });
 });
 
 describe("card svg", () => {

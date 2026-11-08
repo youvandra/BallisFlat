@@ -2,6 +2,7 @@
 // way may not load anything from another URL, so the player illustration is fetched once, kept in memory
 // and written into the SVG as a data URI. Only our art CDN is fetched (the URLs come from player-art.json).
 import { artKey, playerArt } from "@app/config/player-art";
+import sharp from "sharp";
 
 const allowedHost = "d29qeiydx3h9k2.cloudfront.net";
 const maxEntries = 400; // one ~50-150 KB PNG per player; a few hundred players at most
@@ -24,7 +25,12 @@ async function download(url: string, fetcher: typeof fetch): Promise<string | nu
     const type = response.headers.get("content-type") ?? "";
     if (!response.ok || !type.startsWith("image/")) return null;
     const bytes = Buffer.from(await response.arrayBuffer());
-    return `data:${type.split(";")[0]};base64,${bytes.toString("base64")}`;
+    const mime = type.split(";")[0] ?? "";
+    // The PNG route rasterises the SVG with librsvg, which leaves WebP (our art format) blank: re-encode it.
+    if (mime === "image/png" || mime === "image/jpeg")
+      return `data:${mime};base64,${bytes.toString("base64")}`;
+    const png = await sharp(bytes).png().toBuffer();
+    return `data:image/png;base64,${png.toString("base64")}`;
   } catch {
     return null;
   }
