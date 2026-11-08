@@ -243,11 +243,11 @@ function Hunt({ view }: { view: HuntView }) {
               return (
                 <li key={tier.id} className="flex flex-col gap-3">
                   <TierPack tier={tier} round={round.id} />
-                  <div className="flex items-baseline justify-between gap-2">
-                    <p className="t-body-strong num">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+                    <p className="t-body-strong num whitespace-nowrap">
                       {tier.price === 0n ? "Free" : `${formatWif(tier.price)} $WIF`}
                     </p>
-                    <p className="t-small num">
+                    <p className="t-small num whitespace-nowrap">
                       {formatPercent(findChance(tier.cards, wantedLeft, deckLeft))} to find
                     </p>
                   </div>
