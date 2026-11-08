@@ -20,3 +20,6 @@ docs/PITCH-SCRIPT.md
 
 # Ponder build cache
 .ponder/
+
+# Mainnet deploy secrets, never committed or shipped
+deploy/*.env
