@@ -17,6 +17,7 @@ apps/web/public/_refs/
 NEXT.md
 docs/IDEA-SCORECARD.md
 docs/PITCH-SCRIPT.md
+docs/submission.*.md
 
 # Ponder build cache
 .ponder/
