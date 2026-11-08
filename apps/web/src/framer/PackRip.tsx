@@ -1,7 +1,7 @@
 // @ts-nocheck: verbatim Framer code component (see shim.ts)
 import { addPropertyControls, ControlType, useIsStaticRenderer } from "./shim"
 import { motion, useMotionValue, useTransform, useMotionTemplate, animate, useReducedMotion } from "framer-motion"
-import { useState, useRef, useEffect, startTransition, type CSSProperties, type PointerEvent as RPointerEvent } from "react"
+import { useState, useRef, useEffect, startTransition, type CSSProperties, type PointerEvent as RPointerEvent, type ReactNode } from "react"
 import HoloCard from "./HoloTradingCard"
 import { Logo } from "../components/ui/Logo"
 
@@ -49,6 +49,11 @@ interface PackRipProps {
     printOffset: number
     showReset?: boolean
     cardRarityLabel?: string
+    /** App addition: printed over the card art (the binder card's cut-out and shirt number). */
+    cardArtOverlay?: ReactNode
+    /** App addition: the card's foil and bottom-right set line, so it matches the card it becomes. */
+    cardRarity?: "common" | "rare" | "epic" | "legendary"
+    cardSetLabel?: string
     finish?: PackFinish
     onReveal?: () => void
     soundPlacement?: "top" | "bottom"
@@ -635,9 +640,11 @@ export default function PackRip(props: PackRipProps) {
                         number={cardNumber}
                         typeLine={cardType}
                         year={cardYear}
-                        rarity="legendary"
+                        rarity={props.cardRarity ?? "legendary"}
                         rarityLabel={cardRarityLabel}
                         subName={props.cardSubName}
+                        artOverlay={props.cardArtOverlay}
+                        {...(props.cardSetLabel ? { setLabel: props.cardSetLabel } : {})}
                         abilityCount={0}
                         flippable={false}
                         maxTilt={phase === "revealed" ? 10 : 0}

@@ -37,6 +37,28 @@ type Props = {
   className?: string;
 };
 
+/** The card art every player card uses: the team's halftone plus the cut-out figure and shirt number. */
+export function playerCardArt(
+  player: Player,
+  team: Team,
+): { image: { src: string; alt: string }; overlay: ReactNode } {
+  const illustration = playerIllustration(player, team);
+  return {
+    image: {
+      src: playerArtUrl(player, team, { number: false }),
+      alt: `${team.code} number ${player.number}`,
+    },
+    overlay: illustration ? (
+      <>
+        <PlayerCutout src={illustration} />
+        <ShirtNumber value={player.number} className="shirt-number-corner" />
+      </>
+    ) : (
+      <ShirtNumber value={player.number} />
+    ),
+  };
+}
+
 /**
  * A player as the landing's Holo Card (HoloTradingCard.tsx): halftone art, rarity foil, 3D tilt, optional flip.
  * The surname is printed big and fitted to the card, the full name small under it. The shirt number is
@@ -62,7 +84,7 @@ export function PlayerHoloCard({
   className = "",
 }: Props) {
   const results = back?.results ?? [];
-  const illustration = playerIllustration(player, team);
+  const art = playerCardArt(player, team);
   return (
     <div className={`aspect-card w-full ${className}`}>
       <HoloCard
@@ -70,20 +92,8 @@ export function PlayerHoloCard({
         subName={compact ? "" : player.name}
         footer={footer}
         number={compact ? "" : (number ?? `No. ${String(player.number).padStart(2, "0")}`)}
-        image={{
-          src: playerArtUrl(player, team, { number: false }),
-          alt: `${team.code} number ${player.number}`,
-        }}
-        artOverlay={
-          illustration ? (
-            <>
-              <PlayerCutout src={illustration} />
-              <ShirtNumber value={player.number} className="shirt-number-corner" />
-            </>
-          ) : (
-            <ShirtNumber value={player.number} />
-          )
-        }
+        image={art.image}
+        artOverlay={art.overlay}
         showType={!compact}
         typeLine={positionNames[player.position]}
         year={team.code}

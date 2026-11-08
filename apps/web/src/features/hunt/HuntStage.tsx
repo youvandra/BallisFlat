@@ -2,14 +2,13 @@ import { product } from "@app/config/constants";
 import { X } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { PackRip } from "../../components/playmat/framer";
-import { PlayerHoloCard, positionNames } from "../../components/playmat/PlayerHoloCard";
+import { PlayerHoloCard, playerCardArt, positionNames } from "../../components/playmat/PlayerHoloCard";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Logo } from "../../components/ui/Logo";
 import { Notice } from "../../components/ui/Notice";
 import { StepLine } from "../../components/ui/StepLine";
 import { type PackFinish, packFoil } from "../../framer/PackRip";
-import { playerArtUrl } from "../../lib/art";
 import { surname } from "../../lib/format";
 import { huntPlayer, tierKeys } from "../../lib/game/hunt";
 import type { HuntStep, HuntTier } from "../../lib/game/types";
@@ -162,6 +161,8 @@ function Pack({
   const wanted = huntPlayer(target);
   const tierInk = [ink.ink, ink.note, ink.cyan][stage.tier.id] ?? ink.pink;
   if (!lead) return null;
+  // The card out of the pack is drawn exactly like the first card of the deck that follows.
+  const art = playerCardArt(lead.player, lead.team);
   return (
     <div className="flex h-full w-full flex-col items-center gap-2" data-testid="hunt-pack">
       <p className="t-body-strong pt-6 text-center">Your {stage.tier.name} pack. Tear it open.</p>
@@ -176,14 +177,17 @@ function Pack({
           hint="Drag across the top to open"
           showReset={false}
           cardRarityLabel={hit ? "Wanted" : lead.team.code}
+          cardRarity={hit ? "legendary" : "rare"}
+          cardSetLabel={stage.tier.name}
+          cardArtOverlay={art.overlay}
           onReveal={() => window.setTimeout(onTorn, 900)}
           soundToggle={false}
-          cardImage={{ src: playerArtUrl(lead.player, lead.team), alt: lead.player.name }}
+          cardImage={art.image}
           cardName={surname(lead.player.name)}
           cardSubName={lead.player.name}
           cardNumber={`1/${stage.players.length}`}
           cardType={positionNames[lead.player.position]}
-          cardYear={stage.tier.name}
+          cardYear={lead.team.code}
           canvasState="sealed"
           ink={ink.mat}
           hintColor={ink.graphite}
@@ -244,14 +248,7 @@ function Deck({
 
   return (
     <div className="flex flex-col items-center gap-5" data-testid="hunt-reveal">
-      {stage.found ? (
-        <Badge>You found {wanted ? surname(wanted.player.name) : "him"}</Badge>
-      ) : (
-        <p className="t-small">
-          No {wanted ? surname(wanted.player.name) : "wanted card"} in this one. Mint the cards you want to
-          keep.
-        </p>
-      )}
+      {stage.found ? <Badge>You found {wanted ? surname(wanted.player.name) : "him"}</Badge> : null}
       <div className="hunt-deck">
         {total > 2 ? <span className="hunt-deck-back is-far" aria-hidden /> : null}
         {total > 1 ? <span className="hunt-deck-back" aria-hidden /> : null}

@@ -242,7 +242,7 @@ function Hunt({ view }: { view: HuntView }) {
               const soldOut = tier.cards > unsold;
               return (
                 <li key={tier.id} className="flex flex-col gap-3">
-                  <TierPack tier={tier} round={round.id} />
+                  <TierPack tier={tier} />
                   <div className="flex flex-wrap items-baseline justify-between gap-x-2">
                     <p className="t-body-strong num whitespace-nowrap">
                       {tier.price === 0n ? "Free" : `${formatWif(tier.price)} $WIF`}
@@ -434,7 +434,7 @@ function Hunt({ view }: { view: HuntView }) {
 }
 
 /** A tier's sealed pack: Silver in Ink, Gold in Note, Diamond in cyan over pink. */
-function TierPack({ tier, round }: { tier: HuntTier; round: number }) {
+function TierPack({ tier }: { tier: HuntTier }) {
   return (
     <span
       className="pack-tile"
@@ -446,7 +446,6 @@ function TierPack({ tier, round }: { tier: HuntTier; round: number }) {
       <Logo className="pack-logo text-on-ink" title={product.name} />
       <span className="t-title text-on-ink">{tier.name}</span>
       <span className="t-small text-on-ink">{tier.cards} cards</span>
-      <span className="badge mt-2">Hunt {round}</span>
     </span>
   );
 }
