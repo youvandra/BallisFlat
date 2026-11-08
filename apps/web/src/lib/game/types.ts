@@ -130,6 +130,8 @@ export interface HuntView {
   /** Every round so far, newest first (the admin payout queue reads it). */
   history: HuntRound[];
   burnBps: number;
+  /** $WIF to mint one drawn card (0 = gas only). */
+  mintPrice: bigint;
   treasury: Address | null;
   tiers: HuntTier[];
 }
@@ -139,10 +141,10 @@ export interface HuntPack {
   tier: number;
   round: number;
   opened: boolean;
-  /** Player ids drawn, in card order; empty until opened. */
+  /** Player ids drawn, in slot order; empty until opened. */
   players: number[];
-  /** First card id of the pack (cards are firstCardId..firstCardId+n-1). */
-  firstCardId: bigint | null;
+  /** Per slot: the minted card id, or null while the drawn card is not minted. */
+  minted: (bigint | null)[];
   /** This pack found its round's wanted player. */
   found: boolean;
   /** Opened after the reveal window: drawn without the wanted player. */
@@ -215,6 +217,8 @@ export interface GameClient {
   buyHuntPack(tier: number, onStep: (step: HuntStep) => void): Promise<HuntBuyReceipt>;
   /** Waits for the pack's reveal block, then opens it (cards go to the buyer). */
   openHuntPack(packId: bigint, onStep: (step: HuntStep) => void): Promise<HuntOpenReceipt>;
+  /** Approves $WIF if the mint has a price, then mints one drawn slot of an opened pack. */
+  mintHuntCard(packId: bigint, slot: number, onStep: (step: MintStep) => void): Promise<MintReceipt>;
   /** The winner asks the team for the round's prize (moves no funds). */
   claimHuntPrize(round: number): Promise<TxReceipt>;
   // hunt owner

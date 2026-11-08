@@ -15,6 +15,7 @@ import { type BinderGroup, binderGroupOf, binderGroups } from "../../lib/game/bi
 import { errorSentence } from "../../lib/game/errors";
 import { txUrl } from "../../lib/game/facts";
 import { shownKickoff } from "../../lib/game/fixtures";
+import { useHuntPacks } from "../../lib/game/hunt";
 import { useOpenedSet } from "../../lib/game/opened";
 import { type BinderCard, useBoard, useGame, useMyCards } from "../../lib/game/queries";
 import { sleeveCodes } from "../../lib/game/sleeve";
@@ -133,6 +134,18 @@ function Binder() {
   const upcoming = (board.data ?? []).filter((view) => view.state === "Open").slice(0, 3);
   const current = account.data;
   const total = cards.data?.length ?? 0;
+  const huntPacks = useHuntPacks(current);
+  const huntCount = (huntPacks.data ?? []).reduce(
+    (count, pack) => count + pack.minted.filter((id) => id !== null).length,
+    0,
+  );
+  const [source, setSource] = useState<"all" | "matches" | "hunt">("all");
+  const sources = [
+    { key: "all", label: "All", chip: "bg-note", count: total + huntCount },
+    { key: "matches", label: "Matches", chip: "bg-pink", count: total },
+    { key: "hunt", label: "Hunt", chip: "bg-cyan", count: huntCount },
+  ] as const;
+  const showMatches = source !== "hunt";
 
   const shelves = binderGroups.flatMap((group) => {
     const shelf = grouped.get(group) ?? [];
@@ -144,20 +157,23 @@ function Binder() {
       <div className="playmat-col col-side">
         <Zone label="Binder" className="gap-3.5 px-4.5 pt-7.5 pb-4.5">
           <h1 className="t-heading">Your binder</h1>
-          <p className="t-small">Every card you picked, sorted by what you can do with it.</p>
-          <ul className="flex flex-col pt-2">
-            {binderGroups.map((group) => (
-              <li key={group}>
-                <a
-                  href={`#shelf-${group}`}
-                  className="flex items-center gap-3 rounded-input py-2.5 transition-opacity hover:opacity-70"
+          <p className="t-small">Every card you minted: match picks and the Hunt cards you kept.</p>
+          <ul className="flex flex-col pt-2" aria-label="Show cards from">
+            {sources.map((option) => (
+              <li key={option.key}>
+                <button
+                  type="button"
+                  onClick={() => setSource(option.key)}
+                  aria-pressed={source === option.key}
+                  data-testid={`binder-filter-${option.key}`}
+                  className={`flex w-full items-center gap-3 rounded-input py-2.5 text-left transition-opacity hover:opacity-70 ${source === option.key ? "" : "opacity-60"}`}
                 >
-                  <span className={`swatch ${groupChips[group]}`} aria-hidden />
+                  <span className={`swatch ${option.chip}`} aria-hidden />
                   <span className="flex flex-1 items-center justify-between gap-2">
-                    <span className="t-body-strong">{group}</span>
-                    <span className="t-small num">{grouped.get(group)?.length ?? 0}</span>
+                    <span className="t-body-strong">{option.label}</span>
+                    <span className="t-small num">{option.count}</span>
                   </span>
-                </a>
+                </button>
               </li>
             ))}
           </ul>
@@ -191,7 +207,7 @@ function Binder() {
           ) : null}
           {burn.isError ? <Notice tone="danger">{errorSentence(burn.error)}</Notice> : null}
 
-          {account.isPending || (current && cards.isPending) ? (
+          {!showMatches ? null : account.isPending || (current && cards.isPending) ? (
             <Zone label="Cards" size="auto" className="px-6 pt-7 pb-7">
               <PackLoader label="Opening your binder…" />
             </Zone>
@@ -260,7 +276,15 @@ function Binder() {
               </Zone>
             ))
           )}
-          <HuntShelf account={current} />
+          {source !== "matches" ? <HuntShelf account={current} /> : null}
+          {source === "hunt" && huntCount === 0 ? (
+            <Zone label="Hunt · 0" size="auto" className="gap-3 px-6 pt-7 pb-7">
+              <p className="t-small">No Hunt cards yet. Open a pack and mint the cards you want to keep.</p>
+              <Link to="/hunt" className="text-link self-start">
+                Go to the Hunt <ArrowRight size={14} strokeWidth={2} aria-hidden />
+              </Link>
+            </Zone>
+          ) : null}
         </div>
       </div>
 

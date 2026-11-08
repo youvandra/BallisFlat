@@ -25,7 +25,9 @@ async function buyAndTear(page: Page, tier: "silver" | "gold" | "diamond"): Prom
   return stage;
 }
 
-test("buy a Silver pack, tear it, and its three cards reach the binder", async ({ page }) => {
+test("buy a Silver pack, tear it, mint the one card you want; only that card reaches the binder", async ({
+  page,
+}) => {
   await page.goto("/hunt");
   await expect(page.getByRole("heading", { name: "Find Kane" })).toBeVisible();
   await expect(page.getByTestId("hunt-prize")).toHaveText("10,000");
@@ -40,12 +42,25 @@ test("buy a Silver pack, tear it, and its three cards reach the binder", async (
   await expect(stage.getByTestId("hunt-deck-count")).toContainText("1 / 3");
   await stage.getByRole("button", { name: /Show the next card/ }).click();
   await expect(stage.getByTestId("hunt-deck-count")).toContainText("2 / 3");
+  // Opening mints nothing; this card is kept on purpose.
+  await stage.getByTestId("hunt-mint").click();
+  await expect(stage.getByTestId("hunt-minted")).toBeVisible();
   await stage.getByRole("button", { name: "Close", exact: true }).last().click();
   await expect(stage).toBeHidden();
-  await expect(page.getByTestId("hunt-cards")).toHaveText("3");
+  await expect(page.getByTestId("hunt-cards")).toHaveText("1");
+
+  // The opened pack stays one tap away for the rest of its cards.
+  await page.getByRole("button", { name: /Silver #\d+, 2 to mint/ }).click();
+  await expect(stage.getByTestId("hunt-deck-count")).toContainText("1 / 3");
+  await stage.getByRole("button", { name: "Close", exact: true }).last().click();
 
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Binder" }).click();
-  await expect(page.getByTestId("hunt-shelf").locator("li")).toHaveCount(3);
+  await expect(page.getByTestId("hunt-shelf").locator("li")).toHaveCount(1);
+  await expect(page.getByTestId("binder-filter-hunt")).toContainText("1");
+  await page.getByTestId("binder-filter-matches").click();
+  await expect(page.getByTestId("hunt-shelf")).toHaveCount(0);
+  await page.getByTestId("binder-filter-hunt").click();
+  await expect(page.getByTestId("hunt-shelf").locator("li")).toHaveCount(1);
 });
 
 test("a pack that finds the wanted player wins; admin records the payment", async ({ page }) => {

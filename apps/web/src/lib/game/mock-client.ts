@@ -55,6 +55,8 @@ export interface MockHuntOptions {
   seedPacks: number;
   /** Stands in for the treasury address. */
   treasury: Address;
+  /** $WIF per minted card (0 = gas only). */
+  mintPrice: bigint;
 }
 
 export interface MockOptions extends Omit<SeedConfig, "now"> {
@@ -337,7 +339,15 @@ export class MockGameClient implements GameClient {
     const options = this.options.hunt;
     const hunt = this.huntOrNull();
     if (!options || !hunt) {
-      return { available: false, round: null, history: [], burnBps: 0, treasury: null, tiers: [] };
+      return {
+        available: false,
+        round: null,
+        history: [],
+        burnBps: 0,
+        mintPrice: 0n,
+        treasury: null,
+        tiers: [],
+      };
     }
     const history = [...hunt.rounds].reverse().map((round) => this.huntRoundView(round));
     return {
@@ -345,6 +355,7 @@ export class MockGameClient implements GameClient {
       round: history[0] ?? null,
       history,
       burnBps: options.burnBps,
+      mintPrice: options.mintPrice,
       treasury: options.treasury,
       tiers: [...options.tiers],
     };
@@ -359,7 +370,10 @@ export class MockGameClient implements GameClient {
       round: pack.round,
       opened: pack.opened,
       players: [...pack.players],
-      firstCardId: pack.firstCardId === null ? null : BigInt(pack.firstCardId),
+      minted: pack.players.map((_, slot) => {
+        const id = pack.minted?.[slot];
+        return id ? BigInt(id) : null;
+      }),
       found: pack.found,
       expired: false,
       boughtAt: pack.boughtAt,
@@ -392,7 +406,7 @@ export class MockGameClient implements GameClient {
       round: round.id,
       opened: false,
       players: [],
-      firstCardId: null,
+      minted: [],
       found: false,
       boughtAt: this.now(),
     });
@@ -425,8 +439,7 @@ export class MockGameClient implements GameClient {
     }
     pack.opened = true;
     pack.players = players;
-    pack.firstCardId = hunt.nextCard.toString();
-    hunt.nextCard += players.length;
+    pack.minted = players.map(() => null);
     const found = players.includes(round.target) && round.status === "Open";
     if (found) {
       round.status = "Won";
@@ -474,6 +487,34 @@ export class MockGameClient implements GameClient {
     round.status = "Closed";
     this.commit();
     return { hash };
+  }
+
+  async mintHuntCard(packId: bigint, slot: number, onStep: (step: MintStep) => void): Promise<MintReceipt> {
+    this.requireWallet();
+    const { hunt, options } = this.requireHunt();
+    const pack = hunt.mine.find((candidate) => candidate.packId === packId.toString());
+    if (!pack) throw new GameError("UnknownPack");
+    if (!pack.opened) throw new GameError("NotOpened");
+    if (slot < 0 || slot >= pack.players.length) throw new GameError("BadSlot");
+    if (pack.minted?.[slot]) throw new GameError("AlreadyMinted");
+    const price = options.mintPrice;
+    if (BigInt(this.state.wallet.wif) < price) throw new GameError("InsufficientBalance");
+    if (price > 0n && BigInt(hunt.allowance) < price) {
+      onStep("approve");
+      await this.send();
+      hunt.allowance = price.toString();
+      this.commit();
+    }
+    onStep("mint");
+    const hash = await this.send();
+    const cardId = hunt.nextCard;
+    hunt.nextCard += 1;
+    this.state.wallet.wif = (BigInt(this.state.wallet.wif) - price).toString();
+    if (price > 0n) hunt.allowance = (BigInt(hunt.allowance) - price).toString();
+    pack.minted = pack.players.map((_, i) => pack.minted?.[i] ?? null);
+    pack.minted[slot] = cardId.toString();
+    this.commit();
+    return { hash, tokenId: BigInt(cardId) };
   }
 
   async claimHuntPrize(roundId: number): Promise<TxReceipt> {

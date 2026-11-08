@@ -108,8 +108,21 @@ function Hunt({ view }: { view: HuntView }) {
     onSettled: () => queryClient.invalidateQueries(),
   });
 
+  const mintCard = useMutation({
+    mutationFn: ({ packId, slot }: { packId: bigint; slot: number }) =>
+      client.mintHuntCard(packId, slot, () => undefined),
+    onSettled: () => queryClient.invalidateQueries(),
+  });
+
   const sealed = (packs.data ?? []).filter((pack) => !pack.opened);
-  const cardsHeld = (packs.data ?? []).reduce((total, pack) => total + pack.players.length, 0);
+  const openedPacks = (packs.data ?? []).filter((pack) => pack.opened).reverse();
+  const mintedCount = (packs.data ?? []).reduce(
+    (total, pack) => total + pack.minted.filter((id) => id !== null).length,
+    0,
+  );
+  const stagePack =
+    stage && stage.kind !== "working" ? packs.data?.find((pack) => pack.packId === stage.packId) : undefined;
+  const mintLabel = view.mintPrice > 0n ? `Mint for ${formatWif(view.mintPrice)} $WIF` : "Mint This Card";
   const myWins = view.history.filter(
     (r) => r.status === "Won" && current && r.winner?.toLowerCase() === current.address.toLowerCase(),
   );
@@ -244,9 +257,9 @@ function Hunt({ view }: { view: HuntView }) {
               ))}
               <dl className="t-small flex flex-col gap-1 border-y border-line-soft py-3">
                 <div className="flex justify-between gap-3">
-                  <dt>Cards</dt>
+                  <dt>Minted</dt>
                   <dd className="num text-ink" data-testid="hunt-cards">
-                    {cardsHeld}
+                    {mintedCount}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
@@ -274,6 +287,35 @@ function Hunt({ view }: { view: HuntView }) {
                   })}
                 </div>
               ) : null}
+              {openedPacks.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  <p className="t-zone">Opened</p>
+                  {openedPacks.slice(0, 6).map((pack) => {
+                    const tier = view.tiers[pack.tier];
+                    if (!tier) return null;
+                    const left = pack.minted.filter((id) => id === null).length;
+                    return (
+                      <Button
+                        key={pack.packId.toString()}
+                        variant="quiet"
+                        className="w-full"
+                        disabled={draw.isPending}
+                        onClick={() =>
+                          setStage({
+                            kind: "cards",
+                            tier,
+                            packId: pack.packId,
+                            players: pack.players,
+                            found: pack.found,
+                          })
+                        }
+                      >
+                        {tier.name} #{pack.packId.toString()}, {left} to mint
+                      </Button>
+                    );
+                  })}
+                </div>
+              ) : null}
               <ButtonLink to="/binder" variant="secondary" className="mt-auto">
                 My Binder
               </ButtonLink>
@@ -288,7 +330,21 @@ function Hunt({ view }: { view: HuntView }) {
         onTorn={() =>
           setStage((current) => (current?.kind === "pack" ? { ...current, kind: "cards" } : current))
         }
-        onClose={() => setStage(null)}
+        onClose={() => {
+          setStage(null);
+          mintCard.reset();
+        }}
+        mint={
+          stagePack
+            ? {
+                minted: stagePack.minted,
+                pending: mintCard.isPending ? (mintCard.variables?.slot ?? null) : null,
+                label: mintLabel,
+                error: mintCard.isError ? errorSentence(mintCard.error) : null,
+                onMint: (slot) => mintCard.mutate({ packId: stagePack.packId, slot }),
+              }
+            : undefined
+        }
         claim={
           myWins.find((win) => win.id === round.id && !win.claimed && !win.paid) ? claimButton(round) : null
         }

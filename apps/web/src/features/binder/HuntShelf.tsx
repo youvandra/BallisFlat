@@ -14,12 +14,18 @@ export function HuntShelf({ account }: { account: Account | null | undefined }) 
     .filter((pack) => pack.opened)
     .reverse()
     .flatMap((pack) =>
-      pack.players.map((playerId, index) => ({
-        key: `${pack.packId}-${index}`,
-        playerId,
-        hunt: pack.round,
-        found: pack.found && pack.players.indexOf(playerId) === index,
-      })),
+      pack.players.flatMap((playerId, index) =>
+        pack.minted[index] === null
+          ? []
+          : [
+              {
+                key: `${pack.packId}-${index}`,
+                playerId,
+                hunt: pack.round,
+                found: pack.found && pack.players.indexOf(playerId) === index,
+              },
+            ],
+      ),
     );
   if (cards.length === 0) return null;
   return (
@@ -31,7 +37,7 @@ export function HuntShelf({ account }: { account: Account | null | undefined }) 
     >
       <div className="flex items-baseline justify-between gap-3">
         <h2 id="shelf-hunt" className="t-small">
-          Pulled from Hunt packs. They stay with this wallet.
+          Cards you minted from Hunt packs. They stay with this wallet.
         </h2>
         <Link to="/hunt" className="text-link shrink-0">
           Hunt <ArrowRight size={14} strokeWidth={2} aria-hidden />

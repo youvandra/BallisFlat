@@ -20,6 +20,7 @@ function mockHunt() {
     pool,
     seedPacks: 46,
     treasury: demoWallet,
+    mintPrice: hunt.mintPrice,
   };
 }
 

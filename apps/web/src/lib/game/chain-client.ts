@@ -403,13 +403,22 @@ export class ChainGameClient implements GameClient {
 
   async huntState(): Promise<HuntView> {
     if (!huntAddress) {
-      return { available: false, round: null, history: [], burnBps: 0, treasury: null, tiers: [] };
+      return {
+        available: false,
+        round: null,
+        history: [],
+        burnBps: 0,
+        mintPrice: 0n,
+        treasury: null,
+        tiers: [],
+      };
     }
     const hunt = huntContract();
-    const [current, burnBps, treasury] = await Promise.all([
+    const [current, burnBps, treasury, mintPrice] = await Promise.all([
       readContract(config, { ...hunt, functionName: "currentRound" }),
       readContract(config, { ...hunt, functionName: "burnBps" }),
       readContract(config, { ...hunt, functionName: "treasury" }),
+      readContract(config, { ...hunt, functionName: "mintPrice" }),
     ]);
     const tiers = await Promise.all(
       huntConfig.tiers.map(async (tier) => {
@@ -419,7 +428,15 @@ export class ChainGameClient implements GameClient {
     );
     const ids = Array.from({ length: Number(current) }, (_, i) => current - BigInt(i));
     const history = await Promise.all(ids.map((id) => this.huntRound(id)));
-    return { available: true, round: history[0] ?? null, history, burnBps: Number(burnBps), treasury, tiers };
+    return {
+      available: true,
+      round: history[0] ?? null,
+      history,
+      burnBps: Number(burnBps),
+      mintPrice,
+      treasury,
+      tiers,
+    };
   }
 
   /** Packs bought by `wallet`, from PackBought and PackOpened logs (cards are bound, so this is the binder). */
@@ -434,7 +451,7 @@ export class ChainGameClient implements GameClient {
     });
     if (bought.length === 0) return [];
     const ids = bought.map((log) => log.args.packId ?? 0n);
-    const [opened, found] = await Promise.all([
+    const [opened, found, mints] = await Promise.all([
       publicClient.getContractEvents({
         address: huntAddress,
         abi: ballIsFlatHuntAbi,
@@ -449,6 +466,13 @@ export class ChainGameClient implements GameClient {
         args: { winner: wallet },
         fromBlock: deployBlock,
       }),
+      publicClient.getContractEvents({
+        address: huntAddress,
+        abi: ballIsFlatHuntAbi,
+        eventName: "CardMinted",
+        args: { owner: wallet },
+        fromBlock: deployBlock,
+      }),
     ]);
     const blocks = new Map<bigint, number>();
     await Promise.all(
@@ -460,13 +484,19 @@ export class ChainGameClient implements GameClient {
     return bought.map((log) => {
       const packId = log.args.packId ?? 0n;
       const open = opened.find((event) => event.args.packId === packId);
+      const players = open ? [...(open.args.players ?? [])] : [];
+      const minted = players.map(
+        (_, slot) =>
+          mints.find((event) => event.args.packId === packId && Number(event.args.slot) === slot)?.args
+            .cardId ?? null,
+      );
       return {
         packId,
         tier: Number(log.args.tier ?? 0),
         round: Number(log.args.round ?? 0n),
         opened: Boolean(open),
-        players: open ? [...(open.args.players ?? [])] : [],
-        firstCardId: open?.args.firstCardId ?? null,
+        players,
+        minted,
         found: found.some((event) => event.args.packId === packId),
         expired: Boolean(open?.args.expired),
         boughtAt: blocks.get(log.blockNumber) ?? 0,
@@ -552,6 +582,45 @@ export class ChainGameClient implements GameClient {
       });
       const found = parseEventLogs({ abi: ballIsFlatHuntAbi, eventName: "TargetFound", logs: receipt.logs });
       return { hash, players: [...(opened?.args.players ?? [])], found: found.length > 0 };
+    });
+  }
+
+  mintHuntCard(packId: bigint, slot: number, onStep: (step: MintStep) => void): Promise<MintReceipt> {
+    return guard(async () => {
+      const hunt = huntContract();
+      const current = getAccount(config);
+      if (!current.address) throw new GameError("NotConnected");
+      const price = await readContract(config, { ...hunt, functionName: "mintPrice" });
+      if (price > 0n) {
+        const allowance = await readContract(config, {
+          address: wifAddress,
+          abi: erc20Abi,
+          functionName: "allowance",
+          args: [current.address, hunt.address],
+        });
+        if (allowance < price) {
+          onStep("approve");
+          await this.confirm(
+            await writeContract(config, {
+              address: wifAddress,
+              abi: erc20Abi,
+              functionName: "approve",
+              args: [hunt.address, price],
+              chainId: chain.id,
+            }),
+          );
+        }
+      }
+      onStep("mint");
+      const hash = await writeContract(config, {
+        ...hunt,
+        functionName: "mintCard",
+        args: [packId, slot],
+        chainId: chain.id,
+      });
+      const receipt = await this.confirm(hash);
+      const [event] = parseEventLogs({ abi: ballIsFlatHuntAbi, eventName: "CardMinted", logs: receipt.logs });
+      return { hash, tokenId: event?.args.cardId ?? 0n };
     });
   }
 

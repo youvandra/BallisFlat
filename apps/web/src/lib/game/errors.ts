@@ -44,6 +44,10 @@ const appSentences: Record<string, string> = {
   NotWinner: "Only the wallet that found the wanted card can claim this prize.",
   AlreadyClaimed: "This prize is already claimed. The team is sending it.",
   AlreadyPaid: "This prize is already paid.",
+  NotBuyer: "Only the wallet that bought this pack can mint its cards.",
+  NotOpened: "Open the pack first.",
+  BadSlot: "That card is not in this pack.",
+  AlreadyMinted: "This card is already in your binder.",
 };
 
 /** One plain sentence for any failure a game call can throw. */

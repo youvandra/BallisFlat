@@ -21,6 +21,18 @@ export type Stage =
   | { kind: "pack"; tier: HuntTier; packId: bigint; players: number[]; found: boolean }
   | { kind: "cards"; tier: HuntTier; packId: bigint; players: number[]; found: boolean };
 
+/** Minting a drawn card into the binder, from the deck. */
+export type DeckMint = {
+  /** Per slot: minted card id or null. */
+  minted: (bigint | null)[];
+  /** Slot being minted right now. */
+  pending: number | null;
+  /** Button text, e.g. "Mint This Card" or "Mint for 20 $WIF". */
+  label: string;
+  error: string | null;
+  onMint: (slot: number) => void;
+};
+
 type Props = {
   stage: Stage | null;
   target: number;
@@ -28,6 +40,7 @@ type Props = {
   onClose: () => void;
   /** Shown under the cards when this pack found the wanted player. */
   claim?: ReactNode;
+  mint?: DeckMint;
 };
 
 const swapMs = 380;
@@ -37,7 +50,7 @@ const swapMs = 380;
  * large in the middle. Built on <dialog> so focus is trapped and the dock is covered; it only closes when
  * nothing is waiting on the wallet.
  */
-export function HuntStage({ stage, target, onTorn, onClose, claim }: Props) {
+export function HuntStage({ stage, target, onTorn, onClose, claim, mint }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const open = stage !== null;
   const busy = stage?.kind === "working" && stage.error === null;
@@ -86,7 +99,7 @@ export function HuntStage({ stage, target, onTorn, onClose, claim }: Props) {
           {stage.kind === "working" ? <Working stage={stage} onClose={onClose} /> : null}
           {stage.kind === "pack" ? <Pack stage={stage} target={target} onTorn={onTorn} /> : null}
           {stage.kind === "cards" ? (
-            <Deck stage={stage} target={target} onClose={onClose} claim={claim} />
+            <Deck stage={stage} target={target} onClose={onClose} claim={claim} mint={mint} />
           ) : null}
         </div>
       ) : null}
@@ -195,11 +208,13 @@ function Deck({
   target,
   onClose,
   claim,
+  mint,
 }: {
   stage: Extract<Stage, { kind: "cards" }>;
   target: number;
   onClose: () => void;
   claim?: ReactNode;
+  mint?: DeckMint;
 }) {
   // The wanted card leads, as it did out of the pack; the rest keep their draw order.
   const order = [...stage.players.keys()].sort(
@@ -225,6 +240,7 @@ function Deck({
     return { slot, playerId, entry: huntPlayer(playerId), isHit: playerId === target };
   };
   const front = cardAt(leaving ?? index);
+  const frontMinted = mint?.minted[front.slot] ?? null;
 
   return (
     <div className="flex flex-col items-center gap-5" data-testid="hunt-reveal">
@@ -232,8 +248,8 @@ function Deck({
         <Badge>You found {wanted ? surname(wanted.player.name) : "him"}</Badge>
       ) : (
         <p className="t-small">
-          No {wanted ? surname(wanted.player.name) : "wanted card"} in this one. Every card goes to your
-          binder.
+          No {wanted ? surname(wanted.player.name) : "wanted card"} in this one. Mint the cards you want to
+          keep.
         </p>
       )}
       <div className="hunt-deck">
@@ -264,8 +280,25 @@ function Deck({
         {(leaving ?? index) + 1} / {total}
         {total > 1 ? ". Tap the card for the next one." : ""}
       </p>
+      {mint?.error ? <Notice tone="danger">{mint.error}</Notice> : null}
       <div className="flex flex-wrap justify-center gap-3">
         {stage.found ? claim : null}
+        {mint ? (
+          frontMinted !== null ? (
+            <Badge tone="cyan" className="self-center" testId="hunt-minted">
+              In your binder
+            </Badge>
+          ) : (
+            <Button
+              variant={stage.found ? "secondary" : "primary"}
+              onClick={() => mint.onMint(front.slot)}
+              disabled={mint.pending !== null || leaving !== null}
+              data-testid="hunt-mint"
+            >
+              {mint.pending === front.slot ? "Confirm in Your Wallet…" : mint.label}
+            </Button>
+          )
+        ) : null}
         <Button variant="secondary" onClick={onClose}>
           Close
         </Button>

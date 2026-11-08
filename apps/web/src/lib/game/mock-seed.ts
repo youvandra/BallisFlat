@@ -61,7 +61,8 @@ export interface MockHuntPack {
   round: number;
   opened: boolean;
   players: number[];
-  firstCardId: string | null;
+  /** Per slot: minted card id, or null. */
+  minted?: (string | null)[];
   found: boolean;
   boughtAt: number;
 }

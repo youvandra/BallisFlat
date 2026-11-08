@@ -41,6 +41,8 @@ export const hunt = {
   ],
   /** 1000 bps = 10% of every pack burns; the rest goes to the treasury. */
   burnBps: 1000,
+  /** $WIF to mint one drawn card into the binder (0 = gas only); set on chain with setMintPrice. */
+  mintPrice: 0n,
   /** Prize the team posts for round 1, paid by transfer to the winner (not from pack money). */
   firstPrize: 10_000n * 10n ** 18n,
   /** Parent-chain blocks a pack's draw stays readable (about 51 minutes on Robinhood Chain). */
