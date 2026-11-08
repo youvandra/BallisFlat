@@ -1,5 +1,6 @@
 // Writes packages/config/src/abi/<Contract>.ts from the forge build artifacts.
 // Run after `forge build`: node scripts/export-abi.mjs
+import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,5 +22,7 @@ for (const { file, name, exportName } of contracts) {
     `export const ${exportName} = ${JSON.stringify(abi, null, 2)} as const;\n`;
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, body);
+  // Same style as the rest of the repo, so `npm run lint` passes on the generated file.
+  execFileSync("npx", ["biome", "format", "--write", target], { stdio: "ignore" });
   console.log(`wrote ${abi.length} abi entries to ${target}`);
 }
