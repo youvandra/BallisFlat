@@ -7,6 +7,7 @@
     "./errors": "./src/errors.ts",
     "./format": "./src/format.ts",
     "./payout": "./src/payout.ts",
+    "./settle": "./src/settle.ts",
     "./squad": "./src/squad.ts"
   }
 }

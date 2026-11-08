@@ -1,0 +1,679 @@
+{
+  "general": {
+    "matchId": "5181853",
+    "homeTeam": {
+      "name": "Croatia",
+      "id": 10155
+    },
+    "awayTeam": {
+      "name": "England",
+      "id": 8491
+    }
+  },
+  "header": {
+    "status": {
+      "utcTime": "2026-10-03T16:00:00.000Z",
+      "finished": true,
+      "started": true,
+      "cancelled": false,
+      "reason": {
+        "short": "FT",
+        "shortKey": "fulltime_short",
+        "long": "Full-Time",
+        "longKey": "finished"
+      }
+    }
+  },
+  "content": {
+    "lineup": {
+      "homeTeam": {
+        "name": "Croatia",
+        "starters": [
+          {
+            "id": 383971,
+            "name": "Dominik Livakovi\u0107",
+            "firstName": "Dominik",
+            "lastName": "Livakovi\u0107",
+            "shirtNumber": "1",
+            "performance": {
+              "rating": 5.8
+            }
+          },
+          {
+            "id": 950824,
+            "name": "Josip Stani\u0161i\u0107",
+            "firstName": "Josip",
+            "lastName": "Stani\u0161i\u0107",
+            "shirtNumber": "2",
+            "performance": {
+              "rating": 3.9,
+              "substitutionEvents": [
+                {
+                  "time": 76,
+                  "type": "subOut",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 1413996,
+            "name": "Luka Vu\u0161kovi\u0107",
+            "firstName": "Luka",
+            "lastName": "Vu\u0161kovi\u0107",
+            "shirtNumber": "5",
+            "performance": {
+              "rating": 5.1
+            }
+          },
+          {
+            "id": 1070712,
+            "name": "Jo\u0161ko Gvardiol",
+            "firstName": "Jo\u0161ko",
+            "lastName": "Gvardiol",
+            "shirtNumber": "4",
+            "performance": {
+              "rating": 3.5
+            }
+          },
+          {
+            "id": 163670,
+            "name": "Ivan Peri\u0161i\u0107",
+            "firstName": "Ivan",
+            "lastName": "Peri\u0161i\u0107",
+            "shirtNumber": "14",
+            "performance": {
+              "rating": 5
+            }
+          },
+          {
+            "id": 31097,
+            "name": "Luka Modri\u0107",
+            "firstName": "Luka",
+            "lastName": "Modri\u0107",
+            "shirtNumber": "10",
+            "performance": {
+              "rating": 6.1,
+              "substitutionEvents": [
+                {
+                  "time": 56,
+                  "type": "subOut",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 1406419,
+            "name": "Franjo Ivanovi\u0107",
+            "firstName": "Franjo",
+            "lastName": "Ivanovi\u0107",
+            "shirtNumber": "7",
+            "performance": {
+              "rating": 6.1
+            }
+          },
+          {
+            "id": 1382000,
+            "name": "Petar Su\u010di\u0107",
+            "firstName": "Petar",
+            "lastName": "Su\u010di\u0107",
+            "shirtNumber": "17",
+            "performance": {
+              "rating": 6.6,
+              "substitutionEvents": [
+                {
+                  "time": 46,
+                  "type": "subOut",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 239219,
+            "name": "Mateo Kova\u010di\u0107",
+            "firstName": "Mateo",
+            "lastName": "Kova\u010di\u0107",
+            "shirtNumber": "8",
+            "performance": {
+              "rating": 6.5,
+              "events": [
+                {
+                  "type": "yellowCard"
+                }
+              ]
+            }
+          },
+          {
+            "id": 1215064,
+            "name": "Martin Baturina",
+            "firstName": "Martin",
+            "lastName": "Baturina",
+            "shirtNumber": "16",
+            "performance": {
+              "rating": 6,
+              "substitutionEvents": [
+                {
+                  "time": 46,
+                  "type": "subOut",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 709796,
+            "name": "Petar Musa",
+            "firstName": "Petar",
+            "lastName": "Musa",
+            "shirtNumber": "11",
+            "performance": {
+              "rating": 6.2,
+              "substitutionEvents": [
+                {
+                  "time": 46,
+                  "type": "subOut",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          }
+        ],
+        "subs": [
+          {
+            "id": 446266,
+            "name": "Mario Pa\u0161ali\u0107",
+            "firstName": "Mario",
+            "lastName": "Pa\u0161ali\u0107",
+            "shirtNumber": "15",
+            "performance": {
+              "rating": 6.1,
+              "substitutionEvents": [
+                {
+                  "time": 46,
+                  "type": "subIn",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 557677,
+            "name": "Nikola Vla\u0161i\u0107",
+            "firstName": "Nikola",
+            "lastName": "Vla\u0161i\u0107",
+            "shirtNumber": "13",
+            "performance": {
+              "rating": 6.6,
+              "substitutionEvents": [
+                {
+                  "time": 46,
+                  "type": "subIn",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 1210893,
+            "name": "Igor Matanovi\u0107",
+            "firstName": "Igor",
+            "lastName": "Matanovi\u0107",
+            "shirtNumber": "20",
+            "performance": {
+              "rating": 5.8,
+              "substitutionEvents": [
+                {
+                  "time": 46,
+                  "type": "subIn",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 643448,
+            "name": "Kristijan Jaki\u0107",
+            "firstName": "Kristijan",
+            "lastName": "Jaki\u0107",
+            "shirtNumber": "18",
+            "performance": {
+              "rating": 6.9,
+              "substitutionEvents": [
+                {
+                  "time": 56,
+                  "type": "subIn",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 1186228,
+            "name": "Josip \u0160utalo",
+            "firstName": "Josip",
+            "lastName": "\u0160utalo",
+            "shirtNumber": "6",
+            "performance": {
+              "rating": 6.4,
+              "substitutionEvents": [
+                {
+                  "time": 76,
+                  "type": "subIn",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 873557,
+            "name": "Dominik Kotarski",
+            "firstName": "Dominik",
+            "lastName": "Kotarski",
+            "shirtNumber": "23",
+            "performance": {}
+          },
+          {
+            "id": 1077684,
+            "name": "Ivor Pandur",
+            "firstName": "Ivor",
+            "lastName": "Pandur",
+            "shirtNumber": "12",
+            "performance": {}
+          },
+          {
+            "id": 1353289,
+            "name": "Ivan Smol\u010di\u0107",
+            "firstName": "Ivan",
+            "lastName": "Smol\u010di\u0107",
+            "shirtNumber": "3",
+            "performance": {}
+          },
+          {
+            "id": 173461,
+            "name": "Andrej Kramari\u0107",
+            "firstName": "Andrej",
+            "lastName": "Kramari\u0107",
+            "shirtNumber": "9",
+            "performance": {}
+          },
+          {
+            "id": 344093,
+            "name": "Josip Mi\u0161i\u0107",
+            "firstName": "Josip",
+            "lastName": "Mi\u0161i\u0107",
+            "shirtNumber": "22",
+            "performance": {}
+          },
+          {
+            "id": 959597,
+            "name": "Luka Su\u010di\u0107",
+            "firstName": "Luka",
+            "lastName": "Su\u010di\u0107",
+            "shirtNumber": "21",
+            "performance": {}
+          },
+          {
+            "id": 1199714,
+            "name": "Marco Pa\u0161ali\u0107",
+            "firstName": "Marco",
+            "lastName": "Pa\u0161ali\u0107",
+            "shirtNumber": "19",
+            "performance": {}
+          }
+        ]
+      },
+      "awayTeam": {
+        "name": "England",
+        "starters": [
+          {
+            "id": 303919,
+            "name": "Jordan Pickford",
+            "firstName": "Jordan",
+            "lastName": "Pickford",
+            "shirtNumber": "1",
+            "performance": {
+              "rating": 7.4
+            }
+          },
+          {
+            "id": 1107620,
+            "name": "Jarell Quansah",
+            "firstName": "Jarell",
+            "lastName": "Quansah",
+            "shirtNumber": "22",
+            "performance": {
+              "rating": 7.7,
+              "events": [
+                {
+                  "type": "assist"
+                }
+              ]
+            }
+          },
+          {
+            "id": 710159,
+            "name": "Ezri Konsa",
+            "firstName": "Ezri",
+            "lastName": "Konsa",
+            "shirtNumber": "5",
+            "performance": {
+              "rating": 7.6
+            }
+          },
+          {
+            "id": 844425,
+            "name": "Marc Gu\u00e9hi",
+            "firstName": "Marc",
+            "lastName": "Gu\u00e9hi",
+            "shirtNumber": "6",
+            "performance": {
+              "rating": 7.7
+            }
+          },
+          {
+            "id": 1197655,
+            "name": "Lewis Hall",
+            "firstName": "Lewis",
+            "lastName": "Hall",
+            "shirtNumber": "3",
+            "performance": {
+              "rating": 8.2,
+              "substitutionEvents": [
+                {
+                  "time": 79,
+                  "type": "subOut",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 1089691,
+            "name": "Elliot Anderson",
+            "firstName": "Elliot",
+            "lastName": "Anderson",
+            "shirtNumber": "8",
+            "performance": {
+              "rating": 7.9,
+              "events": [
+                {
+                  "type": "assist"
+                }
+              ],
+              "substitutionEvents": [
+                {
+                  "time": 79,
+                  "type": "subOut",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 1233655,
+            "name": "Alex Scott",
+            "firstName": "Alex",
+            "lastName": "Scott",
+            "shirtNumber": "4",
+            "performance": {
+              "rating": 7.5,
+              "substitutionEvents": [
+                {
+                  "time": 69,
+                  "type": "subOut",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 961995,
+            "name": "Bukayo Saka",
+            "firstName": "Bukayo",
+            "lastName": "Saka",
+            "shirtNumber": "7",
+            "performance": {
+              "rating": 9,
+              "events": [
+                {
+                  "type": "goal"
+                },
+                {
+                  "type": "goal"
+                }
+              ]
+            }
+          },
+          {
+            "id": 1077894,
+            "name": "Jude Bellingham",
+            "firstName": "Jude",
+            "lastName": "Bellingham",
+            "shirtNumber": "10",
+            "performance": {
+              "rating": 9.8,
+              "events": [
+                {
+                  "type": "goal"
+                },
+                {
+                  "type": "assist"
+                },
+                {
+                  "type": "assist"
+                },
+                {
+                  "type": "assist"
+                }
+              ],
+              "playerOfTheMatch": true
+            }
+          },
+          {
+            "id": 906937,
+            "name": "Anthony Gordon",
+            "firstName": "Anthony",
+            "lastName": "Gordon",
+            "shirtNumber": "11",
+            "performance": {
+              "rating": 9.1,
+              "events": [
+                {
+                  "type": "goal"
+                },
+                {
+                  "type": "assist"
+                }
+              ],
+              "substitutionEvents": [
+                {
+                  "time": 69,
+                  "type": "subOut",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 194165,
+            "name": "Harry Kane",
+            "firstName": "Harry",
+            "lastName": "Kane",
+            "shirtNumber": "9",
+            "performance": {
+              "rating": 9.3,
+              "events": [
+                {
+                  "type": "goal"
+                },
+                {
+                  "type": "goal"
+                },
+                {
+                  "type": "assist"
+                }
+              ],
+              "substitutionEvents": [
+                {
+                  "time": 69,
+                  "type": "subOut",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          }
+        ],
+        "subs": [
+          {
+            "id": 818975,
+            "name": "Eberechi Eze",
+            "firstName": "Eberechi",
+            "lastName": "Eze",
+            "shirtNumber": "21",
+            "performance": {
+              "rating": 6.5,
+              "substitutionEvents": [
+                {
+                  "time": 69,
+                  "type": "subIn",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 950474,
+            "name": "James Garner",
+            "firstName": "James",
+            "lastName": "Garner",
+            "shirtNumber": "18",
+            "performance": {
+              "rating": 6.4,
+              "substitutionEvents": [
+                {
+                  "time": 69,
+                  "type": "subIn",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 883080,
+            "name": "Morgan Rogers",
+            "firstName": "Morgan",
+            "lastName": "Rogers",
+            "shirtNumber": "17",
+            "performance": {
+              "rating": 7.6,
+              "events": [
+                {
+                  "type": "goal"
+                }
+              ],
+              "substitutionEvents": [
+                {
+                  "time": 69,
+                  "type": "subIn",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 789502,
+            "name": "Morgan Gibbs-White",
+            "firstName": "Morgan",
+            "lastName": "Gibbs-White",
+            "shirtNumber": "20",
+            "performance": {
+              "rating": 6,
+              "substitutionEvents": [
+                {
+                  "time": 79,
+                  "type": "subIn",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 1406436,
+            "name": "Myles Lewis-Skelly",
+            "firstName": "Myles",
+            "lastName": "Lewis-Skelly",
+            "shirtNumber": "16",
+            "performance": {
+              "rating": 6.3,
+              "substitutionEvents": [
+                {
+                  "time": 79,
+                  "type": "subIn",
+                  "reason": "tactical"
+                }
+              ]
+            }
+          },
+          {
+            "id": 1187213,
+            "name": "James Trafford",
+            "firstName": "James",
+            "lastName": "Trafford",
+            "shirtNumber": "13",
+            "performance": {}
+          },
+          {
+            "id": 107917,
+            "name": "Jason Steele",
+            "firstName": "Jason",
+            "lastName": "Steele",
+            "shirtNumber": "23",
+            "performance": {}
+          },
+          {
+            "id": 1030829,
+            "name": "Jarrad Branthwaite",
+            "firstName": "Jarrad",
+            "lastName": "Branthwaite",
+            "shirtNumber": "15",
+            "performance": {}
+          },
+          {
+            "id": 760712,
+            "name": "Trent Alexander-Arnold",
+            "firstName": "Trent",
+            "lastName": "Alexander-Arnold",
+            "shirtNumber": "2",
+            "performance": {}
+          },
+          {
+            "id": 793907,
+            "name": "Trevoh Chalobah",
+            "firstName": "Trevoh",
+            "lastName": "Chalobah",
+            "shirtNumber": "12",
+            "performance": {}
+          },
+          {
+            "id": 612150,
+            "name": "Dominic Calvert-Lewin",
+            "firstName": "Dominic",
+            "lastName": "Calvert-Lewin",
+            "shirtNumber": "19",
+            "performance": {}
+          },
+          {
+            "id": 1597668,
+            "name": "Rio Ngumoha",
+            "firstName": "Rio",
+            "lastName": "Ngumoha",
+            "shirtNumber": "14",
+            "performance": {}
+          }
+        ]
+      }
+    }
+  }
+}
