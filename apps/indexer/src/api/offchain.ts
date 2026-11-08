@@ -170,6 +170,15 @@ export async function playerById(id: number) {
   return row;
 }
 
+/** The shirt number a player wore in their latest listed fixture (0 when they are in no squad). */
+export async function latestNumberOf(id: number): Promise<number> {
+  await ensureOffchain();
+  const [row] = await sql<{ number: number }[]>`
+    select fp.number from app.fixture_player fp join app.fixture f on f.slug = fp.fixture_slug
+    where fp.player_id = ${id} order by f.kickoff desc limit 1`;
+  return row?.number ?? 0;
+}
+
 // ---------- admin writes ----------
 
 export type FixtureInput = {

@@ -12,7 +12,8 @@ import sharp from "sharp";
 import type { Hex } from "viem";
 import { getAddress, isAddress } from "viem";
 import { artUrlFor, inlineArt } from "./art";
-import { type CardView, cardSvg, metadataJson } from "./metadata";
+import { huntCardView } from "./hunt";
+import { type CardView, cardSvg, huntCardSvg, huntMetadataJson, metadataJson } from "./metadata";
 import {
   AdminError,
   type FixtureInput,
@@ -283,22 +284,30 @@ async function cardFace(id: bigint | null): Promise<string | null> {
   return cardSvg(view, url ? await inlineArt(url) : null);
 }
 
-app.get("/cards/:id/image.svg", async (c) => {
-  const svg = await cardFace(parseBigint(c.req.param("id")));
+function svgResponse(svg: string | null): Response {
   if (!svg) return fail(404, "no such card");
   return new Response(svg, {
     headers: { "content-type": "image/svg+xml", "cache-control": "public, max-age=60" },
   });
-});
+}
 
 /** PNG of the same face, for wallets and marketplaces that do not show SVG. */
-app.get("/cards/:id/image.png", async (c) => {
-  const svg = await cardFace(parseBigint(c.req.param("id")));
+async function pngResponse(svg: string | null): Promise<Response> {
   if (!svg) return fail(404, "no such card");
   const png = await sharp(Buffer.from(svg), { density: 144 }).resize(600, 840).png().toBuffer();
   return new Response(new Uint8Array(png), {
     headers: { "content-type": "image/png", "cache-control": "public, max-age=60" },
   });
+}
+
+app.get("/cards/:id/image.svg", async (c) => {
+  const svg = await cardFace(parseBigint(c.req.param("id")));
+  return svgResponse(svg);
+});
+
+app.get("/cards/:id/image.png", async (c) => {
+  const svg = await cardFace(parseBigint(c.req.param("id")));
+  return pngResponse(svg);
 });
 
 app.get("/cards/:id", async (c) => {
@@ -306,6 +315,32 @@ app.get("/cards/:id", async (c) => {
   const view = id === null ? null : await cardView(id);
   if (!view) return fail(404, "no such card");
   return json(metadataJson(view, publicUrl, appUrl), 200, 60);
+});
+
+// Hunt cards (BallIsFlatHunt tokenURI = <api>/hunt/cards/<id>). Read from the contract, not the indexer.
+
+async function huntFace(id: bigint | null): Promise<string | null> {
+  const view = id === null ? null : await huntCardView(id);
+  if (!view) return null;
+  const url = artUrlFor(view.teamCode, view.playerName);
+  return huntCardSvg(view, url ? await inlineArt(url) : null);
+}
+
+app.get("/hunt/cards/:id/image.svg", async (c) => {
+  const svg = await huntFace(parseBigint(c.req.param("id")));
+  return svgResponse(svg);
+});
+
+app.get("/hunt/cards/:id/image.png", async (c) => {
+  const svg = await huntFace(parseBigint(c.req.param("id")));
+  return pngResponse(svg);
+});
+
+app.get("/hunt/cards/:id", async (c) => {
+  const id = parseBigint(c.req.param("id"));
+  const view = id === null ? null : await huntCardView(id);
+  if (!view) return fail(404, "no such card");
+  return json(huntMetadataJson(view, publicUrl, appUrl), 200, 60);
 });
 
 app.get("/collection", () =>
