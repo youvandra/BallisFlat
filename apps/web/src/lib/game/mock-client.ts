@@ -443,7 +443,13 @@ export class MockGameClient implements GameClient {
     const spec = round.tiers[tier];
     if (!spec) throw new GameError("BadTier");
     if (round.status !== "Open") throw new GameError("NoOpenRound");
-    if (round.sold + spec.cards > round.supply) throw new GameError("SoldOut");
+    const left = round.supply - round.sold;
+    if (spec.cards > left) throw new GameError("SoldOut");
+    // Same as the contract: a remainder no pack could buy goes into this pack.
+    const open = round.tiers.filter((tier) => !tier.allowRoot);
+    const smallest = Math.min(...(open.length ? open : round.tiers).map((tier) => tier.cards));
+    const rest = left - spec.cards;
+    const cards = rest > 0 && rest < smallest ? spec.cards + rest : spec.cards;
     const key = `${round.id}:${tier}`;
     if (spec.allowRoot) {
       if (hunt.allowUsed.includes(key)) throw new GameError("AllowUsed");
@@ -463,14 +469,14 @@ export class MockGameClient implements GameClient {
     if (price > 0n) hunt.allowance = (BigInt(hunt.allowance) - price).toString();
     if (spec.allowRoot) hunt.allowUsed.push(key);
     round.packs += 1;
-    round.sold += spec.cards;
+    round.sold += cards;
     const packId = hunt.nextPack;
     hunt.nextPack += 1;
     hunt.mine.push({
       packId: packId.toString(),
       tier,
       round: round.id,
-      cards: spec.cards,
+      cards,
       opened: false,
       players: [],
       minted: [],
