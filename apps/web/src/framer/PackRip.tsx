@@ -49,6 +49,7 @@ interface PackRipProps {
     printOffset: number
     showReset?: boolean
     cardRarityLabel?: string
+    finish?: PackFinish
     onReveal?: () => void
     soundPlacement?: "top" | "bottom"
     soundToggle?: boolean
@@ -161,13 +162,23 @@ const SFX = {
 const SOUND_KEY = "nv-playmat-sound"
 
 const SILVER = "linear-gradient(160deg, #F4F5FA 0%, #B9BFCC 18%, #EEF0F5 36%, #969DAF 58%, #E8EAF0 78%, #A9B0BF 100%)"
+// App addition: the Framer project's "finish" control (Silver, Gold, Diamond) for the Hunt's pack tiers.
+const GOLD = "linear-gradient(160deg, #FFF7D6 0%, #E3B94E 18%, #FFEFB0 36%, #B27F22 58%, #FBE39A 78%, #C8973A 100%)"
+const DIAMOND = "linear-gradient(160deg, #F3FCFF 0%, #9EE6FF 18%, #FFFFFF 36%, #8BB3FF 58%, #E6F8FF 78%, #C3A6FF 100%)"
+export type PackFinish = "Silver" | "Gold" | "Diamond"
+const FINISHES: Record<PackFinish, { base: string; rainbow: number }> = {
+    Silver: { base: SILVER, rainbow: 0.62 },
+    Gold: { base: GOLD, rainbow: 0.38 },
+    Diamond: { base: DIAMOND, rainbow: 0.8 },
+}
 const RAINBOW = "repeating-linear-gradient(115deg, #FFB3D9 0%, #8EF6FF 7%, #C9A7FF 14%, #FFF1A8 21%, #A0FFC8 28%, #FFB3D9 35%)"
 const CRIMP = "repeating-linear-gradient(90deg, rgba(255,255,255,0.6) 0px, rgba(255,255,255,0.6) 2px, rgba(10,11,18,0.16) 2px, rgba(10,11,18,0.16) 6px)"
 
-function Foil({ pos, glare, image }: { pos: any; glare: any; image?: string }) {
+function Foil({ pos, glare, image, finish = "Silver" }: { pos: any; glare: any; image?: string; finish?: PackFinish }) {
+    const look = FINISHES[finish] ?? FINISHES.Silver
     return (
         <>
-            <div style={{ position: "absolute", inset: 0, background: SILVER }} />
+            <div style={{ position: "absolute", inset: 0, background: look.base }} />
             <motion.div
                 style={{
                     position: "absolute",
@@ -176,7 +187,7 @@ function Foil({ pos, glare, image }: { pos: any; glare: any; image?: string }) {
                     backgroundSize: "320% 320%",
                     backgroundPosition: pos,
                     mixBlendMode: "multiply",
-                    opacity: 0.62,
+                    opacity: look.rainbow,
                 }}
             />
             {image ? (
@@ -223,6 +234,8 @@ export default function PackRip(props: PackRipProps) {
         // App additions: hide the reset, name the revealed card's rarity, report the reveal, move the sound toggle.
         showReset = true,
         cardRarityLabel = "MVP",
+        // App addition: foil finish (the Framer "finish" control).
+        finish = "Silver",
         onReveal,
         soundPlacement = "bottom",
         // App addition: the app keeps one Sound toggle in the masthead, so the pack can hide its own.
@@ -673,7 +686,7 @@ export default function PackRip(props: PackRipProps) {
                         }}
                     />
                     <motion.div style={{ position: "absolute", inset: 0, clipPath: PACK_CLIP }}>
-                        <Foil pos={foilPos} glare={glare} image={foil?.src} />
+                        <Foil pos={foilPos} glare={glare} image={foil?.src} finish={finish} />
                         {/* crimp texture top and bottom */}
                         {["0%", "auto"].map((top, i) => (
                             <div
@@ -811,7 +824,7 @@ export default function PackRip(props: PackRipProps) {
                         }}
                     >
                         <div style={{ position: "absolute", inset: 0, clipPath: STRIP_CLIP }}>
-                            <Foil pos={foilPos} glare={glare} />
+                            <Foil pos={foilPos} glare={glare} finish={finish} />
                             <div style={{ position: "absolute", inset: 0, background: CRIMP, opacity: 0.7 }} />
                         </div>
                         {/* ghost finger showing the gesture */}

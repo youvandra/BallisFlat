@@ -12,6 +12,7 @@ import { ButtonLink } from "../../components/ui/ButtonLink";
 import { Logo } from "../../components/ui/Logo";
 import { Notice } from "../../components/ui/Notice";
 import { StepLine } from "../../components/ui/StepLine";
+import type { PackFinish } from "../../framer/PackRip";
 import { useWallet } from "../../hooks/use-wallet";
 import { playerArtUrl } from "../../lib/art";
 import { formatPercent, formatWif, shortHash, surname } from "../../lib/format";
@@ -293,9 +294,9 @@ function Hunt({ view }: { view: HuntView }) {
 function TierPack({ tier, round }: { tier: HuntTier; round: number }) {
   return (
     <span className="pack-tile" data-tier={tierKeys[tier.id]} role="img" aria-label={`${tier.name} pack`}>
-      <Logo className="pack-logo text-ink" title={product.name} />
-      <span className="t-title">{tier.name}</span>
-      <span className="t-small">{tier.cards} cards</span>
+      <Logo className="pack-logo text-on-ink" title={product.name} />
+      <span className="t-title text-on-ink">{tier.name}</span>
+      <span className="t-small text-on-ink">{tier.cards} cards</span>
       <span className="badge mt-2">Hunt {round}</span>
     </span>
   );
@@ -319,6 +320,7 @@ function PackOpening({ opened, target, onTorn }: { opened: Opened; target: numbe
         <div className="relative h-140 w-full">
           <PackRip
             key={opened.packId.toString()}
+            finish={opened.tier.name as PackFinish}
             packTitle={opened.tier.name}
             packLogo
             packSubtitle={`${opened.tier.cards} cards, pack #${opened.packId.toString()}`}

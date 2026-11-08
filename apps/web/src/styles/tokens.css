@@ -540,22 +540,76 @@
     box-shadow: var(--shadow-result);
     text-align: center;
   }
-  /* Hunt pack tiers: Silver in Ink, Gold in Note, Diamond in cyan over pink (the foil is the only place
-     these tints mix). */
+  /* Hunt pack tiers: the same foils as the Pack Rip's finish (Silver, Gold, Diamond), dark type on the foil. */
+  .pack-tile[data-tier] {
+    color: var(--color-on-ink);
+    background-size:
+      100% 100%,
+      320% 320%;
+    background-blend-mode: normal, multiply;
+  }
   .pack-tile[data-tier="silver"] {
     background:
-      radial-gradient(circle at 30% 25%, rgb(242 242 238 / 0.42), transparent 55%),
-      radial-gradient(circle at 75% 80%, rgb(242 242 238 / 0.18), transparent 55%), var(--color-card);
+      repeating-linear-gradient(
+        115deg,
+        rgb(255 179 217 / 0.35) 0%,
+        rgb(142 246 255 / 0.35) 7%,
+        rgb(201 167 255 / 0.35) 14%,
+        rgb(255 241 168 / 0.35) 21%,
+        rgb(160 255 200 / 0.35) 28%,
+        rgb(255 179 217 / 0.35) 35%
+      ),
+      linear-gradient(
+        160deg,
+        rgb(244 245 250) 0%,
+        rgb(185 191 204) 18%,
+        rgb(238 240 245) 36%,
+        rgb(150 157 175) 58%,
+        rgb(232 234 240) 78%,
+        rgb(169 176 191) 100%
+      );
   }
   .pack-tile[data-tier="gold"] {
     background:
-      radial-gradient(circle at 30% 25%, rgb(255 232 0 / 0.55), transparent 55%),
-      radial-gradient(circle at 75% 80%, rgb(255 232 0 / 0.25), transparent 55%), var(--color-card);
+      repeating-linear-gradient(
+        115deg,
+        rgb(255 179 217 / 0.2) 0%,
+        rgb(142 246 255 / 0.2) 7%,
+        rgb(201 167 255 / 0.2) 14%,
+        rgb(255 241 168 / 0.2) 21%,
+        rgb(160 255 200 / 0.2) 28%,
+        rgb(255 179 217 / 0.2) 35%
+      ),
+      linear-gradient(
+        160deg,
+        rgb(255 247 214) 0%,
+        rgb(227 185 78) 18%,
+        rgb(255 239 176) 36%,
+        rgb(178 127 34) 58%,
+        rgb(251 227 154) 78%,
+        rgb(200 151 58) 100%
+      );
   }
   .pack-tile[data-tier="diamond"] {
     background:
-      radial-gradient(circle at 30% 25%, rgb(63 224 255 / 0.6), transparent 55%),
-      radial-gradient(circle at 75% 80%, rgb(255 79 163 / 0.4), transparent 55%), var(--color-card);
+      repeating-linear-gradient(
+        115deg,
+        rgb(255 179 217 / 0.5) 0%,
+        rgb(142 246 255 / 0.5) 7%,
+        rgb(201 167 255 / 0.5) 14%,
+        rgb(255 241 168 / 0.5) 21%,
+        rgb(160 255 200 / 0.5) 28%,
+        rgb(255 179 217 / 0.5) 35%
+      ),
+      linear-gradient(
+        160deg,
+        rgb(243 252 255) 0%,
+        rgb(158 230 255) 18%,
+        rgb(255 255 255) 36%,
+        rgb(139 179 255) 58%,
+        rgb(230 248 255) 78%,
+        rgb(195 166 255) 100%
+      );
   }
   .pack-tile::before,
   .pack-tile::after {
