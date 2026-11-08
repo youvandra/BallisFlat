@@ -15,13 +15,13 @@ and burn the card to take your share of the pot when your player comes out on to
 [![Chain](https://img.shields.io/badge/Robinhood_Chain-4663-ff4fa3?style=flat-square)](packages/config/src/chain.ts)
 [![Token](https://img.shields.io/badge/token-%24WIF-3fe0ff?style=flat-square)](https://dexscreener.com/robinhood/0x71ef4106340f0a3b9c19ec994eef4fc44a1d2513f38faac39d7636b156548c79)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.28-141416?style=flat-square&logo=solidity)](packages/contracts/src/BallIsFlat.sol)
-[![Foundry tests](https://img.shields.io/badge/forge_tests-99_passing-2ea44f?style=flat-square)](packages/contracts/test)
-[![E2E](https://img.shields.io/badge/e2e-20_passing-2ea44f?style=flat-square)](e2e)
+[![Foundry tests](https://img.shields.io/badge/forge_tests-126_passing-2ea44f?style=flat-square)](packages/contracts/test)
+[![E2E](https://img.shields.io/badge/e2e-28_passing-2ea44f?style=flat-square)](e2e)
 [![Hackathon](https://img.shields.io/badge/world_is_flat-hackathon_entry-ffe800?style=flat-square)](https://worldisflat.fun/build)
 
 [Landing](https://clever-overlay-569783.framer.app) · App (wif.ballisflat.fun, going live before 12 Nov) · Demo video (soon) · [Architecture](docs/architecture.md) · [Security](docs/security.md)
 
-<img src="docs/media/banner.webp" alt="Ball is Flat banner" width="100%">
+<img src="docs/media/banner.webp" alt="Ball is Flat: mint your take on the game" width="100%">
 
 </div>
 
@@ -32,6 +32,7 @@ and burn the card to take your share of the pot when your player comes out on to
 - [What is it](#what-is-it)
 - [Sneak peek](#sneak-peek)
 - [How it plays](#how-it-plays)
+- [The Hunt](#the-hunt)
 - [Where $WIF goes](#where-wif-goes)
 - [Match lifecycle](#match-lifecycle)
 - [Trust model](#trust-model)
@@ -53,7 +54,9 @@ Ball is Flat is a simple gameFi where you back the football player you think wil
 
 Before kickoff you pick **one player** and mint that pick as an **NFT card for 1,000 $WIF**. Every $WIF from every card goes into the match pot. After full time, the top-rated player (FotMob rating) is posted onchain with the source link, and there's a **2 hour window** to flag mistakes. If your player was the best on the pitch, you **burn your card and take your share** of the pot. The fewer people on your player, the bigger your share.
 
-10% of every pot is burned. A pot nobody called rolls into the next match. Sealed cards can be resold before kickoff, and 5% of every sale is burned too.
+10% of every pot is burned. A pot nobody called rolls into the next match. Sealed cards can be resold before kickoff, and 5% of every sale is burned too. Winners who want to keep their card can **Claim & Keep**: they take the share minus a small keep fee, which is burned.
+
+Between matches there is **the Hunt**: a deck of packs with a few cards of one wanted player hidden in it, and a $WIF prize from the team for every one pulled.
 
 Most products only care about scores and final results. Fans mostly talk about players: who was on fire, who played the dumbest, who deserves the applause. Ball is Flat turns that take into a card in your wallet, and pays you in $WIF when you're right.
 
@@ -69,7 +72,10 @@ Most products only care about scores and final results. Fans mostly talk about p
 <table>
   <tr>
     <td width="50%"><img src="docs/media/market.webp" alt="Match market"><br><sub><b>The market.</b> Both squads, picks per player and "×N if he wins".</sub></td>
-    <td width="50%"><img src="docs/media/binder.webp" alt="Binder"><br><sub><b>The binder.</b> Cards sorted by what you can do with them: claim, sell, wait, refund.</sub></td>
+    <td width="50%"><img src="docs/media/binder.webp" alt="Binder"><br><sub><b>The binder.</b> Cards sorted by what you can do with them: claim, keep, sell, wait, refund.</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/media/hunt.webp" alt="The Hunt"><br><sub><b>The Hunt.</b> One wanted player, three of his cards in a 1,000-card deck, a prize for each.</sub></td>
   </tr>
 </table>
 
@@ -85,8 +91,24 @@ Most products only care about scores and final results. Fans mostly talk about p
 | **4. Sell (optional)** | List a sealed card, or buy one | Sale goes straight buyer to seller, 5% burned, only before kickoff |
 | **5. Settle** | Watch the match | Settler posts the top-rated player plus the FotMob link. 2 hour dispute window, then anyone can finalize |
 | **6. Claim** | Burn a winning card | Pays `pot × 90% ÷ winning cards` in $WIF. Losing cards stay in your wallet as a record |
+| **6b. Claim & Keep** | Keep the winning card instead | Pays the same share minus the keep fee (50 $WIF), which is burned. The card stays, marked Kept |
 
 Ties split the pot across every tied player's cards. A postponed or abandoned match is voided and every card refunds its full price.
+
+## The Hunt
+
+A side game between matchdays, built on the same cards.
+
+| | |
+|---|---|
+| **The deck** | Each round is a deck of 1,000 cards. 3 of them are the wanted player (round 1: Harry Kane); the rest are random players from the November squads |
+| **Packs** | Silver 3 cards / 50 $WIF, Gold 7 / 100, Diamond 12 / 150. Prices are set per round. Packs stop selling when the deck runs out |
+| **The draw** | A pack is drawn from the block hash of the block after you buy it, then torn open card by card. Each card is wanted with chance (wanted left) ÷ (deck left), so the odds shown on each pack are live |
+| **The prize** | Every wanted card pulled pays 10,000 $WIF from the team. The finder claims onchain, the team sends the $WIF and records the transfer hash with `markPaid`, so every payout is public |
+| **Free Silver** | The team can open Silver for free to an uploaded wallet list (a merkle root onchain), one pack per wallet |
+| **Cards** | Opening records the draw; you mint the cards you want to keep into your binder (gas only). Hunt cards never move |
+
+Contract: [`BallIsFlatHunt.sol`](packages/contracts/src/BallIsFlatHunt.sol). It holds no $WIF: 10% of every pack burns at purchase and the rest goes to the team treasury, which funds the prizes.
 
 ## Where $WIF goes
 
@@ -100,10 +122,14 @@ flowchart LR
     S([Seller]) -- "95% of sale" --> S2([Seller wallet])
     BY([Buyer]) -- "sale price" --> S
     BY -- "5% of sale" --> B
+    W -. "Claim & Keep fee" .-> B
+    H([Hunt pack buyer]) -- "10% of pack" --> B
+    H -- "90% of pack" --> T([Team treasury])
+    T -- "10,000 $WIF per wanted card" --> F([Hunt finder])
 ```
 
 - **$WIF is the only currency.** Card price, pot, payout, resale and burn are all $WIF on Robinhood Chain (`0x5173b8eA6923c2d40267890D45C46a3480954773`).
-- **No team fee, no token of our own.** Pot money leaves only through a winning claim, a refund on a voided match, or the burn.
+- **No cut of the match pots, no token of our own.** Pot money leaves only through a winning claim, a refund on a voided match, or the burn. The team's only income is Hunt packs, and it pays the Hunt prizes from it.
 - **The flywheel.** Football has a match every few days, so the calendar brings people back. Every match burns $WIF, uncalled pots make the next match bigger, and a correct unpopular pick pays the most.
 
 ## Match lifecycle
@@ -134,7 +160,8 @@ stateDiagram-v2
 | Receive an uncalled pot | Nobody | It rolls into the next open match, or is burned when there is none |
 | Move a card between wallets | Only `buy` | `transferFrom` / `safeTransferFrom` revert with `CardLocked`, so the sale burn always applies |
 | List matches, set settler, pause new mints | Owner | Pausing stops mints only. Claims and refunds always work |
-| Post and correct the result | Settler (one key, disclosed on the site) | Only players in the listed squad, only during the dispute window, always with a source URL |
+| Post and correct the result | Settler (the owner wallet, run by a bot, disclosed on the site) | Only players in the listed squad, only during the dispute window, always with a source URL. The bot ([`scripts/settler.ts`](scripts/settler.ts)) posts FotMob's top rating 30 minutes after full time, follows FotMob if ratings change during the window, then finalizes. It never guesses: a top-rated player off the squad or a postponed match waits for a human |
+| Pay Hunt prizes | Owner, by transfer | Each find is onchain (`TargetFound`); the payment hash is recorded with `markPaid` |
 | Void a match | Settler or owner | Only before finalize. Every card then refunds its full price |
 | Finalize | Anyone | Only after the dispute window ends |
 | Upgrade | Nobody | No proxy, no sweep |
@@ -149,8 +176,10 @@ Static analysis and reviewed findings: [`docs/security.md`](docs/security.md).
 flowchart TB
     subgraph Chain["Robinhood Chain (4663)"]
         C[BallIsFlat.sol<br>ERC-721 cards · pots · settlement · market]
+        HU[BallIsFlatHunt.sol<br>decks · packs · finds]
         WIF[$WIF ERC-20]
         C <--> WIF
+        HU <--> WIF
     end
     subgraph Server["API host"]
         I[Ponder indexer] --> PG[(Postgres)]
@@ -163,8 +192,10 @@ flowchart TB
     C -- events --> I
     A -- reads --> H
     A -- "approve · mint · open · list · buy · claim · refund" --> C
-    ST([Settler]) -- "propose · correct (FotMob link)" --> C
+    FM[(FotMob ratings)] --> ST
+    ST([Settler bot]) -- "propose · correct · finalize" --> C
     O([Owner /ops panel]) -- "listMatches · setPlayers · void" --> C
+    O -- "startRound · setTier · markPaid" --> HU
 ```
 
 - **Squads as merkle roots.** Each match stores one root computed onchain from strictly ascending player ids, so listing 20 or 60 players costs the same. The same tree lives in [`packages/core/src/squad.ts`](packages/core/src/squad.ts), pinned by a shared test vector.
@@ -233,6 +264,8 @@ Then point the app at it with `VITE_API_URL=http://localhost:42069`. Every varia
 | `cd packages/contracts && forge test` | Contract tests, including fuzz |
 | `npm run chain:local` / `deploy:local` / `dev:local` | Local anvil chain, deploy, app against it |
 | `node scripts/deploy.ts --network mainnet --yes` | Mainnet deploy (owner key, spends gas) |
+| `node scripts/settler.ts --network mainnet --once --dry-run` | Settler pass: what it would propose, correct or finalize |
+| `node scripts/add-match.ts match.json --check` | Validate a new fixture before upload ([runbook](docs/runbooks/add-match.md)) |
 | `node scripts/brand-assets.ts` | Rebuild logo SVGs, favicon, touch icon and link-preview image |
 | `deploy/publish.sh [web\|api\|all]` | Ship web and API to the host |
 
@@ -240,10 +273,10 @@ Then point the app at it with `VITE_API_URL=http://localhost:42069`. Every varia
 
 | Suite | Count | Covers |
 |---|---|---|
-| Foundry | 99 tests | Mint, caps, squads, settle, correct, void, finalize, burn, rollover, claim, refund, market, transfer lock, reentrancy, payout conservation fuzz |
-| Vitest | 57 tests | Payout math, squad tree vector, fixtures, mock client, formatting, leaderboard |
-| Playwright | 10 flows × desktop + mobile | Landing, pick and mint, pack opening, binder, sell and cancel, claim |
-| Slither 0.11.6 | 0 high, 0 medium | 14 low results, each reviewed in [`docs/security.md`](docs/security.md) |
+| Foundry | 126 tests | Mint, caps, squads, settle, correct, void, finalize, burn, rollover, claim, claim and keep, refund, market, transfer lock, reentrancy, payout conservation fuzz; Hunt decks, tiers, allowlist, reveal window, "wanted cards == winners" fuzz |
+| Vitest | 76 tests | Payout math, squad and allowlist tree vectors (pinned to Solidity), FotMob settlement on a real match, fixtures, mock client, formatting, leaderboard, card metadata |
+| Playwright | 14 flows × desktop + mobile | Landing, pick and mint, pack opening, binder, sell and cancel, claim, claim and keep, Hunt packs, finds and payouts, free Silver allowlist |
+| Slither 0.11.6 | No defects | Every result reviewed in [`docs/security.md`](docs/security.md), including the Hunt's block-hash draw |
 
 CI ([`.github/workflows/verify.yml`](.github/workflows/verify.yml)) runs lint, typecheck, tests, design guards and build on every push.
 
@@ -252,9 +285,10 @@ CI ([`.github/workflows/verify.yml`](.github/workflows/verify.yml)) runs lint, t
 | Contract | Network | Address |
 |---|---|---|
 | BallIsFlat | Robinhood Chain mainnet (4663) | Pending, recorded in [`deployments.json`](packages/config/src/deployments.json) after deploy |
+| BallIsFlatHunt | Robinhood Chain mainnet (4663) | Pending, same file |
 | $WIF | Robinhood Chain mainnet (4663) | [`0x5173b8eA6923c2d40267890D45C46a3480954773`](https://dexscreener.com/robinhood/0x71ef4106340f0a3b9c19ec994eef4fc44a1d2513f38faac39d7636b156548c79) |
 
-**Launch parameters:** 1,000 $WIF per card · 10% of every pot burned · 5% of every resale burned · 10 cards per player per match · 2 hour dispute window. First fixtures: UEFA Nations League, 12-17 Nov 2026.
+**Launch parameters:** 1,000 $WIF per card · 10% of every pot burned · 5% of every resale burned · 50 $WIF keep fee, burned · 10 cards per player per match · 2 hour dispute window. Hunt round 1: 1,000-card deck, 3 wanted cards, 10,000 $WIF each. First fixtures: UEFA Nations League, 12-17 Nov 2026.
 
 ## Repo map
 
@@ -263,14 +297,14 @@ apps/
   web/              React app: landing, board, market, pack, binder, leaderboard, /ops
   indexer/          Ponder indexer + Hono API + card metadata and images
 packages/
-  contracts/        BallIsFlat.sol, IBallIsFlat.sol, Foundry tests, deploy script
-  core/             payout math, squad merkle tree, formatting
+  contracts/        BallIsFlat.sol, IBallIsFlat.sol, BallIsFlatHunt.sol, Foundry tests
+  core/             payout math, squad and allowlist merkle trees, FotMob settlement, formatting
   config/           chain, $WIF, fixtures and squads, player ids, ABI, deployments, brand
-scripts/            deploy, brand assets, art pipeline, design guards, screenshots
-deploy/             Caddyfile, Postgres compose, systemd unit, publish script, runbook
+scripts/            deploy, settler bot, add-match, brand assets, art pipeline, design guards, screenshots
+deploy/             Caddyfile, Postgres compose, systemd units (API, settler timer), publish script, runbook
 brand/              logo source sheet, tracer, exported PNGs
 e2e/                Playwright demo path
-docs/               PRD, architecture, decisions, security, UX flow, submission text, media
+docs/               PRD, architecture, decisions, security, UX flow, runbooks, media
 ```
 
 ## Prior art
@@ -312,7 +346,19 @@ No. Sealed cards can be sold only through the in-app market and only before kick
 <details>
 <summary><b>Where does the team make money?</b></summary>
 
-It doesn't take a cut. 90% of each pot goes to winners and 10% is burned.
+It takes no cut of the match pots: 90% of each pot goes to winners and 10% is burned. Hunt packs are the team's income: 10% of each pack burns, the rest goes to the treasury, which pays every Hunt prize.
+</details>
+
+<details>
+<summary><b>What does Claim &amp; Keep cost?</b></summary>
+
+50 $WIF from your share, burned. You get the rest of the share and the card stays in your wallet, marked Kept. Plain Claim pays the full share and burns the card.
+</details>
+
+<details>
+<summary><b>Can the Hunt draw be gamed?</b></summary>
+
+A pack is drawn from the hash of the block after you pay, which nobody knows when they buy, and packs open strictly in purchase order. On a rollup the sequencer produces that hash, which is the residual trust; the Hunt holds no funds, and every find and payout is public. Details in <a href="docs/security.md">docs/security.md</a>.
 </details>
 
 ## Roadmap
@@ -321,11 +367,13 @@ It doesn't take a cut. 90% of each pot goes to winners and 10% is burned.
 - [x] Web app: board, market, pack opening, binder, leaderboard, owner panel
 - [x] Indexer + API with live card metadata and images
 - [x] BIF brand: logo, favicon, link previews
+- [x] Settler bot from FotMob ratings, with corrections and finalize
+- [x] The Hunt: wanted-player decks, Silver, Gold and Diamond packs, free allowlist packs
+- [x] Claim & Keep
 - [ ] Mainnet deploy and a settled warm-up match with real transactions
 - [ ] Nations League matchdays 5 and 6 (12-17 Nov 2026)
 - [ ] Club leagues: Premier League, La Liga, Champions League
 - [ ] Settlement from several rating sources, then an attested verifier
-- [ ] Random card packs (Silver, Gold, Diamond) with different prices and rewards
 - [ ] Season leaderboard
 
 ## Team and AI use
