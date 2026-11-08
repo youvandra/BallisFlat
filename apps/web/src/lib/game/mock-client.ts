@@ -327,6 +327,7 @@ export class MockGameClient implements GameClient {
       packs: round.packs,
       poolSize: round.pool.length,
       winningPack: round.winningPack === null ? null : BigInt(round.winningPack),
+      claimed: Boolean(round.claimed),
       paid: round.paid,
       payment: round.payment,
     };
@@ -475,11 +476,24 @@ export class MockGameClient implements GameClient {
     return { hash };
   }
 
+  async claimHuntPrize(roundId: number): Promise<TxReceipt> {
+    const winner = this.requireWallet();
+    const { hunt } = this.requireHunt();
+    const round = hunt.rounds.find((candidate) => candidate.id === roundId);
+    if (round?.status !== "Won") throw new GameError("NotWon");
+    if (round.winner?.toLowerCase() !== winner.toLowerCase()) throw new GameError("NotWinner");
+    if (round.claimed) throw new GameError("AlreadyClaimed");
+    const hash = await this.send();
+    round.claimed = true;
+    this.commit();
+    return { hash };
+  }
+
   async markHuntPaid(roundId: number, payment: Hash): Promise<TxReceipt> {
     this.requireWallet();
     const { hunt } = this.requireHunt();
     const round = hunt.rounds.find((candidate) => candidate.id === roundId);
-    if (!round || round.status !== "Won") throw new GameError("NotWon");
+    if (round?.status !== "Won") throw new GameError("NotWon");
     if (round.paid) throw new GameError("AlreadyPaid");
     const hash = await this.send();
     round.paid = true;

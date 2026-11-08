@@ -52,7 +52,11 @@ function Payout({ round }: { round: HuntRound }) {
         <dd className="num text-ink">#{round.winningPack?.toString()}</dd>
         <dt>Status</dt>
         <dd className={round.paid ? "text-cyan" : "text-pink"}>
-          {round.paid ? `Paid, ${shortHash(round.payment ?? "")}` : "Unpaid"}
+          {round.paid
+            ? `Paid, ${shortHash(round.payment ?? "")}`
+            : round.claimed
+              ? "Claimed, waiting for your transfer"
+              : "Unpaid, not claimed yet"}
         </dd>
       </dl>
       {round.paid ? null : (

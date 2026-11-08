@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 // The Hunt against the mock chain: a pack is bought, drawn one block later, torn, and its cards are dealt
 // into the binder. Each test starts from the mock seed (Harry Kane wanted, 10,000 $WIF prize).
@@ -13,12 +13,16 @@ async function connect(page: Page) {
   await expect(sheet).toBeHidden();
 }
 
-async function buyAndTear(page: Page, tier: "silver" | "gold" | "diamond") {
+async function buyAndTear(page: Page, tier: "silver" | "gold" | "diamond"): Promise<Locator> {
   await page.getByTestId(`buy-${tier}`).click();
-  await expect(page.getByTestId("hunt-pack")).toBeVisible({ timeout: 15_000 });
-  await page.getByRole("button", { name: "Drag across the top to open" }).focus();
+  // The page blurs behind the stage: wallet steps first, then the pack large in the middle.
+  const stage = page.getByRole("dialog", { name: "Your pack" });
+  await expect(stage.getByText(/^Approve \$WIF/)).toBeVisible();
+  await expect(stage.getByTestId("hunt-pack")).toBeVisible({ timeout: 15_000 });
+  await stage.getByRole("button", { name: "Drag across the top to open" }).focus();
   await page.keyboard.press("Enter");
-  await expect(page.getByTestId("hunt-reveal")).toBeVisible({ timeout: 10_000 });
+  await expect(stage.getByTestId("hunt-reveal")).toBeVisible({ timeout: 10_000 });
+  return stage;
 }
 
 test("buy a Silver pack, tear it, and its three cards reach the binder", async ({ page }) => {
@@ -31,8 +35,13 @@ test("buy a Silver pack, tear it, and its three cards reach the binder", async (
   await connect(page);
   await expect(page.getByTestId("buy-silver")).toBeEnabled();
 
-  await buyAndTear(page, "silver");
-  await expect(page.getByTestId("hunt-reveal").locator("li")).toHaveCount(3);
+  const stage = await buyAndTear(page, "silver");
+  // One card at a time: a tap sends the front card back and brings the next one up.
+  await expect(stage.getByTestId("hunt-deck-count")).toContainText("1 / 3");
+  await stage.getByRole("button", { name: /Show the next card/ }).click();
+  await expect(stage.getByTestId("hunt-deck-count")).toContainText("2 / 3");
+  await stage.getByRole("button", { name: "Close", exact: true }).last().click();
+  await expect(stage).toBeHidden();
   await expect(page.getByTestId("hunt-cards")).toHaveText("3");
 
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Binder" }).click();
@@ -46,15 +55,18 @@ test("a pack that finds the wanted player wins; admin records the payment", asyn
   await page.getByRole("button", { name: "Next Pack Finds Him (Demo)" }).click();
 
   await page.goto("/hunt");
-  await buyAndTear(page, "gold");
-  await expect(page.getByText(/You found Harry Kane/)).toBeVisible();
+  const stage = await buyAndTear(page, "gold");
+  await expect(stage.getByText("You found Kane")).toBeVisible();
+  await stage.getByRole("button", { name: "Close", exact: true }).last().click();
   await expect(page.getByTestId("hunt-win")).toContainText("10,000");
   await expect(page.getByTestId("buy-gold")).toBeDisabled();
+  await page.getByTestId("hunt-win").getByTestId("hunt-claim").click();
+  await expect(page.getByTestId("hunt-win")).toContainText("Claimed");
 
   await page.goto("/ops");
   await page.getByRole("tab", { name: "Hunt · 1" }).click();
   const payout = page.getByTestId("payout");
-  await expect(payout).toContainText("Unpaid");
+  await expect(payout).toContainText("Claimed, waiting for your transfer");
   await payout.getByLabel("Transfer transaction hash").fill(`0x${"ab".repeat(32)}`);
   await payout.getByRole("button", { name: "Mark Paid" }).click();
   await expect(payout).toContainText("Paid");

@@ -116,6 +116,8 @@ export interface HuntRound {
   packs: number;
   poolSize: number;
   winningPack: bigint | null;
+  /** The winner asked for the prize (it is in the team's payout queue). */
+  claimed: boolean;
   paid: boolean;
   /** Transaction hash of the prize transfer, once the team recorded it. */
   payment: Hash | null;
@@ -213,6 +215,8 @@ export interface GameClient {
   buyHuntPack(tier: number, onStep: (step: HuntStep) => void): Promise<HuntBuyReceipt>;
   /** Waits for the pack's reveal block, then opens it (cards go to the buyer). */
   openHuntPack(packId: bigint, onStep: (step: HuntStep) => void): Promise<HuntOpenReceipt>;
+  /** The winner asks the team for the round's prize (moves no funds). */
+  claimHuntPrize(round: number): Promise<TxReceipt>;
   // hunt owner
   startHuntRound(target: number, prize: bigint, pool: number[]): Promise<TxReceipt>;
   closeHuntRound(): Promise<TxReceipt>;

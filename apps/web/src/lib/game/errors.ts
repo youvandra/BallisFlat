@@ -40,6 +40,10 @@ const appSentences: Record<string, string> = {
   BadPool: "The player pool must be ascending, unique and include the wanted player.",
   IsPaused: "Pack sales are paused for now. Opening and claiming still work.",
   CardBound: "Hunt cards stay with the wallet that opened them.",
+  NotWon: "That round has no winner yet.",
+  NotWinner: "Only the wallet that found the wanted card can claim this prize.",
+  AlreadyClaimed: "This prize is already claimed. The team is sending it.",
+  AlreadyPaid: "This prize is already paid.",
 };
 
 /** One plain sentence for any failure a game call can throw. */

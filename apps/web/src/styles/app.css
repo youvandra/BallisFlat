@@ -109,3 +109,99 @@ body {
     animation: none;
   }
 }
+
+/* Hunt focus stage (HuntStage.tsx): a full-screen dialog, the page blurred behind it, the pack and then
+   each card large in the middle. */
+.hunt-stage {
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+}
+.hunt-stage::backdrop {
+  background: color-mix(in srgb, var(--color-mat) 78%, transparent);
+  backdrop-filter: blur(14px);
+}
+.hunt-stage-body {
+  position: relative;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow-y: auto;
+}
+.hunt-stage-wait.is-waiting {
+  animation: pack-shake 2.4s var(--ease-in-out) infinite;
+}
+
+/* The deck: the front card over two card backs; a tap sends the front card behind and the next comes up. */
+.hunt-deck {
+  position: relative;
+  display: grid;
+  width: min(300px, 74vw);
+  aspect-ratio: var(--aspect-card);
+}
+.hunt-deck > * {
+  grid-area: 1 / 1;
+}
+.hunt-deck-back {
+  border-radius: var(--radius-sleeve);
+  background: var(--color-card);
+  box-shadow: var(--shadow-result);
+  transform: translate(10px, 10px) rotate(3deg);
+}
+.hunt-deck-back.is-far {
+  transform: translate(-12px, 16px) rotate(-4deg);
+  opacity: 0.6;
+}
+.hunt-deck-card {
+  position: relative;
+  z-index: 1;
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+  background: none;
+  text-align: inherit;
+}
+.hunt-deck-card.is-entering {
+  animation: hunt-card-in 380ms var(--ease-out) backwards;
+}
+.hunt-deck-card.is-leaving {
+  animation: hunt-card-out 380ms var(--ease-in-out) forwards;
+}
+@keyframes hunt-card-in {
+  0% {
+    transform: translate(10px, 14px) rotate(3deg) scale(0.94);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes hunt-card-out {
+  0% {
+    transform: none;
+    opacity: 1;
+  }
+  55% {
+    transform: translateX(62%) rotate(12deg) scale(0.92);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(10px, 14px) rotate(3deg) scale(0.9);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hunt-stage-wait.is-waiting,
+  .hunt-deck-card.is-entering,
+  .hunt-deck-card.is-leaving {
+    animation: none;
+  }
+}

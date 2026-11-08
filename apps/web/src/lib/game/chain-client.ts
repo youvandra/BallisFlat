@@ -395,6 +395,7 @@ export class ChainGameClient implements GameClient {
       packs: Number(r.packs),
       poolSize: pool.length,
       winningPack: r.winningPack === 0n ? null : r.winningPack,
+      claimed: r.claimed,
       paid: r.paid,
       payment: r.payment === zeroHash ? null : r.payment,
     };
@@ -554,7 +555,10 @@ export class ChainGameClient implements GameClient {
     });
   }
 
-  private huntWrite(functionName: "startRound" | "closeRound" | "markPaid", args: readonly unknown[]) {
+  private huntWrite(
+    functionName: "startRound" | "closeRound" | "markPaid" | "claim",
+    args: readonly unknown[],
+  ) {
     return guard(async () => {
       const hash = await writeContract(config, {
         ...huntContract(),
@@ -565,6 +569,10 @@ export class ChainGameClient implements GameClient {
       await this.confirm(hash);
       return { hash };
     });
+  }
+
+  claimHuntPrize(round: number): Promise<TxReceipt> {
+    return this.huntWrite("claim", [BigInt(round)]);
   }
 
   startHuntRound(target: number, prize: bigint, pool: number[]): Promise<TxReceipt> {

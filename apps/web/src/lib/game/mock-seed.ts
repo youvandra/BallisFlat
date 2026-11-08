@@ -75,6 +75,7 @@ export interface MockHuntRound {
   packs: number;
   pool: number[];
   winningPack: string | null;
+  claimed?: boolean;
   paid: boolean;
   payment: Hash | null;
 }

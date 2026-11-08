@@ -1,37 +1,30 @@
 import { product } from "@app/config/constants";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight } from "lucide-react";
-import { type CSSProperties, useState } from "react";
-import { PackRip } from "../../components/playmat/framer";
+import { useState } from "react";
 import { PackLoader } from "../../components/playmat/PackLoader";
-import { PickBadge } from "../../components/playmat/PickBadge";
-import { PlayerHoloCard, positionNames } from "../../components/playmat/PlayerHoloCard";
+import { PlayerHoloCard } from "../../components/playmat/PlayerHoloCard";
 import { Zone } from "../../components/playmat/Zone";
 import { Button } from "../../components/ui/Button";
 import { ButtonLink } from "../../components/ui/ButtonLink";
 import { Logo } from "../../components/ui/Logo";
 import { Notice } from "../../components/ui/Notice";
-import { StepLine } from "../../components/ui/StepLine";
 import { type PackFinish, packFoil } from "../../framer/PackRip";
 import { useWallet } from "../../hooks/use-wallet";
-import { playerArtUrl } from "../../lib/art";
 import { formatPercent, formatWif, shortHash, surname } from "../../lib/format";
 import { errorSentence } from "../../lib/game/errors";
 import { facts, txUrl } from "../../lib/game/facts";
 import { huntPlayer, tierKeys, useHunt, useHuntPacks } from "../../lib/game/hunt";
 import { useGame } from "../../lib/game/queries";
 import type { HuntRound, HuntStep, HuntTier, HuntView } from "../../lib/game/types";
-import { palette } from "../../lib/palette";
 import { ConnectWallet } from "../connect/ConnectWallet";
+import { HuntStage, type Stage } from "./HuntStage";
 
 /** Chance that a pack of `cards` holds the wanted player, drawing uniformly from `poolSize` players. */
 function findChance(cards: number, poolSize: number): number {
   if (poolSize <= 0) return 0;
   return 1 - (1 - 1 / poolSize) ** cards;
 }
-
-/** A pack drawn on chain, waiting to be torn, or torn and dealt. */
-type Opened = { tier: HuntTier; packId: bigint; players: number[]; found: boolean; torn: boolean };
 
 /**
  * The Hunt: one wanted player and a prize the Ball is Flat team posts. Buy a Silver, Gold or Diamond pack,
@@ -76,33 +69,43 @@ function Hunt({ view }: { view: HuntView }) {
   const queryClient = useQueryClient();
   const { account } = useWallet();
   const packs = useHuntPacks(account.data);
-  const [steps, setSteps] = useState<HuntStep[]>([]);
-  const [step, setStep] = useState<HuntStep | null>(null);
-  const [opened, setOpened] = useState<Opened | null>(null);
+  const [stage, setStage] = useState<Stage | null>(null);
   // HuntPage renders this only with a round.
   const round = view.round as HuntRound;
   const wanted = huntPlayer(round.target);
   const isOpen = round.status === "Open";
   const current = account.data;
+  const claimButton = (win: HuntRound, className = "") => (
+    <Button
+      className={className}
+      onClick={() => claim.mutate(win.id)}
+      disabled={claim.isPending}
+      data-testid="hunt-claim"
+    >
+      {claim.isPending ? "Confirm in Your Wallet…" : `Claim ${formatWif(win.prize)} $WIF`}
+    </Button>
+  );
 
   const draw = useMutation({
     mutationFn: async ({ tier, packId }: { tier: HuntTier; packId?: bigint }) => {
-      setOpened(null);
-      let id = packId;
-      if (id === undefined) {
-        setSteps(["approve", "buy", "seal", "open"]);
-        id = (await client.buyHuntPack(tier.id, setStep)).packId;
-      } else {
-        setSteps(["seal", "open"]);
-      }
-      const result = await client.openHuntPack(id, setStep);
-      return { tier, packId: id, players: result.players, found: result.found, torn: false };
+      const steps: HuntStep[] = packId === undefined ? ["approve", "buy", "seal", "open"] : ["seal", "open"];
+      const show = (step: HuntStep | null) => setStage({ kind: "working", tier, steps, step, error: null });
+      show(steps[0] ?? null);
+      const id = packId ?? (await client.buyHuntPack(tier.id, show)).packId;
+      const result = await client.openHuntPack(id, show);
+      return { tier, packId: id, players: result.players, found: result.found };
     },
     onSuccess: async (result) => {
-      setOpened(result);
+      setStage({ kind: "pack", ...result });
       await queryClient.invalidateQueries();
     },
-    onSettled: () => setStep(null),
+    onError: (error, { tier }) =>
+      setStage({ kind: "working", tier, steps: [], step: null, error: errorSentence(error) }),
+  });
+
+  const claim = useMutation({
+    mutationFn: (roundId: number) => client.claimHuntPrize(roundId),
+    onSettled: () => queryClient.invalidateQueries(),
   });
 
   const sealed = (packs.data ?? []).filter((pack) => !pack.opened);
@@ -161,24 +164,6 @@ function Hunt({ view }: { view: HuntView }) {
             </p>
           </div>
 
-          {opened ? (
-            <PackOpening
-              opened={opened}
-              target={round.target}
-              onTorn={() => setOpened({ ...opened, torn: true })}
-            />
-          ) : null}
-
-          {draw.isPending ? (
-            <div className="flex flex-col gap-3">
-              <StepLine steps={steps} current={step} labels={{ buy: "Buy Pack" }} />
-              {step === "seal" ? (
-                <p className="t-small">The draw uses the next block, so nobody sees it before you pay.</p>
-              ) : null}
-            </div>
-          ) : null}
-          {draw.isError ? <Notice tone="danger">{errorSentence(draw.error)}</Notice> : null}
-
           <ul className="grid grid-cols-1 gap-5 tab:grid-cols-3" aria-label="Packs">
             {view.tiers.map((tier) => (
               <li key={tier.id} className="flex flex-col gap-3">
@@ -233,11 +218,21 @@ function Hunt({ view }: { view: HuntView }) {
                 <div key={win.id} className="flex flex-col gap-2" data-testid="hunt-win">
                   <p className="t-zone">Round {win.id} win</p>
                   <p className="t-stat num">{formatWif(win.prize)}</p>
-                  <p className="t-small">
-                    {win.paid
-                      ? "$WIF paid to this wallet."
-                      : `$WIF from the ${product.name} team, sent to this wallet by transfer.`}
-                  </p>
+                  {win.paid ? (
+                    <p className="t-small">$WIF paid to this wallet.</p>
+                  ) : win.claimed ? (
+                    <p className="t-small">
+                      Claimed. The {product.name} team is sending the $WIF to this wallet.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="t-small">
+                        $WIF from the {product.name} team. Claim it and the team sends it here.
+                      </p>
+                      {claimButton(win, "w-full")}
+                      {claim.isError ? <Notice tone="danger">{errorSentence(claim.error)}</Notice> : null}
+                    </>
+                  )}
                   {win.payment && client.mode === "chain" ? (
                     <a href={txUrl(win.payment)} target="_blank" rel="noreferrer" className="text-link">
                       Payment <ArrowUpRight size={14} strokeWidth={2} aria-hidden />
@@ -286,6 +281,18 @@ function Hunt({ view }: { view: HuntView }) {
           )}
         </Zone>
       </div>
+
+      <HuntStage
+        stage={stage}
+        target={round.target}
+        onTorn={() =>
+          setStage((current) => (current?.kind === "pack" ? { ...current, kind: "cards" } : current))
+        }
+        onClose={() => setStage(null)}
+        claim={
+          myWins.find((win) => win.id === round.id && !win.claimed && !win.paid) ? claimButton(round) : null
+        }
+      />
     </div>
   );
 }
@@ -305,97 +312,5 @@ function TierPack({ tier, round }: { tier: HuntTier; round: number }) {
       <span className="t-small text-on-ink">{tier.cards} cards</span>
       <span className="badge mt-2">Hunt {round}</span>
     </span>
-  );
-}
-
-/**
- * The drawn pack, torn with the landing's own Pack Rip (drag across the top). The card that rises is the
- * wanted one when the pack found him; then every card is dealt out of the pack one after another.
- */
-function PackOpening({ opened, target, onTorn }: { opened: Opened; target: number; onTorn: () => void }) {
-  const ink = palette();
-  const hit = opened.players.find((id) => id === target);
-  const lead = huntPlayer(hit ?? opened.players[0] ?? target);
-  const wanted = huntPlayer(target);
-  const tierInk = [ink.ink, ink.note, ink.cyan][opened.tier.id] ?? ink.pink;
-
-  if (!opened.torn && lead) {
-    return (
-      <section className="flex flex-col gap-3" aria-label="Your pack" data-testid="hunt-pack">
-        <p className="t-body-strong">Your {opened.tier.name} pack is drawn. Tear it open.</p>
-        <div className="relative h-140 w-full">
-          <PackRip
-            key={opened.packId.toString()}
-            finish={opened.tier.name as PackFinish}
-            packTitle={opened.tier.name}
-            packLogo
-            packSubtitle={`${opened.tier.cards} cards, pack #${opened.packId.toString()}`}
-            badge={`Find ${wanted ? surname(wanted.player.name) : "him"}`}
-            hint="Drag across the top to open"
-            showReset={false}
-            cardRarityLabel={hit ? "Wanted" : lead.team.code}
-            onReveal={() => window.setTimeout(onTorn, 900)}
-            soundToggle={false}
-            cardImage={{ src: playerArtUrl(lead.player, lead.team), alt: lead.player.name }}
-            cardName={surname(lead.player.name)}
-            cardSubName={lead.player.name}
-            cardNumber={`1/${opened.players.length}`}
-            cardType={positionNames[lead.player.position]}
-            cardYear={opened.tier.name}
-            canvasState="sealed"
-            ink={ink.mat}
-            hintColor={ink.graphite}
-            shadow="rgba(0, 0, 0, 0)"
-            titleScale={1}
-            printShadow={tierInk}
-            printOffset={14}
-            sound
-            handCount={0}
-          />
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className="flex flex-col gap-4" aria-label="Your cards" data-testid="hunt-reveal">
-      {opened.found ? (
-        <Notice>
-          You found {wanted?.player.name ?? "the wanted player"}. The {product.name} team sends the prize to
-          this wallet by transfer and posts the receipt here.
-        </Notice>
-      ) : (
-        <p className="t-body-strong">
-          No {wanted ? surname(wanted.player.name) : "wanted card"} in this one.{" "}
-          {opened.players.length === 1 ? "1 card" : `${opened.players.length} cards`} to your binder.
-        </p>
-      )}
-      <ul className="grid grid-cols-3 gap-3 tab:grid-cols-4 desk:grid-cols-6">
-        {opened.players.map((playerId, index) => {
-          const entry = huntPlayer(playerId);
-          if (!entry) return null;
-          const isHit = playerId === target;
-          return (
-            <li
-              // biome-ignore lint/suspicious/noArrayIndexKey: a pack can hold the same player twice
-              key={`${playerId}-${index}`}
-              className="hunt-deal relative"
-              style={{ "--deal-index": index } as CSSProperties}
-            >
-              <PlayerHoloCard
-                player={entry.player}
-                team={entry.team}
-                rarity={isHit ? "legendary" : "rare"}
-                label={isHit ? "Wanted" : entry.team.code}
-                compact
-              />
-              {isHit ? (
-                <PickBadge label="Found" className="absolute -top-2.5 left-1/2 z-10 -translate-x-1/2" />
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
   );
 }
