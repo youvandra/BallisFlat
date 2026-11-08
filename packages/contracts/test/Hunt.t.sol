@@ -213,14 +213,36 @@ contract HuntTest is Test {
     function test_deck_sells_out() public {
         _start(1, 10);
         _buy(alice, SILVER);
-        _buy(alice, SILVER);
-        _buy(bob, SILVER); // 9 of 10 sold
+        _buy(alice, SILVER); // 6 of 10 sold, 4 left
+        vm.prank(alice);
+        vm.expectRevert(BallIsFlatHunt.SoldOut.selector);
+        hunt.buy(GOLD, none);
+        // A Silver would leave 1 card no pack can buy: this pack takes it, so the deck sells out.
+        uint256 last = _buy(bob, SILVER);
+        assertEq(hunt.pack(last).cards, 4);
+        assertEq(hunt.round(1).sold, 10);
         vm.prank(alice);
         vm.expectRevert(BallIsFlatHunt.SoldOut.selector);
         hunt.buy(SILVER, none);
-        vm.prank(alice);
-        vm.expectRevert(BallIsFlatHunt.SoldOut.selector);
-        hunt.buy(DIAMOND, none);
+    }
+
+    /// Whatever the hashes, a sold-out deck opened in time hands out every wanted card.
+    function testFuzz_sold_out_deck_finds_every_wanted_card(bytes32 salt, uint8 wanted) public {
+        uint16 winners = uint16(bound(wanted, 1, 5));
+        _start(winners, 10);
+        uint256[] memory ids = new uint256[](3);
+        ids[0] = _buy(alice, SILVER);
+        ids[1] = _buy(bob, SILVER);
+        ids[2] = _buy(stranger, SILVER); // 3 + 3 + 4 = 10
+        assertEq(hunt.round(1).sold, 10);
+        for (uint256 i; i < ids.length; ++i) {
+            _reveal(ids[i], keccak256(abi.encode(salt, i)));
+        }
+        hunt.open(ids[2]);
+        BallIsFlatHunt.Round memory r = hunt.round(1);
+        assertEq(r.found, winners);
+        assertEq(r.drawn, 10);
+        assertEq(uint8(r.status), uint8(BallIsFlatHunt.Status.Done));
     }
 
     function test_setTier_changes_price_mid_round() public {

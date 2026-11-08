@@ -471,8 +471,8 @@ export const ballIsFlatHuntAbi = [
     outputs: [
       {
         name: "",
-        type: "uint32",
-        internalType: "uint32",
+        type: "uint64",
+        internalType: "uint64",
       },
     ],
     stateMutability: "view",

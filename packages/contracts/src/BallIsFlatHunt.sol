@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity 0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -14,7 +14,9 @@ import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProo
 ///         of which `winners` are the wanted player; the rest are random players from the round's pool
 ///         (duplicates allowed, the wanted player never). Buy a Silver, Gold or Diamond pack, open it, and every
 ///         wanted card in it is a win. Once the deck is sold out, no more packs; every wanted card is in some
-///         pack, so a sold-out round always has `winners` winners.
+///         pack, so a sold-out round always has `winners` finds (minus any lost to a pack opened too late).
+///         When a purchase would leave fewer cards than the smallest open pack, that pack takes the rest of the
+///         deck as bonus cards, so a deck can always sell out.
 /// @dev    - Prizes are not funded by packs. The owner posts `prizeEach` with the round, pays each winner by a
 ///           transfer outside this contract, then records the payment with `markPaid`.
 ///         - Pack money: `burnBps` goes to the dead address, the rest to `treasury`. The contract holds no $WIF.
@@ -98,7 +100,7 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
     mapping(uint256 => uint32) public cardRound;
     mapping(uint256 => uint256) public cardPack;
     /// @dev Bit i set = slot i of the pack is minted.
-    mapping(uint256 => uint32) public mintedSlots;
+    mapping(uint256 => uint64) public mintedSlots;
     uint128 public mintPrice;
 
     uint256 public currentRound;
@@ -280,7 +282,12 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
         Round storage r = _rounds[roundId];
         if (r.status != Status.Open) revert NoOpenRound();
         Tier memory tier_ = _tiers[roundId][t];
-        if (r.sold + tier_.cards > r.supply) revert SoldOut();
+        uint32 left = r.supply - r.sold;
+        if (tier_.cards > left) revert SoldOut();
+        uint8 cards = tier_.cards;
+        // A remainder no pack could ever buy goes into this pack, so every wanted card stays reachable.
+        uint32 rest = left - cards;
+        if (rest > 0 && rest < _smallestPack(roundId)) cards += uint8(rest);
 
         if (tier_.allowRoot != bytes32(0)) {
             if (allowUsed[roundId][t][msg.sender]) revert AllowUsed();
@@ -289,18 +296,18 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
             allowUsed[roundId][t][msg.sender] = true;
         }
 
-        r.sold += tier_.cards;
+        r.sold += cards;
         r.packs += 1;
         packId = ++packCount;
         uint64 reveal = uint64(block.number + 1);
         _packs[packId] = Pack({
-            buyer: msg.sender, tier: t, cards: tier_.cards, round: uint32(roundId), revealBlock: reveal, opened: false
+            buyer: msg.sender, tier: t, cards: cards, round: uint32(roundId), revealBlock: reveal, opened: false
         });
 
         uint256 burned = (uint256(tier_.price) * burnBps) / 10_000;
         if (burned > 0) wif.safeTransferFrom(msg.sender, DEAD, burned);
         if (tier_.price > burned) wif.safeTransferFrom(msg.sender, treasury, tier_.price - burned);
-        emit PackBought(packId, msg.sender, roundId, t, tier_.cards, tier_.price, burned, reveal);
+        emit PackBought(packId, msg.sender, roundId, t, cards, tier_.price, burned, reveal);
     }
 
     /// @notice Opens `packId` and every unopened pack bought before it, in order. Anyone may call it; outcomes
@@ -338,7 +345,7 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
         if (!p.opened) revert NotOpened();
         uint32[] storage slots = _drawn[packId];
         if (slot >= slots.length) revert BadSlot();
-        uint32 bit = uint32(1) << slot;
+        uint64 bit = uint64(1) << slot;
         if (mintedSlots[packId] & bit != 0) revert AlreadyMinted();
         mintedSlots[packId] |= bit;
 
@@ -408,6 +415,18 @@ contract BallIsFlatHunt is ERC721, Ownable, ReentrancyGuard {
         if (tier_.price == 0 && tier_.allowRoot == bytes32(0)) revert BadTier();
         _tiers[roundId][t] = tier_;
         emit TierSet(roundId, t, tier_.price, tier_.cards, tier_.allowRoot);
+    }
+
+    /// Cards in the smallest pack anyone can buy (tiers without an allowlist; all tiers if every one has one).
+    function _smallestPack(uint256 roundId) internal view returns (uint32 smallest) {
+        uint32 any = type(uint32).max;
+        smallest = type(uint32).max;
+        for (uint256 t; t < TIERS; ++t) {
+            Tier storage tier_ = _tiers[roundId][t];
+            if (tier_.cards < any) any = tier_.cards;
+            if (tier_.allowRoot == bytes32(0) && tier_.cards < smallest) smallest = tier_.cards;
+        }
+        if (smallest == type(uint32).max) smallest = any;
     }
 
     function _find(uint256 roundId, uint256 findIndex) internal view returns (Find storage) {
