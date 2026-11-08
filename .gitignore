@@ -24,3 +24,4 @@ docs/submission.*.md
 
 # Mainnet deploy secrets, never committed or shipped
 deploy/*.env
+.audit/
