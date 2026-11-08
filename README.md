@@ -19,7 +19,7 @@ and burn the card to take your share of the pot when your player comes out on to
 [![E2E](https://img.shields.io/badge/e2e-20_passing-2ea44f?style=flat-square)](e2e)
 [![Hackathon](https://img.shields.io/badge/world_is_flat-hackathon_entry-ffe800?style=flat-square)](https://worldisflat.fun/build)
 
-[Landing](https://clever-overlay-569783.framer.app) · App (ballisflat.fun, going live before 12 Nov) · Demo video (soon) · [Architecture](docs/architecture.md) · [Security](docs/security.md)
+[Landing](https://clever-overlay-569783.framer.app) · App (wif.ballisflat.fun, going live before 12 Nov) · Demo video (soon) · [Architecture](docs/architecture.md) · [Security](docs/security.md)
 
 <img src="docs/media/banner.webp" alt="Ball is Flat banner" width="100%">
 

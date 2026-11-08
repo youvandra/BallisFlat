@@ -9,9 +9,9 @@ SSH=(ssh -i "$KEY" "$HOST")
 what="${1:-all}"
 
 if [[ "$what" == web || "$what" == all ]]; then
-  VITE_SITE_URL=https://ballisflat.fun VITE_DATA_MODE=chain VITE_NETWORK=mainnet VITE_API_URL=https://api.ballisflat.fun npm run build
+  VITE_SITE_URL=https://wif.ballisflat.fun VITE_DATA_MODE=chain VITE_NETWORK=mainnet VITE_API_URL=https://wif-api.ballisflat.fun npm run build
   grep -q 'og:image" content="https://' apps/web/dist/index.html || { echo "og:image is not absolute"; exit 1; }
-  rsync -az --delete -e "ssh -i $KEY" apps/web/dist/ "$HOST:/srv/ballisflat/web/"
+  rsync -az --delete -e "ssh -i $KEY" apps/web/dist/ "$HOST:/srv/ballisflat/wif/web/"
 fi
 
 if [[ "$what" == api || "$what" == all ]]; then
@@ -21,5 +21,5 @@ if [[ "$what" == api || "$what" == all ]]; then
   git ls-files -z | rsync -az --from0 --files-from=- -e "ssh -i $KEY" ./ "$HOST:/srv/ballisflat/repo/"
   "${SSH[@]}" 'cd /srv/ballisflat/repo && npm ci --omit=dev && sudo systemctl restart ballisflat-api'
   sleep 8
-  curl -fsS https://api.ballisflat.fun/api/board >/dev/null && echo "api ok"
+  curl -fsS https://wif-api.ballisflat.fun/api/board >/dev/null && echo "api ok"
 fi
