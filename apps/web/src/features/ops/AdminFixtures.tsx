@@ -23,6 +23,24 @@ type Lister = {
 const canList = (client: unknown): client is Lister =>
   typeof (client as Partial<Lister>).listMatch === "function";
 
+type SquadSetter = { setPlayers(matchId: number, playerIds: number[]): Promise<{ hash: string }> };
+const canSetPlayers = (client: unknown): client is SquadSetter =>
+  typeof (client as Partial<SquadSetter>).setPlayers === "function";
+
+type ApiSquadPlayer = {
+  playerId: number;
+  name: string;
+  number: number;
+  position: Position;
+  side: "home" | "away";
+};
+
+const squadLines = (squad: ApiSquadPlayer[]) =>
+  [...squad]
+    .sort((a, b) => (a.side === b.side ? a.number - b.number : a.side === "home" ? -1 : 1))
+    .map((p) => `${p.side}, ${p.number}, ${p.name}, ${p.position}`)
+    .join("\n");
+
 /** "home, 9, Harry Kane, FW" per line. Lines that do not parse are reported, not dropped. */
 function parseSquad(text: string) {
   const players: { side: "home" | "away"; number: number; name: string; position: Position }[] = [];
@@ -243,6 +261,69 @@ function Unlisted({ fixture }: { fixture: ApiFixture }) {
   );
 }
 
+/**
+ * A listed match before kickoff: edit its squad, save it to the API, then send setPlayers from the owner
+ * wallet. The API refuses to drop a player who already has cards.
+ */
+function ListedSquad({ fixture }: { fixture: ApiFixture }) {
+  const client = useGame();
+  const queryClient = useQueryClient();
+  const detail = useQuery({
+    queryKey: ["admin-fixture", fixture.slug],
+    queryFn: () => api<{ squad: ApiSquadPlayer[] }>(`/api/fixtures/${fixture.slug}`),
+  });
+  const [text, setText] = useState<string | null>(null);
+  const value = text ?? (detail.data ? squadLines(detail.data.squad) : "");
+  const squad = parseSquad(value);
+  const update = useMutation({
+    mutationFn: async () => {
+      if (!canSetPlayers(client)) throw new Error("Squad updates need the chain client.");
+      const saved = await adminApi<{ matchId: string; playerIds: number[]; created: number }>(
+        `/api/admin/fixtures/${fixture.slug}/squad`,
+        { method: "PUT", body: { players: squad.players } },
+      );
+      const sent = await client.setPlayers(Number(saved.matchId), saved.playerIds);
+      return { ...sent, count: saved.playerIds.length, created: saved.created };
+    },
+    onSuccess: () => setText(null),
+    onSettled: () => queryClient.invalidateQueries(),
+  });
+  return (
+    <li className="surface-card flex flex-col gap-2 rounded-card bg-card p-4 shadow-result">
+      <span className="t-title">
+        #{fixture.matchId} {fixture.slug}
+      </span>
+      <span className="t-small">Kickoff {formatKickoff(Math.floor(Date.parse(fixture.kickoff) / 1000))}</span>
+      <label className="t-small flex flex-col gap-1">
+        Squad, one player per line: side, number, name, position
+        <textarea
+          className="field-input num min-h-40"
+          value={value}
+          onChange={(event) => setText(event.target.value)}
+          data-testid={`squad-${fixture.slug}`}
+        />
+      </label>
+      {squad.bad.length > 0 ? (
+        <Notice tone="warn">Lines {squad.bad.join(", ")} do not read as side, number, name, position.</Notice>
+      ) : null}
+      <Button
+        variant="secondary"
+        onClick={() => update.mutate()}
+        disabled={update.isPending || squad.bad.length > 0 || squad.players.length < 2 || text === null}
+      >
+        {update.isPending ? "Updating…" : "Update Squad on Chain"}
+      </Button>
+      {update.isError ? <Notice tone="danger">{errorSentence(update.error)}</Notice> : null}
+      {update.isSuccess ? (
+        <Notice>
+          Squad is {update.data.count} players ({update.data.created} new people), transaction{" "}
+          {shortHash(update.data.hash)}.
+        </Notice>
+      ) : null}
+    </li>
+  );
+}
+
 /** Owner tools: fixtures and squads live in the API; listing a match is a transaction from the owner wallet. */
 export function AdminFixtures() {
   const [ready, setReady] = useState(false);
@@ -253,6 +334,9 @@ export function AdminFixtures() {
   });
   if (!ready) return <TokenGate onReady={() => setReady(true)} />;
   const unlisted = (fixtures.data ?? []).filter((fixture) => fixture.matchId === null);
+  const beforeKickoff = (fixtures.data ?? []).filter(
+    (fixture) => fixture.matchId !== null && !fixture.warmUp && Date.parse(fixture.kickoff) > Date.now(),
+  );
   return (
     <div className="flex flex-col gap-5">
       <h2 className="t-title">Not on chain yet</h2>
@@ -260,6 +344,13 @@ export function AdminFixtures() {
       <ul className="flex flex-col gap-3">
         {unlisted.map((fixture) => (
           <Unlisted key={fixture.slug} fixture={fixture} />
+        ))}
+      </ul>
+      <h2 className="t-title">Listed, before kickoff</h2>
+      {beforeKickoff.length === 0 ? <p className="t-small">No listed match is still open.</p> : null}
+      <ul className="flex flex-col gap-3">
+        {beforeKickoff.map((fixture) => (
+          <ListedSquad key={fixture.slug} fixture={fixture} />
         ))}
       </ul>
       <h2 className="t-title">Add or edit a fixture</h2>

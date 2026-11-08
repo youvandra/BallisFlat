@@ -1032,6 +1032,20 @@ export class ChainGameClient implements GameClient {
     });
   }
 
+  /** Owner only, before kickoff: replaces a listed match's squad (ids strictly ascending). */
+  setPlayers(matchId: number, playerIds: number[]): Promise<TxReceipt> {
+    return guard(async () => {
+      const hash = await writeContract(config, {
+        ...contract,
+        functionName: "setPlayers",
+        args: [BigInt(matchId), playerIds],
+        chainId: chain.id,
+      });
+      await this.confirm(hash);
+      return { hash };
+    });
+  }
+
   async isOwner(address: Address): Promise<boolean> {
     const owner = await readContract(config, { ...contract, functionName: "owner" });
     return owner.toLowerCase() === address.toLowerCase();
