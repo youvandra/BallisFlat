@@ -64,9 +64,9 @@ export function LandingPage() {
   })();
 
   return (
-    <div className="playmat">
-      <div className="playmat-col col-side landing-pair">
-        <Zone label="Matches" className="gap-0.5 px-3 pt-7.5 pb-3.5">
+    <div className="playmat landing-playmat">
+      <div className="playmat-col col-side">
+        <Zone label="Matches" className="landing-matches gap-0.5 px-3 pt-7.5 pb-3.5">
           <div className="relative min-h-0 flex-1 max-tab:h-87.5 max-tab:flex-none">
             {board.isPending ? (
               <div className="skeleton absolute inset-0 right-5.5 rounded-sleeve" aria-busy />
@@ -95,7 +95,11 @@ export function LandingPage() {
             )}
           </div>
         </Zone>
-        <Zone label="Binder" size="auto" className="items-start gap-3 px-4.5 pt-5 pb-4 tab:flex-none">
+        <Zone
+          label="Binder"
+          size="auto"
+          className="landing-binder items-start gap-3 px-4.5 pt-5 pb-4 tab:flex-none"
+        >
           <CardBackStack />
           <p className="t-small">Cards that miss stay in your wallet. A record of every call you made.</p>
           <Link
@@ -109,12 +113,7 @@ export function LandingPage() {
       </div>
 
       <div className="playmat-col col-fill phone-first">
-        <Zone
-          label="Field"
-          field
-          // Phone: the hero fits above the fixed Launch App dock on short screens (never under 440px).
-          className="items-center justify-center max-tab:h-[min(35rem,calc(100dvh-11rem))] max-tab:min-h-110"
-        >
+        <Zone label="Field" field className="landing-field items-center justify-center max-tab:h-140">
           <div className="mat-art" aria-hidden />
           {field ? (
             <div className="absolute inset-0">
@@ -153,8 +152,8 @@ export function LandingPage() {
         </Zone>
       </div>
 
-      <div className="playmat-col col-side landing-pair relative z-5">
-        <Zone label="How it plays" className="px-3 pt-7.5 pb-3">
+      <div className="playmat-col col-side relative z-5">
+        <Zone label="How it plays" className="landing-how px-3 pt-7.5 pb-3">
           <div className="relative min-h-0 flex-1 max-tab:h-90 max-tab:flex-none">
             <SkillStack
               layout="Cascade"
@@ -171,7 +170,7 @@ export function LandingPage() {
             />
           </div>
         </Zone>
-        <Zone label="House rules" size="auto" className="flex-row! gap-5.5 px-4.5 pt-7.5 pb-4">
+        <Zone label="House rules" size="auto" className="landing-rules flex-row! gap-5.5 px-4.5 pt-7.5 pb-4">
           {houseRules.map((rule) => (
             <div key={rule.label} className="flex max-w-50 flex-col gap-1.5">
               <p className="t-stat">{rule.value}</p>

@@ -23,8 +23,9 @@ function dockStopFor(pathname: string): DockStop {
  * The landing's bottom bar: the Dock shell (j2DqtmR34) with one action instead of the app's stops.
  */
 export function LaunchDock() {
+  // A phone has Launch App in the masthead instead.
   return (
-    <div className="dock-bar">
+    <div className="dock-bar max-tab:hidden">
       <nav aria-label="Launch" className="dock">
         <Link to="/matches" className="dock-item" aria-current="page">
           <span className="t-body-strong inline-flex items-center gap-2">

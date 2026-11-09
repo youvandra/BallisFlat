@@ -1,5 +1,5 @@
 import { product } from "@app/config/constants";
-import { LogOut, Wallet } from "lucide-react";
+import { LogOut, Rocket, Wallet } from "lucide-react";
 import { Link } from "react-router";
 import { formatUnits } from "viem";
 import { useConnectPrompt } from "../../features/connect/ConnectPrompt";
@@ -97,8 +97,8 @@ type Variant = "landing" | "app";
 
 /**
  * Masthead (Framer component iz_oxBMfc) in the Masthead Bar: the BIF logo on the left; on the
- * right the Sound icon button, then the wallet pill in the app. The landing's only call to action is the
- * Launch App button in the bottom bar. Padding 28px 40px, 24px 28px on tablet, 20px 16px on phone.
+ * right the Sound icon button, then the wallet pill in the app. The landing's call to action is Launch App:
+ * in the bottom bar on tablet and desktop, beside the logo on a phone. Padding 28px 40px, 24px 28px on tablet, 20px 16px on phone.
  */
 export function Masthead({ variant }: { variant: Variant }) {
   return (
@@ -113,7 +113,14 @@ export function Masthead({ variant }: { variant: Variant }) {
         </Link>
         <div className="flex items-center gap-2 max-tab:gap-0.5">
           {variant === "landing" ? (
-            <LandingStatus />
+            <>
+              <LandingStatus />
+              {/* Phone: Launch App sits up here beside the logo; tablet and desktop keep it in the bottom bar. */}
+              <Link to="/matches" className="submit min-h-10 cursor-pointer py-0 tab:hidden">
+                <Rocket size={15} strokeWidth={2} aria-hidden />
+                Launch App
+              </Link>
+            </>
           ) : (
             <span className="ml-1">
               <WalletPill />

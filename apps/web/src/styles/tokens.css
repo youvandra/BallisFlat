@@ -541,8 +541,44 @@
     text-align: center;
   }
   /* Hunt pack tiers: the foil itself comes from PackRip's packFoil (src/framer), dark type on top. */
-  /* Hunt packs sit three across on every screen; on a phone the tile type steps down to fit. */
-  @media (max-width: 539.98px) {
+  /* Hunt packs: always three across. The row sizes itself to its own column (container query), so a
+     narrow column at any window size steps the tile type down and shortens "Buy Diamond" to "Buy". */
+  .hunt-packs {
+    container-type: inline-size;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .hunt-packs > li {
+    min-width: 0;
+  }
+  .hunt-pack-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    column-gap: 8px;
+  }
+  @container (max-width: 520px) {
+    .hunt-packs > li {
+      gap: 10px;
+    }
+    .hunt-pack-meta {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .hunt-buy {
+      position: relative;
+      padding-inline: 12px;
+    }
+    .hunt-buy-name {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
     .hunt-packs .pack-tile {
       gap: 6px;
       padding: 12px 6px;
@@ -1088,17 +1124,117 @@
     padding: var(--screen-pad);
     overflow: hidden;
   }
-  /* Landing on a portrait tablet (540-809px): each side column's two zones sit side by side instead of
-     stretching one narrow piece of content across the full width. */
-  @media (min-width: 540px) and (max-width: 809.98px) {
-    .playmat .playmat-col.landing-pair {
+  /* Landing under 810px: the columns dissolve so the zones read as a story, in this order: the pack to
+     open, how it plays, the binder, the matches, the house rules. A portrait tablet (540px and up) pairs
+     them two by two under the full-width pack. */
+  @media (max-width: 809.98px) {
+    .playmat.landing-playmat {
       display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--playmat-gap);
+    }
+    .landing-playmat > .playmat-col {
+      display: contents;
+    }
+    .landing-field {
+      order: 1;
+    }
+    .landing-how {
+      order: 2;
+    }
+    .landing-binder {
+      order: 3;
+    }
+    .landing-matches {
+      order: 4;
+    }
+    .landing-rules {
+      order: 5;
+    }
+  }
+  @media (min-width: 540px) and (max-width: 809.98px) {
+    .playmat.landing-playmat {
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      align-items: stretch;
+    }
+    .landing-field {
+      grid-column: 1 / -1;
     }
     /* Paired zones share a height; the shorter one centres its content instead of leaving a gap below. */
-    .landing-pair > * {
+    .landing-binder,
+    .landing-rules {
       justify-content: center;
+    }
+  }
+  /* Filter key (FilterKey.tsx): swatch rows on tablet and desktop; a phone shows the current row as a
+     trigger that drops the rows down. */
+  .filter-key {
+    position: relative;
+    width: 100%;
+  }
+  .filter-key-trigger {
+    display: none;
+  }
+  .filter-key-list {
+    display: flex;
+    flex-direction: column;
+    padding-top: 8px;
+  }
+  .filter-key-option {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-radius: var(--radius-input);
+    text-align: left;
+    cursor: pointer;
+    transition: opacity 150ms ease;
+  }
+  .filter-key-option:hover {
+    opacity: 0.7;
+  }
+  .filter-key-check {
+    display: none;
+  }
+  @media (max-width: 809.98px) {
+    .filter-key-trigger {
+      display: flex;
+      width: 100%;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1.5px solid var(--color-line);
+      border-radius: var(--radius-input);
+      background: var(--color-card);
+      cursor: pointer;
+    }
+    .filter-key-chevron {
+      flex: none;
+      transition: transform 150ms ease;
+    }
+    .filter-key[data-open="true"] .filter-key-chevron {
+      transform: rotate(180deg);
+    }
+    .filter-key-list {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      z-index: 30;
+      display: none;
+      padding: 6px 14px;
+      border: 1.5px solid var(--color-line);
+      border-radius: var(--radius-input);
+      background: var(--color-card);
+      box-shadow: var(--shadow-result);
+    }
+    .filter-key[data-open="true"] .filter-key-list {
+      display: flex;
+    }
+    .filter-key-option[aria-pressed="true"] .filter-key-check {
+      display: block;
+      flex: none;
+      color: var(--color-pink);
     }
   }
   /* A failure as a page: inside the shell (404, crash) or over the whole app (offline, chain, server). */
