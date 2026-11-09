@@ -8,8 +8,8 @@ async function pickFilter(page: Page, testId: string, key: string) {
 }
 
 // The Hunt against the mock chain: a pack is bought, drawn one block later, torn, and its cards are dealt
-// into the binder. Each test starts from the mock seed (three Harry Kane cards in a 1,000-card deck,
-// 10,000 $WIF prize each).
+// into the binder. Each test starts from the mock seed (three Harry Kane cards in a 10,000-card deck,
+// 100,000 $WIF prize each).
 
 async function connect(page: Page) {
   await page
@@ -38,7 +38,7 @@ test("buy a Silver pack, tear it, mint the one card you want; only that card rea
 }) => {
   await page.goto("/hunt");
   await expect(page.getByRole("heading", { name: "Find Kane" })).toBeVisible();
-  await expect(page.getByTestId("hunt-prize")).toHaveText("10,000");
+  await expect(page.getByTestId("hunt-prize")).toHaveText("100,000");
   await expect(page.getByTestId("hunt-wanted-left")).toHaveText("3 of 3");
 
   await expect(page.getByTestId("connect-inline")).toBeVisible();
@@ -84,7 +84,7 @@ test("a pack that finds a wanted card wins its prize; the deck stays open; admin
   const stage = await buyAndTear(page, "gold");
   await expect(stage.getByText("You found Kane")).toBeVisible();
   await stage.getByRole("button", { name: "Close", exact: true }).last().click();
-  await expect(page.getByTestId("hunt-win")).toContainText("10,000");
+  await expect(page.getByTestId("hunt-win")).toContainText("100,000");
   await expect(page.getByTestId("hunt-wanted-left")).toHaveText("2 of 3");
   await expect(page.getByTestId("buy-gold")).toBeEnabled();
   await page.getByTestId("hunt-win").getByTestId("hunt-claim").click();

@@ -46,11 +46,11 @@ export const hunt = {
   /** $WIF to mint one drawn card into the binder (0 = gas only); set on chain with setMintPrice. */
   mintPrice: 0n,
   /** Cards in a round's deck; packs stop selling when it runs out. */
-  supply: 1000,
+  supply: 10_000,
   /** Wanted cards in the deck; a sold-out deck pays every one of them. */
   winners: 3,
   /** Prize the team posts per wanted card, paid by transfer to its finder (not from pack money; owner to confirm). */
-  prizeEach: 10_000n * 10n ** 18n,
+  prizeEach: 100_000n * 10n ** 18n,
   /** Parent-chain blocks a pack's draw stays readable (about 51 minutes on Robinhood Chain). */
   revealWindowBlocks: 256,
 } as const;

@@ -75,7 +75,7 @@ Most products only care about scores and final results. Fans mostly talk about p
     <td width="50%"><img src="docs/media/binder.webp" alt="Binder"><br><sub><b>The binder.</b> Cards sorted by what you can do with them: claim, keep, sell, wait, refund.</sub></td>
   </tr>
   <tr>
-    <td colspan="2"><img src="docs/media/hunt.webp" alt="The Hunt"><br><sub><b>The Hunt.</b> One wanted player, three of his cards in a 1,000-card deck, a prize for each.</sub></td>
+    <td colspan="2"><img src="docs/media/hunt.webp" alt="The Hunt"><br><sub><b>The Hunt.</b> One wanted player, three of his cards in a 10,000-card deck, a prize for each.</sub></td>
   </tr>
 </table>
 
@@ -101,10 +101,10 @@ A side game between matchdays, built on the same cards.
 
 | | |
 |---|---|
-| **The deck** | Each round is a deck of 1,000 cards. 3 of them are the wanted player (round 1: Harry Kane); the rest are random players from the November squads |
+| **The deck** | Each round is a deck of 10,000 cards. 3 of them are the wanted player (round 2: Harry Kane); the rest are random players from the November squads |
 | **Packs** | Silver 3 cards / 50 $WIF, Gold 7 / 100, Diamond 12 / 150. Prices are set per round. Packs stop selling when the deck runs out |
 | **The draw** | A pack is drawn from the block hash of the block after you buy it, then torn open card by card. Each card is wanted with chance (wanted left) ÷ (deck left), so the odds shown on each pack are live |
-| **The prize** | Every wanted card pulled pays 10,000 $WIF from the team. The finder claims onchain, the team sends the $WIF and records the transfer hash with `markPaid`, so every payout is public |
+| **The prize** | Every wanted card pulled pays 100,000 $WIF from the team. The finder claims onchain, the team sends the $WIF and records the transfer hash with `markPaid`, so every payout is public |
 | **Free Silver** | The team can open Silver for free to an uploaded wallet list (a merkle root onchain), one pack per wallet |
 | **Cards** | Opening records the draw; you mint the cards you want to keep into your binder (gas only). Hunt cards never move |
 
@@ -125,7 +125,7 @@ flowchart LR
     W -. "Claim & Keep fee" .-> B
     H([Hunt pack buyer]) -- "10% of pack" --> B
     H -- "90% of pack" --> T([Team treasury])
-    T -- "10,000 $WIF per wanted card" --> F([Hunt finder])
+    T -- "100,000 $WIF per wanted card" --> F([Hunt finder])
 ```
 
 - **$WIF is the only currency.** Card price, pot, payout, resale and burn are all $WIF on Robinhood Chain (`0x5173b8eA6923c2d40267890D45C46a3480954773`).
@@ -288,7 +288,7 @@ CI ([`.github/workflows/verify.yml`](.github/workflows/verify.yml)) runs lint, t
 | BallIsFlatHunt | Robinhood Chain mainnet (4663) | Pending, same file |
 | $WIF | Robinhood Chain mainnet (4663) | [`0x5173b8eA6923c2d40267890D45C46a3480954773`](https://dexscreener.com/robinhood/0x71ef4106340f0a3b9c19ec994eef4fc44a1d2513f38faac39d7636b156548c79) |
 
-**Launch parameters:** 1,000 $WIF per card · 10% of every pot burned · 5% of every resale burned · 50 $WIF keep fee, burned · 10 cards per player per match · 2 hour dispute window. Hunt round 1: 1,000-card deck, 3 wanted cards, 10,000 $WIF each. First fixtures: UEFA Nations League, 12-17 Nov 2026.
+**Launch parameters:** 1,000 $WIF per card · 10% of every pot burned · 5% of every resale burned · 50 $WIF keep fee, burned · 10 cards per player per match · 2 hour dispute window. Hunt round 2: 10,000-card deck, 3 wanted cards, 100,000 $WIF each. First fixtures: UEFA Nations League, 12-17 Nov 2026.
 
 ## Repo map
 
