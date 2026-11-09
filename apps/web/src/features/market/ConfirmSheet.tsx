@@ -19,7 +19,6 @@ import { useOpened } from "../../lib/game/opened";
 import { type MarketView, type PlayerLine, useGame } from "../../lib/game/queries";
 import { sleeveCodes } from "../../lib/game/sleeve";
 import { GameError, type MintStep } from "../../lib/game/types";
-import { ConnectWallet } from "../connect/ConnectWallet";
 import { useHeldCard } from "./use-held-card";
 
 type Props = { view: MarketView; line: PlayerLine | null; onClose: () => void };
@@ -74,7 +73,6 @@ export function ConfirmSheet({ view, line, onClose }: Props) {
       return (
         <div className="flex flex-col gap-3" data-testid="connect-inline">
           <p className="t-body-strong">Connect a wallet to mint this card.</p>
-          <ConnectWallet />
         </div>
       );
     }

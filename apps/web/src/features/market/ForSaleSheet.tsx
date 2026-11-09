@@ -15,7 +15,6 @@ import { facts } from "../../lib/game/facts";
 import { matchName, playerOf } from "../../lib/game/fixtures";
 import { type MarketView, useGame } from "../../lib/game/queries";
 import type { Listing, MintStep } from "../../lib/game/types";
-import { ConnectWallet } from "../connect/ConnectWallet";
 
 type Props = {
   view: MarketView;
@@ -92,8 +91,7 @@ export function ForSaleSheet({ view, listings, open, onClose, onBought }: Props)
           <p className="t-small">{facts.saleBurnBps / 100}% of the price is burned.</p>
           {!account.data?.isRightChain ? (
             <div className="flex flex-col gap-3" data-testid="connect-inline">
-              <p className="t-body-strong">Connect to buy.</p>
-              <ConnectWallet />
+              <p className="t-body-strong">Connect a wallet to buy this card.</p>
             </div>
           ) : shortfall > 0n ? (
             <div className="flex flex-col gap-3">

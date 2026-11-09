@@ -34,9 +34,16 @@ async function mintFirstPlayer(page: Page) {
     .click();
   const sheet = page.getByRole("dialog");
   await expect(sheet.getByText("If he wins")).toBeVisible();
-  // No wallet yet: the pick sheet asks to connect in place, then shows the mint button for the same pick.
+  // No wallet yet: the pick sheet says so in words, with no button of its own; the masthead connects.
   await expect(sheet.getByRole("button", { name: /Mint for/ })).toHaveCount(0);
-  await sheet.getByRole("button", { name: "Connect Wallet", exact: true }).click();
+  await expect(sheet.getByTestId("connect-inline")).toHaveText("Connect a wallet to mint this card.");
+  await expect(sheet.getByTestId("connect-inline").getByRole("button")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await connect(page);
+  await page
+    .getByRole("button", { name: /if he wins/ })
+    .first()
+    .click();
   await sheet.getByRole("button", { name: /^Mint for 1,000 \$WIF$/ }).click();
   await expect(sheet.getByText(/^Approve \$WIF/)).toBeVisible();
   await expect(page).toHaveURL(/\/open\/\d+$/, { timeout: 10_000 });
@@ -204,8 +211,12 @@ test("buy a sealed card from the market; it lands in the binder sealed", async (
   const sheet = page.getByRole("dialog");
   await sheet.getByRole("button", { name: /^Buy .+ for 900 \$WIF$/ }).click();
   await expect(sheet.getByText("5% of the price is burned.")).toBeVisible();
-  // No wallet yet: the buy confirm asks to connect in place, then the buy button takes its place.
-  await sheet.getByRole("button", { name: "Connect Wallet", exact: true }).click();
+  // No wallet yet: the buy confirm says so in words; connect from the masthead, then buy.
+  await expect(sheet.getByTestId("connect-inline")).toHaveText("Connect a wallet to buy this card.");
+  await page.keyboard.press("Escape");
+  await connect(page);
+  await page.getByTestId("buy-sealed").filter({ visible: true }).first().click();
+  await sheet.getByRole("button", { name: /^Buy .+ for 900 \$WIF$/ }).click();
   await sheet.getByRole("button", { name: "Buy for 900 $WIF" }).click();
   await expect(page.getByRole("status").filter({ hasText: "is in your binder, sealed" })).toBeVisible({
     timeout: 10_000,

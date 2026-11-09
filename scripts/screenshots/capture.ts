@@ -38,7 +38,17 @@ test("readme screenshots", async ({ page }) => {
     .first()
     .click();
   const sheet = page.getByRole("dialog");
-  await sheet.getByRole("button", { name: "Connect Wallet", exact: true }).click();
+  // The sheet has no connect button: close it, connect from the masthead, reopen the same player.
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: /^Connect( Wallet)?$/ }).click();
+  await page
+    .getByRole("dialog", { name: "Connect a Wallet" })
+    .getByRole("button", { name: "Connect Wallet", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: /^Jude Bellingham, number .*if he wins/ })
+    .first()
+    .click();
   await expect(sheet.getByRole("button", { name: /^Mint for/ })).toBeVisible();
   await page.waitForTimeout(500);
   await shot("pick");
