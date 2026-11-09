@@ -1,5 +1,12 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
+/** A filter key is a list on desktop and a dropdown on a phone: open it first when it is one. */
+async function pickFilter(page: Page, testId: string, key: string) {
+  const trigger = page.getByTestId(testId);
+  if (await trigger.isVisible()) await trigger.click();
+  await page.getByTestId(`${testId}-${key}`).click();
+}
+
 // The Hunt against the mock chain: a pack is bought, drawn one block later, torn, and its cards are dealt
 // into the binder. Each test starts from the mock seed (three Harry Kane cards in a 1,000-card deck,
 // 10,000 $WIF prize each).
@@ -59,9 +66,9 @@ test("buy a Silver pack, tear it, mint the one card you want; only that card rea
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Binder" }).click();
   await expect(page.getByTestId("hunt-shelf").locator("li")).toHaveCount(1);
   await expect(page.getByTestId("binder-filter-hunt")).toContainText("1");
-  await page.getByTestId("binder-filter-matches").click();
+  await pickFilter(page, "binder-filter", "matches");
   await expect(page.getByTestId("hunt-shelf")).toHaveCount(0);
-  await page.getByTestId("binder-filter-hunt").click();
+  await pickFilter(page, "binder-filter", "hunt");
   await expect(page.getByTestId("hunt-shelf").locator("li")).toHaveCount(1);
 });
 

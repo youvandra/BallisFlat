@@ -1,7 +1,8 @@
 import { ArrowRight, RotateCw } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { CardBackStack } from "../../components/playmat/CardBackStack";
+import { FilterKey } from "../../components/playmat/FilterKey";
 import { SummonCard } from "../../components/playmat/framer";
 import { MatchCard } from "../../components/playmat/MatchCard";
 import { PackLoader } from "../../components/playmat/PackLoader";
@@ -85,6 +86,23 @@ export function MatchesPage() {
     }));
   }, [all]);
 
+  // "all" or a matchday label; the board filters to it.
+  const [day, setDay] = useState<string>("all");
+  const dayOptions = useMemo(
+    () => [
+      { key: "all", label: "All", chip: "bg-ink", count: all.length, noun: ["match", "matches"] as const },
+      ...days.map(({ day: label, count }) => ({
+        key: label,
+        label,
+        chip: chipTone(label),
+        count,
+        noun: ["match", "matches"] as const,
+      })),
+    ],
+    [all.length, days],
+  );
+  const shown = day === "all" ? rows : rows.filter(({ view }) => matchdayLabel(view.fixture) === day);
+
   const settled = useMemo(
     () =>
       all
@@ -103,19 +121,13 @@ export function MatchesPage() {
         <Zone label="Board" className="gap-3.5 px-4.5 pt-7.5 pb-4.5">
           <h1 className="t-heading">The board</h1>
           <p className="t-small">Tap a match to pick.</p>
-          <ul className="flex flex-col pt-2" aria-label="Matchdays">
-            {days.map(({ day, count }) => (
-              <li key={day} className="flex items-center gap-3 py-2.5">
-                <span className={`swatch ${chipTone(day)}`} aria-hidden />
-                <span className="flex flex-1 items-baseline justify-between gap-2">
-                  <span className="t-body-strong">{day}</span>
-                  <span className="t-small num whitespace-nowrap">
-                    {count} {count === 1 ? "match" : "matches"}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
+          <FilterKey
+            options={dayOptions}
+            value={day}
+            onChange={setDay}
+            label="Show matches from"
+            testId="board-filter"
+          />
         </Zone>
         <Zone label="Settled" size="auto" className="items-start gap-3 px-4.5 pt-5 pb-4 max-tab:hidden">
           {settled.length === 0 ? (
@@ -166,13 +178,13 @@ export function MatchesPage() {
                   Try Again
                 </TextButton>
               </Notice>
-            ) : rows.length === 0 ? (
+            ) : shown.length === 0 ? (
               <div className="py-6">
                 <p className="t-title">No matches on the board yet</p>
               </div>
             ) : (
-              <ul className="grid-fixtures" aria-label={`${rows.length} matches`}>
-                {rows.map(({ view, card, status }) => (
+              <ul className="grid-fixtures" aria-label={`${shown.length} matches`}>
+                {shown.map(({ view, card, status }) => (
                   <li key={view.fixture.slug}>
                     <MatchCard
                       to={`/m/${view.fixture.slug}`}

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { formatUnits } from "viem";
 import { CardBackStack } from "../../components/playmat/CardBackStack";
+import { FilterKey } from "../../components/playmat/FilterKey";
 import { PackLoader } from "../../components/playmat/PackLoader";
 import { Zone } from "../../components/playmat/Zone";
 import { Notice } from "../../components/ui/Notice";
@@ -147,7 +148,7 @@ function Binder() {
   );
   const [source, setSource] = useState<"all" | "matches" | "hunt">("all");
   const sources = [
-    { key: "all", label: "All", chip: "bg-note", count: total + huntCount },
+    { key: "all", label: "All", chip: "bg-ink", count: total + huntCount },
     { key: "matches", label: "Matches", chip: "bg-pink", count: total },
     { key: "hunt", label: "Hunt", chip: "bg-cyan", count: huntCount },
   ] as const;
@@ -164,25 +165,13 @@ function Binder() {
         <Zone label="Binder" className="gap-3.5 px-4.5 pt-7.5 pb-4.5">
           <h1 className="t-heading">Your binder</h1>
           <p className="t-small">Every card you minted: match picks and the Hunt cards you kept.</p>
-          <ul className="flex flex-col pt-2" aria-label="Show cards from">
-            {sources.map((option) => (
-              <li key={option.key}>
-                <button
-                  type="button"
-                  onClick={() => setSource(option.key)}
-                  aria-pressed={source === option.key}
-                  data-testid={`binder-filter-${option.key}`}
-                  className={`flex w-full items-center gap-3 rounded-input py-2.5 text-left transition-opacity hover:opacity-70 ${source === option.key ? "" : "opacity-60"}`}
-                >
-                  <span className={`swatch ${option.chip}`} aria-hidden />
-                  <span className="flex flex-1 items-center justify-between gap-2">
-                    <span className="t-body-strong">{option.label}</span>
-                    <span className="t-small num">{option.count}</span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <FilterKey
+            options={sources}
+            value={source}
+            onChange={setSource}
+            label="Show cards from"
+            testId="binder-filter"
+          />
         </Zone>
         <Zone
           label="Claimed"
