@@ -417,6 +417,16 @@ app.post("/api/admin/hunt/allowlist", async (c) => {
   return json({ root, count: wallets.length }, 201);
 });
 
+/** Every wallet on a stored allowlist, so the admin panel can add to the live list instead of retyping it. */
+app.get("/api/admin/hunt/allowlist/:root", async (c) => {
+  requireAdmin(c.req.header("authorization"));
+  const root = c.req.param("root");
+  if (!/^0x[0-9a-fA-F]{64}$/.test(root)) throw new AdminError(400, "bad root");
+  const wallets = await allowlistOf(root);
+  if (wallets.length === 0) throw new AdminError(404, "unknown allowlist");
+  return json({ root, wallets });
+});
+
 /** The exact arguments for listMatches: the admin panel sends them from the owner's wallet. */
 app.get("/api/admin/fixtures/:slug/listing", async (c) => {
   requireAdmin(c.req.header("authorization"));

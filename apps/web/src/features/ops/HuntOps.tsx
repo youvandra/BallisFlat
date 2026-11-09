@@ -1,12 +1,12 @@
 import { hunt as huntConfig, product } from "@app/config/constants";
 import { parseAllowlist } from "@app/core/allowlist";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import { formatUnits, parseUnits } from "viem";
 import { Button } from "../../components/ui/Button";
 import { Notice } from "../../components/ui/Notice";
 import { formatWif, shortHash } from "../../lib/format";
-import { uploadAllowlist } from "../../lib/game/allowlist";
+import { fetchAllowlist, uploadAllowlist } from "../../lib/game/allowlist";
 import { errorSentence } from "../../lib/game/errors";
 import { listedFixtures } from "../../lib/game/fixtures";
 import { huntPlayer, useHunt } from "../../lib/game/hunt";
@@ -110,6 +110,19 @@ function TierEditor({ tier, open }: { tier: HuntTier; open: boolean }) {
   const [gated, setGated] = useState(Boolean(tier.allowRoot));
   const [list, setList] = useState("");
   const parsed = useMemo(() => parseAllowlist(list), [list]);
+  // The live list loads into the box, so adding wallets keeps everyone already on it.
+  const current = useQuery({
+    queryKey: ["hunt-allowlist", tier.allowRoot],
+    queryFn: () => (tier.allowRoot ? fetchAllowlist(tier.allowRoot) : null),
+    enabled: Boolean(tier.allowRoot),
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+  const [loadedRoot, setLoadedRoot] = useState<Hash | null>(null);
+  useEffect(() => {
+    if (!tier.allowRoot || !current.data || loadedRoot === tier.allowRoot) return;
+    setList(current.data.join("\n"));
+    setLoadedRoot(tier.allowRoot);
+  }, [tier.allowRoot, current.data, loadedRoot]);
   const priceWei = toWei(price);
   const cardCount = toInt(cards);
   const valid =
@@ -183,6 +196,18 @@ function TierEditor({ tier, open }: { tier: HuntTier; open: boolean }) {
               }}
             />
           </label>
+          {tier.allowRoot && current.data ? (
+            <p className="t-small">
+              The live list ({current.data.length} wallets) is loaded. Add new wallets on new lines and set
+              again; wallets that already took their pack stay used.
+            </p>
+          ) : null}
+          {tier.allowRoot && current.isFetched && !current.data ? (
+            <Notice tone="warn">
+              The live list could not be loaded. Paste every wallet, old and new: anyone left out loses an
+              unused free pack.
+            </Notice>
+          ) : null}
           <p className="t-small num">
             {parsed.wallets.length} wallets
             {parsed.invalid.length > 0 ? `, ${parsed.invalid.length} not addresses (skipped)` : ""}

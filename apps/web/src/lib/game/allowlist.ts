@@ -34,6 +34,20 @@ export async function uploadAllowlist(wallets: Hash[]): Promise<{ root: Hash; co
   return { root, count: wallets.length };
 }
 
+/** Every wallet on the stored list with `root` (admin), or null when neither the API nor this browser has it. */
+export async function fetchAllowlist(root: Hash): Promise<Address[] | null> {
+  if (apiUrl) {
+    try {
+      const { wallets } = await adminApi<{ wallets: Address[] }>(`/api/admin/hunt/allowlist/${root}`);
+      return wallets;
+    } catch {
+      return null;
+    }
+  }
+  const wallets = localLists()[root];
+  return wallets ? (wallets as Address[]) : null;
+}
+
 /** The wallet's proof for the list with `root`, or null when it is not on it. */
 export async function fetchAllowProof(root: Hash, wallet: Address): Promise<Hash[] | null> {
   if (apiUrl) {

@@ -125,4 +125,12 @@ test("a free Silver allowlist gives each listed wallet one pack", async ({ page 
   await stage.getByRole("button", { name: "Close", exact: true }).last().click();
   await expect(page.getByTestId("buy-silver")).toHaveText("Free Pack Used");
   await expect(page.getByTestId("buy-silver")).toBeDisabled();
+
+  // Back in the admin panel the live list is already in the box, ready to take new wallets.
+  await page.goto("/ops");
+  await page.getByRole("tab", { name: /^Hunt/ }).click();
+  const box = page.getByTestId("tier-editor-0").getByTestId("tier-allowlist-0");
+  await expect(box).toHaveValue(/0xBa11F1A70000000000000000000000000000Fa11/i);
+  await expect(box).toHaveValue(/0x0000000000000000000000000000000000000B0b/i);
+  await expect(page.getByTestId("tier-editor-0")).toContainText("The live list (2 wallets) is loaded");
 });
