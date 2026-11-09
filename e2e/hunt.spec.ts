@@ -8,8 +8,8 @@ async function pickFilter(page: Page, testId: string, key: string) {
 }
 
 // The Hunt against the mock chain: a pack is bought, drawn one block later, torn, and its cards are dealt
-// into the binder. Each test starts from the mock seed (three Harry Kane cards in a 10,000-card deck,
-// 100,000 $WIF prize each).
+// into the binder. Each test starts from the mock seed (three Harry Kane cards in a 10,000-card deck
+// sharing a 100,000 $WIF prize pool).
 
 async function connect(page: Page) {
   await page
@@ -84,7 +84,7 @@ test("a pack that finds a wanted card wins its prize; the deck stays open; admin
   const stage = await buyAndTear(page, "gold");
   await expect(stage.getByText("You found Kane")).toBeVisible();
   await stage.getByRole("button", { name: "Close", exact: true }).last().click();
-  await expect(page.getByTestId("hunt-win")).toContainText("100,000");
+  await expect(page.getByTestId("hunt-win")).toContainText("33,333");
   await expect(page.getByTestId("hunt-wanted-left")).toHaveText("2 of 3");
   await expect(page.getByTestId("buy-gold")).toBeEnabled();
   await page.getByTestId("hunt-win").getByTestId("hunt-claim").click();

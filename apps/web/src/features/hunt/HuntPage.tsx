@@ -175,9 +175,7 @@ function Hunt({ view }: { view: HuntView }) {
         <>
           {myWins.map(({ round: r, find }) => (
             <div key={`${r.id}-${find.index}`} className="flex flex-col gap-2" data-testid="hunt-win">
-              <p className="t-zone">
-                Round {r.id}, find {find.index + 1}
-              </p>
+              <p className="t-zone">Find {find.index + 1}</p>
               <p className="t-stat num">{formatWif(r.prizeEach)}</p>
               {find.paid ? (
                 <p className="t-small">$WIF paid to this wallet.</p>
@@ -283,16 +281,16 @@ function Hunt({ view }: { view: HuntView }) {
                 team={wanted.team}
                 rarity="legendary"
                 label="Wanted"
-                setLabel={`Hunt ${round.id}`}
+                setLabel="Hunt"
               />
             </div>
           ) : (
             <p className="t-title">Player #{round.target}</p>
           )}
           <div className="flex flex-col items-center gap-1 text-center">
-            <p className="t-zone">Prize per card</p>
+            <p className="t-zone">Prize pool</p>
             <p className="t-stat num" data-testid="hunt-prize">
-              {formatWif(round.prizeEach)}
+              {formatWif(round.prizeEach * BigInt(round.winners))}
             </p>
             <p className="t-small">$WIF from the {product.name} team</p>
           </div>
@@ -331,17 +329,19 @@ function Hunt({ view }: { view: HuntView }) {
         <Zone label="Hunt" field>
           <div className="zone-scroll page-end flex flex-col gap-6 px-5 pt-7.5 pb-6 tab:px-9">
             <div className="flex flex-col gap-2">
-              <p className="t-zone">Round {round.id}</p>
+              <p className="t-zone">The Hunt</p>
               <h1 className="t-display text-balance">
                 Find {wanted ? surname(wanted.player.name) : "the wanted player"}
               </h1>
               <p className="t-body text-graphite">
                 The deck holds {round.supply.toLocaleString("en-US")} cards and {round.winners} of them are{" "}
-                {wanted?.player.name ?? "the wanted player"}. Every one you pull pays{" "}
-                <span className="num text-ink">{formatWif(round.prizeEach)} $WIF</span> from the{" "}
-                {product.name} team. The rest are players from the November squads.{" "}
-                {formatPercent(view.burnBps / 10_000)} of every pack burns, and packs stop when the deck runs
-                out.
+                {wanted?.player.name ?? "the wanted player"}. They share a prize pool of{" "}
+                <span className="num text-ink">
+                  {formatWif(round.prizeEach * BigInt(round.winners))} $WIF
+                </span>{" "}
+                from the {product.name} team, an equal part for every one you pull. The rest are players from
+                the November squads. {formatPercent(view.burnBps / 10_000)} of every pack burns, and packs
+                stop when the deck runs out.
               </p>
             </div>
 

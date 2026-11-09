@@ -49,8 +49,8 @@ export const hunt = {
   supply: 10_000,
   /** Wanted cards in the deck; a sold-out deck pays every one of them. */
   winners: 3,
-  /** Prize the team posts per wanted card, paid by transfer to its finder (not from pack money; owner to confirm). */
-  prizeEach: 100_000n * 10n ** 18n,
+  /** Prize the team posts per wanted card, paid by transfer to its finder: a 100,000 $WIF pool shared by the winners. */
+  prizeEach: (100_000n * 10n ** 18n) / 3n + 1n,
   /** Parent-chain blocks a pack's draw stays readable (about 51 minutes on Robinhood Chain). */
   revealWindowBlocks: 256,
 } as const;

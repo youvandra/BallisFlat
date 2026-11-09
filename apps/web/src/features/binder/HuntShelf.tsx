@@ -54,7 +54,7 @@ export function HuntShelf({ account }: { account: Account | null | undefined }) 
                 team={entry.team}
                 rarity={card.found ? "legendary" : "rare"}
                 label={card.found ? "Found" : entry.team.code}
-                setLabel={`Hunt ${card.hunt}`}
+                setLabel="Hunt"
                 compact
               />
             </li>
