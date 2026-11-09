@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Navigate } from "react-router";
 import { Zone } from "../../components/playmat/Zone";
 import { Button } from "../../components/ui/Button";
 import { Notice } from "../../components/ui/Notice";
@@ -134,6 +135,9 @@ function Ops() {
     ...(client instanceof MockGameClient ? [{ key: "demo" as const, label: "Demo" }] : []),
   ];
 
+  // Admin only: any other wallet leaves for the board before a line of the panel renders.
+  if (account.data && !account.data.isSettler) return <Navigate to="/matches" replace />;
+
   return (
     <div className="playmat">
       <div className="playmat-col col-fill">
@@ -143,12 +147,6 @@ function Ops() {
               <h1 className="t-heading">Admin</h1>
               <Segmented label="Admin sections" kind="tabs" options={tabs} value={tab} onChange={setTab} />
             </div>
-            {account.data && !account.data.isSettler ? (
-              <Notice tone="warn">
-                This wallet is not the settler or owner. Every write here will be refused.
-              </Notice>
-            ) : null}
-
             {tab === "matches" ? (
               <div className="flex flex-col gap-3">
                 <p className="t-small">
