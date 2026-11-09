@@ -10,6 +10,7 @@ import { ButtonLink } from "../../components/ui/ButtonLink";
 import { Logo } from "../../components/ui/Logo";
 import { Notice } from "../../components/ui/Notice";
 import { type PackFinish, packFoil } from "../../framer/PackRip";
+import { useTablet } from "../../hooks/use-phone";
 import { useWallet } from "../../hooks/use-wallet";
 import { formatPercent, formatWif, shortHash, surname } from "../../lib/format";
 import { fetchAllowProof } from "../../lib/game/allowlist";
@@ -164,6 +165,113 @@ function Hunt({ view }: { view: HuntView }) {
       ? myWins.find((win) => win.find.packId === stage.packId && !win.find.claimed && !win.find.paid)
       : undefined;
 
+  // Tablet has no third column: the wallet's packs and wins move under the packs in the middle.
+  const tablet = useTablet();
+  const yourHunt = (
+    <>
+      {!current ? (
+        <p className="t-small">Connect to see your packs and wins.</p>
+      ) : (
+        <>
+          {myWins.map(({ round: r, find }) => (
+            <div key={`${r.id}-${find.index}`} className="flex flex-col gap-2" data-testid="hunt-win">
+              <p className="t-zone">
+                Round {r.id}, find {find.index + 1}
+              </p>
+              <p className="t-stat num">{formatWif(r.prizeEach)}</p>
+              {find.paid ? (
+                <p className="t-small">$WIF paid to this wallet.</p>
+              ) : find.claimed ? (
+                <p className="t-small">
+                  Claimed. The {product.name} team is sending the $WIF to this wallet.
+                </p>
+              ) : (
+                <>
+                  <p className="t-small">
+                    $WIF from the {product.name} team. Claim it and the team sends it here.
+                  </p>
+                  {claimButton(r.id, find, r.prizeEach, "w-full")}
+                  {claim.isError ? <Notice tone="danger">{errorSentence(claim.error)}</Notice> : null}
+                </>
+              )}
+              {find.payment && client.mode === "chain" ? (
+                <a href={txUrl(find.payment)} target="_blank" rel="noreferrer" className="text-link">
+                  Payment <ArrowUpRight size={14} strokeWidth={2} aria-hidden />
+                </a>
+              ) : find.payment ? (
+                <p className="t-small num">Payment {shortHash(find.payment)}</p>
+              ) : null}
+            </div>
+          ))}
+          <dl className="t-small flex flex-col gap-1 border-y border-line-soft py-3">
+            <div className="flex justify-between gap-3">
+              <dt>Minted</dt>
+              <dd className="num text-ink" data-testid="hunt-cards">
+                {mintedCount}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt>Packs</dt>
+              <dd className="num text-ink">{packs.data?.length ?? 0}</dd>
+            </div>
+          </dl>
+          {sealed.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              <p className="t-zone">Sealed</p>
+              {sealed.map((pack) => {
+                const tier = view.tiers[pack.tier];
+                if (!tier) return null;
+                return (
+                  <Button
+                    key={pack.packId.toString()}
+                    variant="secondary"
+                    className="w-full"
+                    disabled={draw.isPending}
+                    onClick={() => draw.mutate({ tier, packId: pack.packId })}
+                  >
+                    Open {tier.name} #{pack.packId.toString()}
+                  </Button>
+                );
+              })}
+            </div>
+          ) : null}
+          {openedPacks.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              <p className="t-zone">Opened</p>
+              {openedPacks.slice(0, 6).map((pack) => {
+                const tier = view.tiers[pack.tier];
+                if (!tier) return null;
+                const left = pack.minted.filter((id) => id === null).length;
+                return (
+                  <Button
+                    key={pack.packId.toString()}
+                    variant="quiet"
+                    className="w-full"
+                    disabled={draw.isPending}
+                    onClick={() =>
+                      setStage({
+                        kind: "cards",
+                        tier,
+                        packId: pack.packId,
+                        players: pack.players,
+                        found: pack.found,
+                      })
+                    }
+                  >
+                    {tier.name} #{pack.packId.toString()}, {left} to mint
+                  </Button>
+                );
+              })}
+            </div>
+          ) : null}
+          <ButtonLink to="/binder" variant="secondary" className="mt-auto">
+            My Binder
+          </ButtonLink>
+        </>
+      )}
+    </>
+  );
+
   return (
     <div className="playmat">
       <div className="playmat-col col-case">
@@ -219,191 +327,103 @@ function Hunt({ view }: { view: HuntView }) {
         </Zone>
       </div>
 
-      <div className="playmat-col col-fill phone-first">
-        <Zone label="Hunt" field className="gap-6 px-5 pt-7.5 pb-6 tab:px-9">
-          <div className="flex flex-col gap-2">
-            <p className="t-zone">Round {round.id}</p>
-            <h1 className="t-display text-balance">
-              Find {wanted ? surname(wanted.player.name) : "the wanted player"}
-            </h1>
-            <p className="t-body text-graphite">
-              The deck holds {round.supply.toLocaleString("en-US")} cards and {round.winners} of them are{" "}
-              {wanted?.player.name ?? "the wanted player"}. Every one you pull pays{" "}
-              <span className="num text-ink">{formatWif(round.prizeEach)} $WIF</span> from the {product.name}{" "}
-              team. The rest are players from the November squads. {formatPercent(view.burnBps / 10_000)} of
-              every pack burns, and packs stop when the deck runs out.
-            </p>
-          </div>
-
-          <ul className="hunt-packs grid grid-cols-3 gap-3 tab:gap-5" aria-label="Packs">
-            {view.tiers.map((tier) => {
-              const gated = Boolean(tier.allowRoot);
-              const canFree = gated && Boolean(free.data?.proof) && !free.data?.used;
-              const soldOut = tier.cards > unsold;
-              return (
-                <li key={tier.id} className="flex flex-col gap-3">
-                  <TierPack tier={tier} />
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-2 max-narrow:flex-col max-narrow:gap-0">
-                    <p className="t-body-strong num whitespace-nowrap">
-                      {tier.price === 0n ? "Free" : `${formatWif(tier.price)} $WIF`}
-                    </p>
-                    <p className="t-small num whitespace-nowrap">
-                      {formatPercent(findChance(tier.cards, wantedLeft, deckLeft))} to find
-                    </p>
-                  </div>
-                  <Button
-                    className="w-full whitespace-nowrap max-tab:px-3"
-                    variant={tier.id === 2 || canFree ? "primary" : "secondary"}
-                    disabled={
-                      !isOpen ||
-                      soldOut ||
-                      draw.isPending ||
-                      !current?.isRightChain ||
-                      current.wif < tier.price ||
-                      (gated && !canFree)
-                    }
-                    onClick={() => draw.mutate({ tier })}
-                    data-testid={`buy-${tierKeys[tier.id]}`}
-                  >
-                    {soldOut
-                      ? "Sold Out"
-                      : !gated
-                        ? buyLabel(tier.name)
-                        : canFree
-                          ? `Open Free ${tier.name}`
-                          : free.data?.used
-                            ? "Free Pack Used"
-                            : "Allowlist Only"}
-                  </Button>
-                </li>
-              );
-            })}
-          </ul>
-
-          {!current?.isRightChain ? (
-            <div data-testid="connect-inline">
-              <WalletHint action="buy packs" />
+      <div className="playmat-col col-fill">
+        <Zone label="Hunt" field>
+          <div className="zone-scroll page-end flex flex-col gap-6 px-5 pt-7.5 pb-6 tab:px-9">
+            <div className="flex flex-col gap-2">
+              <p className="t-zone">Round {round.id}</p>
+              <h1 className="t-display text-balance">
+                Find {wanted ? surname(wanted.player.name) : "the wanted player"}
+              </h1>
+              <p className="t-body text-graphite">
+                The deck holds {round.supply.toLocaleString("en-US")} cards and {round.winners} of them are{" "}
+                {wanted?.player.name ?? "the wanted player"}. Every one you pull pays{" "}
+                <span className="num text-ink">{formatWif(round.prizeEach)} $WIF</span> from the{" "}
+                {product.name} team. The rest are players from the November squads.{" "}
+                {formatPercent(view.burnBps / 10_000)} of every pack burns, and packs stop when the deck runs
+                out.
+              </p>
             </div>
-          ) : !isOpen ? (
-            <Notice>No one is wanted right now. Your cards stay in your binder.</Notice>
-          ) : current.wif < (view.tiers[0]?.price ?? 0n) ? (
-            <div className="flex flex-col gap-3">
-              <Notice tone="warn">
-                You need at least <span className="num">{formatWif(view.tiers[0]?.price ?? 0n)} $WIF</span>{" "}
-                for a pack.
-              </Notice>
-              <ButtonLink to={facts.poolUrl} className="self-start">
-                Get $WIF <ArrowUpRight size={14} strokeWidth={2} aria-hidden />
-              </ButtonLink>
-            </div>
-          ) : null}
-        </Zone>
-      </div>
 
-      <div className="playmat-col col-side">
-        <Zone label="Your Hunt" className="gap-4 px-4.5 pt-7.5 pb-4.5">
-          {!current ? (
-            <p className="t-small">Connect to see your packs and wins.</p>
-          ) : (
-            <>
-              {myWins.map(({ round: r, find }) => (
-                <div key={`${r.id}-${find.index}`} className="flex flex-col gap-2" data-testid="hunt-win">
-                  <p className="t-zone">
-                    Round {r.id}, find {find.index + 1}
-                  </p>
-                  <p className="t-stat num">{formatWif(r.prizeEach)}</p>
-                  {find.paid ? (
-                    <p className="t-small">$WIF paid to this wallet.</p>
-                  ) : find.claimed ? (
-                    <p className="t-small">
-                      Claimed. The {product.name} team is sending the $WIF to this wallet.
-                    </p>
-                  ) : (
-                    <>
-                      <p className="t-small">
-                        $WIF from the {product.name} team. Claim it and the team sends it here.
+            <ul className="hunt-packs" aria-label="Packs">
+              {view.tiers.map((tier) => {
+                const gated = Boolean(tier.allowRoot);
+                const canFree = gated && Boolean(free.data?.proof) && !free.data?.used;
+                const soldOut = tier.cards > unsold;
+                return (
+                  <li key={tier.id} className="flex flex-col gap-3">
+                    <TierPack tier={tier} />
+                    <div className="hunt-pack-meta">
+                      <p className="t-body-strong num whitespace-nowrap">
+                        {tier.price === 0n ? "Free" : `${formatWif(tier.price)} $WIF`}
                       </p>
-                      {claimButton(r.id, find, r.prizeEach, "w-full")}
-                      {claim.isError ? <Notice tone="danger">{errorSentence(claim.error)}</Notice> : null}
-                    </>
-                  )}
-                  {find.payment && client.mode === "chain" ? (
-                    <a href={txUrl(find.payment)} target="_blank" rel="noreferrer" className="text-link">
-                      Payment <ArrowUpRight size={14} strokeWidth={2} aria-hidden />
-                    </a>
-                  ) : find.payment ? (
-                    <p className="t-small num">Payment {shortHash(find.payment)}</p>
-                  ) : null}
-                </div>
-              ))}
-              <dl className="t-small flex flex-col gap-1 border-y border-line-soft py-3">
-                <div className="flex justify-between gap-3">
-                  <dt>Minted</dt>
-                  <dd className="num text-ink" data-testid="hunt-cards">
-                    {mintedCount}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt>Packs</dt>
-                  <dd className="num text-ink">{packs.data?.length ?? 0}</dd>
-                </div>
-              </dl>
-              {sealed.length > 0 ? (
-                <div className="flex flex-col gap-2">
-                  <p className="t-zone">Sealed</p>
-                  {sealed.map((pack) => {
-                    const tier = view.tiers[pack.tier];
-                    if (!tier) return null;
-                    return (
-                      <Button
-                        key={pack.packId.toString()}
-                        variant="secondary"
-                        className="w-full"
-                        disabled={draw.isPending}
-                        onClick={() => draw.mutate({ tier, packId: pack.packId })}
-                      >
-                        Open {tier.name} #{pack.packId.toString()}
-                      </Button>
-                    );
-                  })}
-                </div>
-              ) : null}
-              {openedPacks.length > 0 ? (
-                <div className="flex flex-col gap-2">
-                  <p className="t-zone">Opened</p>
-                  {openedPacks.slice(0, 6).map((pack) => {
-                    const tier = view.tiers[pack.tier];
-                    if (!tier) return null;
-                    const left = pack.minted.filter((id) => id === null).length;
-                    return (
-                      <Button
-                        key={pack.packId.toString()}
-                        variant="quiet"
-                        className="w-full"
-                        disabled={draw.isPending}
-                        onClick={() =>
-                          setStage({
-                            kind: "cards",
-                            tier,
-                            packId: pack.packId,
-                            players: pack.players,
-                            found: pack.found,
-                          })
-                        }
-                      >
-                        {tier.name} #{pack.packId.toString()}, {left} to mint
-                      </Button>
-                    );
-                  })}
-                </div>
-              ) : null}
-              <ButtonLink to="/binder" variant="secondary" className="mt-auto">
-                My Binder
-              </ButtonLink>
-            </>
-          )}
+                      <p className="t-small num whitespace-nowrap">
+                        {formatPercent(findChance(tier.cards, wantedLeft, deckLeft))} to find
+                      </p>
+                    </div>
+                    <Button
+                      className="hunt-buy w-full whitespace-nowrap"
+                      variant={tier.id === 2 || canFree ? "primary" : "secondary"}
+                      disabled={
+                        !isOpen ||
+                        soldOut ||
+                        draw.isPending ||
+                        !current?.isRightChain ||
+                        current.wif < tier.price ||
+                        (gated && !canFree)
+                      }
+                      onClick={() => draw.mutate({ tier })}
+                      data-testid={`buy-${tierKeys[tier.id]}`}
+                    >
+                      {soldOut
+                        ? "Sold Out"
+                        : !gated
+                          ? buyLabel(tier.name)
+                          : canFree
+                            ? `Open Free ${tier.name}`
+                            : free.data?.used
+                              ? "Free Pack Used"
+                              : "Allowlist Only"}
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {!current?.isRightChain ? (
+              <div data-testid="connect-inline">
+                <WalletHint action="buy packs" />
+              </div>
+            ) : !isOpen ? (
+              <Notice>No one is wanted right now. Your cards stay in your binder.</Notice>
+            ) : current.wif < (view.tiers[0]?.price ?? 0n) ? (
+              <div className="flex flex-col gap-3">
+                <Notice tone="warn">
+                  You need at least <span className="num">{formatWif(view.tiers[0]?.price ?? 0n)} $WIF</span>{" "}
+                  for a pack.
+                </Notice>
+                <ButtonLink to={facts.poolUrl} className="self-start">
+                  Get $WIF <ArrowUpRight size={14} strokeWidth={2} aria-hidden />
+                </ButtonLink>
+              </div>
+            ) : null}
+            {tablet ? (
+              <section className="flex flex-col gap-4 border-line-soft border-t pt-6" aria-label="Your Hunt">
+                <h2 className="t-zone">Your Hunt</h2>
+                {yourHunt}
+              </section>
+            ) : null}
+          </div>
         </Zone>
       </div>
+
+      {tablet ? null : (
+        <div className="playmat-col col-side">
+          <Zone label="Your Hunt" className="gap-4 px-4.5 pt-7.5 pb-4.5">
+            {yourHunt}
+          </Zone>
+        </div>
+      )}
 
       <HuntStage
         stage={stage}
@@ -433,12 +453,14 @@ function Hunt({ view }: { view: HuntView }) {
 }
 
 /** A tier's sealed pack: Silver in Ink, Gold in Note, Diamond in cyan over pink. */
-/** "Buy Diamond" on wide screens; a phone's three-across row only has room for "Buy". */
+/** "Buy Diamond" where the row has room; a narrow pack row shows "Buy" (the tier stays in the name). */
 function buyLabel(name: string) {
   return (
     <>
-      {/* Flex drops the space between the spans visually; it stays in the accessible name. */}
-      <span>Buy</span> <span className="max-narrow:sr-only">{name}</span>
+      {/* One text run, so the button's flex gap never widens the space between the words. */}
+      <span>
+        Buy <span className="hunt-buy-name">{name}</span>
+      </span>
     </>
   );
 }

@@ -16,3 +16,20 @@ export function usePhone(): boolean {
     () => false,
   );
 }
+
+// The Framer tablet breakpoint (810-1199px), where a page's third column steps aside.
+const tabletQuery = "(min-width: 810px) and (max-width: 1199.98px)";
+
+function subscribeTablet(onChange: () => void) {
+  const list = window.matchMedia(tabletQuery);
+  list.addEventListener("change", onChange);
+  return () => list.removeEventListener("change", onChange);
+}
+
+export function useTablet(): boolean {
+  return useSyncExternalStore(
+    subscribeTablet,
+    () => window.matchMedia(tabletQuery).matches,
+    () => false,
+  );
+}
