@@ -24,6 +24,7 @@ import {
   createPublicClient,
   createWalletClient,
   defineChain,
+  fallback,
   type Hex,
   http,
   publicActions,
@@ -60,18 +61,26 @@ const deployment: Deployment = JSON.parse(
 const address = deployment?.contracts.BallIsFlat as Address | undefined;
 if (!address) throw new Error(`no BallIsFlat deployment for ${network}`);
 
-const rpcUrl =
+// RPC_URL may list several URLs, comma-separated: the first is used, the next take over when it fails.
+const rpcUrls = (
   process.env.RPC_URL ??
-  (network === "local" ? "http://127.0.0.1:8545" : robinhoodChain.rpcUrls.default.http[0]);
-const chain = defineChain({ ...robinhoodChain, rpcUrls: { default: { http: [rpcUrl] } } });
+  (network === "local" ? "http://127.0.0.1:8545" : robinhoodChain.rpcUrls.default.http[0])
+)
+  .split(",")
+  .map((url) => url.trim())
+  .filter(Boolean);
+const chain = defineChain({ ...robinhoodChain, rpcUrls: { default: { http: rpcUrls } } });
+const transport = () => (rpcUrls.length > 1 ? fallback(rpcUrls.map((url) => http(url))) : http(rpcUrls[0]));
 const key = (process.env.SETTLER_KEY ??
   process.env.DEPLOYER_KEY ??
   (network === "local" ? "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" : undefined)) as
   | Hex
   | undefined;
-const publicClient = createPublicClient({ chain, transport: http() });
+const publicClient = createPublicClient({ chain, transport: transport() });
 const wallet = key
-  ? createWalletClient({ account: privateKeyToAccount(key), chain, transport: http() }).extend(publicActions)
+  ? createWalletClient({ account: privateKeyToAccount(key), chain, transport: transport() }).extend(
+      publicActions,
+    )
   : null;
 const contract = { address, abi: ballIsFlatAbi } as const;
 const huntAddress = deployment.contracts.BallIsFlatHunt as Address | undefined;
