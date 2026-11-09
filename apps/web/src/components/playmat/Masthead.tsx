@@ -1,4 +1,4 @@
-import { product } from "@app/config/constants";
+import { links, product } from "@app/config/constants";
 import { LogOut, Rocket, Wallet } from "lucide-react";
 import { Link } from "react-router";
 import { formatUnits } from "viem";
@@ -10,6 +10,7 @@ import { matchdayLabel } from "../../lib/game/fixtures";
 import { useBoard } from "../../lib/game/queries";
 import { CountUp } from "../ui/CountUp";
 import { Logo } from "../ui/Logo";
+import { XLogo } from "../ui/XLogo";
 
 const whole = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 
@@ -118,6 +119,16 @@ export function Masthead({ variant }: { variant: Variant }) {
           {variant === "landing" ? (
             <>
               <LandingStatus />
+              <a
+                href={links.x}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`${product.name} on X`}
+                title={`${product.name} on X`}
+                className="icon-button"
+              >
+                <XLogo size={16} />
+              </a>
               {/* Phone: Launch App sits up here beside the logo; tablet and desktop keep it in the bottom bar. */}
               <Link to="/matches" className="submit min-h-10 cursor-pointer py-0 tab:hidden">
                 <Rocket size={15} strokeWidth={2} aria-hidden />

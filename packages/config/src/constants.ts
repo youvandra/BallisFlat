@@ -57,4 +57,5 @@ export const hunt = {
 
 export const links = {
   rules: "https://worldisflat.fun/build/rules",
+  x: "https://x.com/ballisflat",
 } as const;
