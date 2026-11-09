@@ -6,6 +6,9 @@ ballisflat.fun {
 	encode zstd gzip
 	@assets path /assets/*
 	header @assets Cache-Control "public, max-age=31536000, immutable"
+	# Everything else (index.html and the SPA routes it serves) revalidates, so a deploy shows on the next load.
+	@shell not path /assets/*
+	header @shell Cache-Control "no-cache"
 	try_files {path} /index.html
 	file_server
 }
