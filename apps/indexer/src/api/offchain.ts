@@ -80,6 +80,13 @@ export function ensureOffchain(): Promise<void> {
       wallet text not null,
       primary key (root, wallet)
     )`;
+    // Wallets that connected to the app (one row each, first and last time seen): the top of the funnel
+    // on /stats. Off-chain and self-reported by the browser, so /stats labels it apart from on-chain counts.
+    await sql`create table if not exists app.wallet_seen (
+      wallet text primary key,
+      first_seen timestamptz not null default now(),
+      last_seen timestamptz not null default now()
+    )`;
     const [row] = await sql<{ count: string }[]>`select count(*)::text as count from app.fixture`;
     if (row?.count === "0") await seed();
   })();
@@ -342,4 +349,26 @@ export async function allowlistOf(root: string): Promise<string[]> {
   const rows = await sql<{ wallet: string }[]>`
     select wallet from app.hunt_allowlist where root = ${root.toLowerCase()}`;
   return rows.map((row) => row.wallet);
+}
+
+// ---------- Traction ----------
+
+/** Records a connected wallet (lowercase); returns nothing, repeats only move last_seen. */
+export async function markWalletSeen(wallet: string): Promise<void> {
+  await ensureOffchain();
+  await sql`insert into app.wallet_seen (wallet) values (${wallet.toLowerCase()})
+    on conflict (wallet) do update set last_seen = now()`;
+}
+
+/** Connected wallets in total and per UTC day of first connection. */
+export async function walletsSeen(): Promise<{ total: number; daily: { day: string; count: number }[] }> {
+  await ensureOffchain();
+  const [total] = await sql<{ count: string }[]>`select count(*)::text as count from app.wallet_seen`;
+  const daily = await sql<{ day: string; count: string }[]>`
+    select to_char(date_trunc('day', first_seen at time zone 'UTC'), 'YYYY-MM-DD') as day, count(*)::text as count
+    from app.wallet_seen group by 1 order by 1`;
+  return {
+    total: Number(total?.count ?? 0),
+    daily: daily.map((row) => ({ day: row.day, count: Number(row.count) })),
+  };
 }

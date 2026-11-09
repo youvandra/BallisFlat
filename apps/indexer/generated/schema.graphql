@@ -36,6 +36,8 @@ type Query {
   wallets(where: walletFilter, orderBy: String, orderDirection: String, before: String, after: String, limit: Int, offset: Int): walletPage!
   settings(id: String!): settings
   settingss(where: settingsFilter, orderBy: String, orderDirection: String, before: String, after: String, limit: Int, offset: Int): settingsPage!
+  activity(id: String!): activity
+  activitys(where: activityFilter, orderBy: String, orderDirection: String, before: String, after: String, limit: Int, offset: Int): activityPage!
   _meta: Meta
 }
 
@@ -688,4 +690,101 @@ input settingsFilter {
   value_ends_with_nocase: String
   value_not_starts_with_nocase: String
   value_not_ends_with_nocase: String
+}
+
+type activity {
+  id: String!
+  kind: String!
+  wallet: String
+  amount: BigInt!
+  burned: BigInt!
+  at: BigInt!
+  tx: String!
+}
+
+type activityPage {
+  items: [activity!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+input activityFilter {
+  AND: [activityFilter]
+  OR: [activityFilter]
+  id: String
+  id_not: String
+  id_in: [String]
+  id_not_in: [String]
+  id_contains: String
+  id_not_contains: String
+  id_starts_with: String
+  id_ends_with: String
+  id_not_starts_with: String
+  id_not_ends_with: String
+  id_contains_nocase: String
+  id_not_contains_nocase: String
+  id_starts_with_nocase: String
+  id_ends_with_nocase: String
+  id_not_starts_with_nocase: String
+  id_not_ends_with_nocase: String
+  kind: String
+  kind_not: String
+  kind_in: [String]
+  kind_not_in: [String]
+  kind_contains: String
+  kind_not_contains: String
+  kind_starts_with: String
+  kind_ends_with: String
+  kind_not_starts_with: String
+  kind_not_ends_with: String
+  kind_contains_nocase: String
+  kind_not_contains_nocase: String
+  kind_starts_with_nocase: String
+  kind_ends_with_nocase: String
+  kind_not_starts_with_nocase: String
+  kind_not_ends_with_nocase: String
+  wallet: String
+  wallet_not: String
+  wallet_in: [String]
+  wallet_not_in: [String]
+  wallet_contains: String
+  wallet_not_contains: String
+  wallet_starts_with: String
+  wallet_ends_with: String
+  wallet_not_starts_with: String
+  wallet_not_ends_with: String
+  amount: BigInt
+  amount_not: BigInt
+  amount_in: [BigInt]
+  amount_not_in: [BigInt]
+  amount_gt: BigInt
+  amount_lt: BigInt
+  amount_gte: BigInt
+  amount_lte: BigInt
+  burned: BigInt
+  burned_not: BigInt
+  burned_in: [BigInt]
+  burned_not_in: [BigInt]
+  burned_gt: BigInt
+  burned_lt: BigInt
+  burned_gte: BigInt
+  burned_lte: BigInt
+  at: BigInt
+  at_not: BigInt
+  at_in: [BigInt]
+  at_not_in: [BigInt]
+  at_gt: BigInt
+  at_lt: BigInt
+  at_gte: BigInt
+  at_lte: BigInt
+  tx: String
+  tx_not: String
+  tx_in: [String]
+  tx_not_in: [String]
+  tx_contains: String
+  tx_not_contains: String
+  tx_starts_with: String
+  tx_ends_with: String
+  tx_not_starts_with: String
+  tx_not_ends_with: String
 }

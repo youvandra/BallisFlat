@@ -8,7 +8,7 @@ import { allowProof, allowRoot, parseAllowlist } from "@app/core/allowlist";
 import { squadProof } from "@app/core/squad";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { and, desc, eq, graphql, inArray } from "ponder";
+import { and, count, countDistinct, desc, eq, graphql, inArray, isNotNull, sql, sum } from "ponder";
 import sharp from "sharp";
 import type { Hex } from "viem";
 import { getAddress, isAddress } from "viem";
@@ -24,12 +24,14 @@ import {
   getFixture,
   linkFixture,
   listFixtures,
+  markWalletSeen,
   playerById,
   replaceListedSquad,
   saveAllowlist,
   squadOf,
   teams,
   upsertFixture,
+  walletsSeen,
 } from "./offchain";
 
 const publicUrl = (process.env.PUBLIC_API_URL ?? "http://localhost:42069").replace(/\/$/, "");
@@ -191,6 +193,104 @@ app.get("/api/ledger", async () => {
     .from(schema.card)
     .orderBy(schema.card.tokenId);
   return json(rows, 200, 5);
+});
+
+// ---------- traction ----------
+
+/** Actions a wallet takes itself; a keeper reveal and an admin payment are not traction. */
+const walletKinds = ["mint", "open", "sale", "claim", "keep", "refund", "pack", "hunt_mint"];
+const seenByIp = new Map<string, { count: number; until: number }>();
+
+/** The browser reports a connected wallet once per session. Throttled per IP so the count stays honest. */
+app.post("/api/seen", async (c) => {
+  const ip = (c.req.header("x-forwarded-for") ?? "local").split(",")[0]?.trim() ?? "local";
+  const now = Date.now();
+  const slot = seenByIp.get(ip);
+  if (slot && slot.until > now && slot.count >= 20) return fail(429, "slow down");
+  seenByIp.set(
+    ip,
+    slot && slot.until > now ? { ...slot, count: slot.count + 1 } : { count: 1, until: now + 600_000 },
+  );
+  if (seenByIp.size > 10_000) seenByIp.clear();
+  const body = (await c.req.json().catch(() => ({}))) as { wallet?: unknown };
+  const wallet = String(body.wallet ?? "");
+  if (!isAddress(wallet, { strict: false })) return fail(400, "bad address");
+  await markWalletSeen(wallet);
+  return new Response(null, { status: 204 });
+});
+
+/** Public traction numbers: wallets, actions and $WIF, all from indexed events except connected wallets. */
+app.get("/api/stats", async () => {
+  const a = schema.activity;
+  const day = sql<string>`to_char(to_timestamp(${a.at}) at time zone 'UTC', 'YYYY-MM-DD')`;
+  const [kinds, [walletsRow], [potBurn], daily, recent, seen] = await Promise.all([
+    db
+      .select({
+        kind: a.kind,
+        actions: count(),
+        wallets: countDistinct(a.wallet),
+        amount: sum(a.amount),
+        burned: sum(a.burned),
+      })
+      .from(a)
+      .groupBy(a.kind),
+    db
+      .select({ wallets: countDistinct(a.wallet) })
+      .from(a)
+      .where(inArray(a.kind, walletKinds)),
+    db.select({ burned: sum(schema.match.burned) }).from(schema.match),
+    db
+      .select({ day, actions: count(), wallets: countDistinct(a.wallet) })
+      .from(a)
+      .where(and(isNotNull(a.wallet), inArray(a.kind, walletKinds)))
+      .groupBy(day)
+      .orderBy(day),
+    db
+      .select()
+      .from(a)
+      .where(inArray(a.kind, [...walletKinds, "find", "prize_paid"]))
+      .orderBy(desc(a.at))
+      .limit(12),
+    walletsSeen(),
+  ]);
+  const byKind = Object.fromEntries(
+    kinds.map((row) => [
+      row.kind,
+      {
+        actions: Number(row.actions),
+        wallets: Number(row.wallets),
+        amount: BigInt(row.amount ?? 0),
+        burned: BigInt(row.burned ?? 0),
+      },
+    ]),
+  );
+  const pick = (kind: string) => byKind[kind] ?? { actions: 0, wallets: 0, amount: 0n, burned: 0n };
+  const actionBurns = kinds.reduce((total, row) => total + BigInt(row.burned ?? 0), 0n);
+  const actions = walletKinds.reduce((total, kind) => total + pick(kind).actions, 0);
+  return json(
+    {
+      wallets: { transacting: Number(walletsRow?.wallets ?? 0), connected: seen.total },
+      actions,
+      kinds: byKind,
+      wif: {
+        // $WIF wallets paid into the game: cards, packs and minted Hunt cards (sales move between wallets)
+        paidIn: pick("mint").amount + pick("pack").amount + pick("hunt_mint").amount,
+        marketVolume: pick("sale").amount,
+        paidOut:
+          pick("claim").amount + pick("keep").amount + pick("refund").amount + pick("prize_paid").amount,
+        burned: actionBurns + BigInt(potBurn?.burned ?? 0),
+      },
+      daily: daily.map((row) => ({
+        day: row.day,
+        actions: Number(row.actions),
+        wallets: Number(row.wallets),
+      })),
+      connectedDaily: seen.daily,
+      recent,
+    },
+    200,
+    30,
+  );
 });
 
 app.get("/api/wallets/:address", async (c) => {

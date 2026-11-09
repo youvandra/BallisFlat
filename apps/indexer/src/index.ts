@@ -3,7 +3,7 @@
 
 import type { Context } from "ponder:registry";
 import { ponder } from "ponder:registry";
-import { card, listing, match, pick, sale, settings, wallet } from "ponder:schema";
+import { activity, card, listing, match, pick, sale, settings, wallet } from "ponder:schema";
 
 const statuses = ["None", "Listed", "Proposed", "Finalized", "Voided"] as const;
 const ZERO = "0x0000000000000000000000000000000000000000";
@@ -33,6 +33,35 @@ async function refreshMatch(context: Context, matchId: bigint) {
     proposedAt: info.proposedAt,
     nextMatch: info.nextMatch,
   });
+}
+
+type LogEvent = {
+  transaction: { hash: `0x${string}` };
+  log: { logIndex: number };
+  block: { timestamp: bigint };
+};
+
+/** One row of the traction log per event (see `activity` in ponder.schema.ts). */
+async function logActivity(
+  context: Context,
+  event: LogEvent,
+  kind: string,
+  who: `0x${string}` | null,
+  amount = 0n,
+  burned = 0n,
+) {
+  await context.db
+    .insert(activity)
+    .values({
+      id: `${event.transaction.hash}-${event.log.logIndex}`,
+      kind,
+      wallet: who ? lower(who) : null,
+      amount,
+      burned,
+      at: event.block.timestamp,
+      tx: event.transaction.hash,
+    })
+    .onConflictDoNothing();
 }
 
 async function touchWallet(context: Context, address: `0x${string}`) {
@@ -104,6 +133,7 @@ ponder.on("BallIsFlat:CardMinted", async ({ event, context }) => {
   await context.db
     .update(wallet, { address: lower(owner) })
     .set((row) => ({ minted: row.minted + 1, spent: row.spent + (m?.price ?? 0n) }));
+  await logActivity(context, event, "mint", owner, m?.price ?? 0n);
   await refreshMatch(context, matchId);
 });
 
@@ -116,6 +146,7 @@ ponder.on("BallIsFlat:Transfer", async ({ event, context }) => {
 
 ponder.on("BallIsFlat:CardOpened", async ({ event, context }) => {
   await context.db.update(card, { tokenId: event.args.tokenId }).set({ opened: true });
+  await logActivity(context, event, "open", event.args.owner);
 });
 
 ponder.on("BallIsFlat:CardListed", async ({ event, context }) => {
@@ -144,6 +175,7 @@ ponder.on("BallIsFlat:CardSold", async ({ event, context }) => {
     tx: event.transaction.hash,
   });
   await context.db.delete(listing, { tokenId });
+  await logActivity(context, event, "sale", buyer, price, burned);
 });
 
 async function setWinners(context: Context, matchId: bigint, winners: readonly number[]) {
@@ -188,16 +220,18 @@ ponder.on("BallIsFlat:CardClaimed", async ({ event, context }) => {
     .set({ state: "claimed", payout: amount, owner: lower(owner), burnTx: event.transaction.hash });
   await touchWallet(context, lower(owner));
   await context.db.update(wallet, { address: lower(owner) }).set((w) => ({ claimed: w.claimed + amount }));
+  await logActivity(context, event, "claim", owner, amount);
 });
 
 // Claim and keep: the share minus the burned keep fee is paid and the card stays with its owner.
 ponder.on("BallIsFlat:CardKept", async ({ event, context }) => {
-  const { tokenId, owner, amount } = event.args;
+  const { tokenId, owner, amount, burned } = event.args;
   await context.db
     .update(card, { tokenId })
     .set({ state: "kept", payout: amount, owner: lower(owner), burnTx: event.transaction.hash });
   await touchWallet(context, lower(owner));
   await context.db.update(wallet, { address: lower(owner) }).set((w) => ({ claimed: w.claimed + amount }));
+  await logActivity(context, event, "keep", owner, amount, burned);
 });
 
 ponder.on("BallIsFlat:CardRefunded", async ({ event, context }) => {
@@ -205,6 +239,7 @@ ponder.on("BallIsFlat:CardRefunded", async ({ event, context }) => {
   await context.db
     .update(card, { tokenId })
     .set({ state: "refunded", payout: amount, owner: lower(owner), burnTx: event.transaction.hash });
+  await logActivity(context, event, "refund", owner, amount);
 });
 
 ponder.on("BallIsFlat:BatchMetadataUpdate", async ({ event, context }) => {
@@ -212,4 +247,39 @@ ponder.on("BallIsFlat:BatchMetadataUpdate", async ({ event, context }) => {
     .insert(settings)
     .values({ id: "metadataRefreshedAt", value: String(event.block.timestamp) })
     .onConflictDoUpdate({ value: String(event.block.timestamp) });
+});
+
+// ---------- Hunt: packs, reveals, minted cards, finds, paid prizes (traction log only) ----------
+
+ponder.on("BallIsFlatHunt:PackBought", async ({ event, context }) => {
+  const { buyer, price, burned } = event.args;
+  await logActivity(context, event, "pack", buyer, price, burned);
+});
+
+ponder.on("BallIsFlatHunt:PackOpened", async ({ event, context }) => {
+  await logActivity(context, event, "reveal", null);
+});
+
+let huntBurnBps: bigint | null = null;
+
+ponder.on("BallIsFlatHunt:CardMinted", async ({ event, context }) => {
+  const { owner, price } = event.args;
+  if (price > 0n && huntBurnBps === null) {
+    huntBurnBps = await context.client
+      .readContract({
+        abi: context.contracts.BallIsFlatHunt.abi,
+        address: context.contracts.BallIsFlatHunt.address as `0x${string}`,
+        functionName: "burnBps",
+      })
+      .then(BigInt);
+  }
+  await logActivity(context, event, "hunt_mint", owner, price, (price * (huntBurnBps ?? 0n)) / 10_000n);
+});
+
+ponder.on("BallIsFlatHunt:TargetFound", async ({ event, context }) => {
+  await logActivity(context, event, "find", event.args.winner, event.args.prize);
+});
+
+ponder.on("BallIsFlatHunt:PrizePaid", async ({ event, context }) => {
+  await logActivity(context, event, "prize_paid", event.args.winner, event.args.prize);
 });

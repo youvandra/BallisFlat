@@ -99,3 +99,26 @@ export const settings = onchainTable("settings", (t) => ({
   id: t.text().primaryKey(),
   value: t.text().notNull(),
 }));
+
+/**
+ * Every wallet action on either contract, one row per event: the traction log behind /api/stats.
+ * `amount` is $WIF the wallet paid in (mint, pack, sale price) or was paid (claim, keep, refund, prize);
+ * `burned` is $WIF sent to the dead address by that same action. Pot burns at settlement live on `match.burned`.
+ */
+export const activity = onchainTable(
+  "activity",
+  (t) => ({
+    id: t.text().primaryKey(), // tx hash + log index
+    kind: t.text().notNull(), // mint | open | sale | claim | keep | refund | pack | reveal | hunt_mint | find | prize_paid
+    wallet: t.hex(), // null for a pack reveal run by the keeper
+    amount: t.bigint().notNull(),
+    burned: t.bigint().notNull(),
+    at: t.bigint().notNull(),
+    tx: t.hex().notNull(),
+  }),
+  (table) => ({
+    kindIdx: index().on(table.kind),
+    walletIdx: index().on(table.wallet),
+    atIdx: index().on(table.at),
+  }),
+);
