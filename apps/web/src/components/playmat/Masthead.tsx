@@ -107,9 +107,12 @@ export function Masthead({ variant }: { variant: Variant }) {
         <Link
           to={variant === "app" ? "/matches" : "/"}
           className="flex items-center gap-3 text-white"
-          aria-label={product.name}
+          aria-label={`${product.name} Beta`}
         >
           <Logo className="masthead-logo" />
+          <span className="badge badge-cyan" aria-hidden>
+            Beta
+          </span>
         </Link>
         <div className="flex items-center gap-2 max-tab:gap-0.5">
           {variant === "landing" ? (
