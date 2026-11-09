@@ -3,6 +3,8 @@ import { Outlet, useLocation, useNavigate } from "react-router";
 import { ConnectionGuard } from "../../app/ConnectionGuard";
 import { prefetchPages } from "../../app/prefetch";
 import { ConnectPromptProvider } from "../../features/connect/ConnectPrompt";
+import { useWallet } from "../../hooks/use-wallet";
+import { reportSeen } from "../../lib/game/stats";
 import { resetScroll } from "../../lib/motion";
 import { palette } from "../../lib/palette";
 import { Dock, LaunchDock } from "./Dock";
@@ -35,6 +37,8 @@ function metaFor(pathname: string): PageMeta {
     return { overprint: "RULES", folio: "Rulebook, page 4. House rules.", backdrop: "quiet" };
   if (pathname === "/leaderboard")
     return { overprint: "TABLE", folio: "Rulebook, page 5. The table.", backdrop: "quiet" };
+  if (pathname === "/stats")
+    return { overprint: "STATS", folio: "Rulebook, page 6. The numbers.", backdrop: "quiet" };
   if (pathname === "/ops") return { overprint: "OPS", folio: "Rulebook, back office.", backdrop: "quiet" };
   return { overprint: "404", folio: "Rulebook, missing page.", backdrop: "quiet" };
 }
@@ -59,6 +63,13 @@ export function AppShell() {
     const timer = window.setTimeout(prefetchPages, 300);
     return () => window.clearTimeout(timer);
   }, [ready]);
+
+  // A connected wallet counts once per session toward "Wallets connected" on /stats.
+  const { account } = useWallet();
+  const connected = account.data?.address;
+  useEffect(() => {
+    if (connected) reportSeen(connected);
+  }, [connected]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the scroll resets on every route change
   useLayoutEffect(() => {

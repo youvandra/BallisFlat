@@ -179,7 +179,10 @@ export function LeaderboardPage() {
               <div className="flex flex-col gap-1.5">
                 <h1 className="t-heading">The table</h1>
                 <p className="t-small">
-                  Ranked by $WIF won, Hunt prizes included. A tie goes to the earlier pick.
+                  Ranked by $WIF won, Hunt prizes included. A tie goes to the earlier pick.{" "}
+                  <Link to="/stats" className="text-ink underline underline-offset-4 hover:opacity-70">
+                    See All Stats
+                  </Link>
                 </p>
               </div>
               <Chips

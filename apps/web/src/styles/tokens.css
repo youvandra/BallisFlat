@@ -1595,6 +1595,25 @@
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 18px;
   }
+  /* /stats tiles: as many 180px columns as fit, two on a phone so the numbers read at a glance. */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 18px;
+  }
+  @media (max-width: 539.98px) {
+    .stats-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .stats-grid .result {
+      padding: 14px;
+    }
+    /* The headline number takes the full row, so three tiles never leave a gap. */
+    .stats-grid .stats-lead {
+      grid-column: 1 / -1;
+    }
+  }
   /* A small phone reads the roadmap one step per row instead of squeezing two. */
   @media (max-width: 539.98px) {
     .grid-results {

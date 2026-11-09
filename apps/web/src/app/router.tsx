@@ -46,6 +46,10 @@ export const router = createBrowserRouter([
           Component: (await import("../features/leaderboard/LeaderboardPage")).LeaderboardPage,
         }),
       },
+      {
+        path: "stats",
+        lazy: async () => ({ Component: (await import("../features/stats/StatsPage")).StatsPage }),
+      },
       { path: "ops", lazy: async () => ({ Component: (await import("../features/ops/OpsPage")).OpsPage }) },
       { path: "*", Component: RouteError },
     ],
