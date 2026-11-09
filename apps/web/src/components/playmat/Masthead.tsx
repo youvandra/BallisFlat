@@ -110,7 +110,7 @@ export function Masthead({ variant }: { variant: Variant }) {
           aria-label={`${product.name} Beta`}
         >
           <Logo className="masthead-logo" />
-          <span className="t-small text-cyan" aria-hidden>
+          <span className="t-small text-ink" aria-hidden>
             Beta
           </span>
         </Link>
