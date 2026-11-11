@@ -16,10 +16,10 @@ and burn the card to take your share of the pot when your player comes out on to
 [![Token](https://img.shields.io/badge/token-%24WIF-3fe0ff?style=flat-square)](https://dexscreener.com/robinhood/0x71ef4106340f0a3b9c19ec994eef4fc44a1d2513f38faac39d7636b156548c79)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.28-141416?style=flat-square&logo=solidity)](packages/contracts/src/BallIsFlat.sol)
 [![Foundry tests](https://img.shields.io/badge/forge_tests-127_passing-2ea44f?style=flat-square)](packages/contracts/test)
-[![E2E](https://img.shields.io/badge/e2e-28_passing-2ea44f?style=flat-square)](e2e)
+[![E2E](https://img.shields.io/badge/e2e-32_passing-2ea44f?style=flat-square)](e2e)
 [![Hackathon](https://img.shields.io/badge/world_is_flat-hackathon_entry-ffe800?style=flat-square)](https://worldisflat.fun/build)
 
-[Landing](https://clever-overlay-569783.framer.app) · App ([ballisflat.fun](https://ballisflat.fun), going live before 12 Nov) · Demo video (soon) · [Architecture](docs/architecture.md) · [Security](docs/security.md)
+App: [ballisflat.fun](https://ballisflat.fun) · API: [api.ballisflat.fun](https://api.ballisflat.fun/api/board) · Demo video (soon) · [Architecture](docs/architecture.md) · [Security](docs/security.md)
 
 <img src="docs/media/banner.webp" alt="Ball is Flat: mint your take on the game" width="100%">
 
@@ -274,8 +274,8 @@ Then point the app at it with `VITE_API_URL=http://localhost:42069`. Every varia
 | Suite | Count | Covers |
 |---|---|---|
 | Foundry | 127 tests | Mint, caps, squads, settle, correct, void, finalize, burn, rollover, claim, claim and keep, refund, market, transfer lock, reentrancy, payout conservation fuzz; Hunt decks, tiers, allowlist, reveal window, "wanted cards == winners" fuzz |
-| Vitest | 76 tests | Payout math, squad and allowlist tree vectors (pinned to Solidity), FotMob settlement on a real match, fixtures, mock client, formatting, leaderboard, card metadata |
-| Playwright | 14 flows × desktop + mobile | Landing, pick and mint, pack opening, binder, sell and cancel, claim, claim and keep, Hunt packs, finds and payouts, free Silver allowlist |
+| Vitest | 77 tests | Payout math, squad and allowlist tree vectors (pinned to Solidity), FotMob settlement on a real match, fixtures, mock client, formatting, leaderboard, card metadata |
+| Playwright | 16 flows × desktop + mobile (32 runs) | Landing, pick and mint, pack opening, binder, sell and cancel, claim, claim and keep, Hunt packs, finds and payouts, free Silver allowlist |
 | Slither 0.11.6 | No defects | Every result reviewed in [`docs/security.md`](docs/security.md), including the Hunt's block-hash draw |
 
 CI ([`.github/workflows/verify.yml`](.github/workflows/verify.yml)) runs lint, typecheck, tests, design guards and build on every push.
@@ -284,9 +284,17 @@ CI ([`.github/workflows/verify.yml`](.github/workflows/verify.yml)) runs lint, t
 
 | Contract | Network | Address |
 |---|---|---|
-| BallIsFlat | Robinhood Chain mainnet (4663) | Pending, recorded in [`deployments.json`](packages/config/src/deployments.json) after deploy |
-| BallIsFlatHunt | Robinhood Chain mainnet (4663) | Pending, same file |
+| BallIsFlat | Robinhood Chain mainnet (4663) | [`0x870026b3f2bd616675282b051c07a51caa4203a8`](https://robinhoodchain.blockscout.com/address/0x870026b3f2bd616675282b051c07a51caa4203a8) |
+| BallIsFlatHunt | Robinhood Chain mainnet (4663) | [`0xe181cf4e0a3e3ea8b5e32626b68296e93033420d`](https://robinhoodchain.blockscout.com/address/0xe181cf4e0a3e3ea8b5e32626b68296e93033420d) |
 | $WIF | Robinhood Chain mainnet (4663) | [`0x5173b8eA6923c2d40267890D45C46a3480954773`](https://dexscreener.com/robinhood/0x71ef4106340f0a3b9c19ec994eef4fc44a1d2513f38faac39d7636b156548c79) |
+
+Both contracts are verified on Sourcify (exact match); addresses are also in [`deployments.json`](packages/config/src/deployments.json).
+
+**Mainnet transactions from the demo video:**
+
+- Mint a pick card (England v Croatia, Jude Bellingham): [`0x1c563c28…7a24c0`](https://robinhoodchain.blockscout.com/tx/0x1c563c2875db61e6a162d2bd141c83d75f36d042d6947301a009d1e19a7a24c0)
+- Open the sealed card: [`0x900538a0…ded325`](https://robinhoodchain.blockscout.com/tx/0x900538a0d0e9191f501c6581b4a3da7897cc5fdc7d672ecae8a63228f4ded325)
+- Buy a Hunt Silver pack: [`0x35c30315…a36a04`](https://robinhoodchain.blockscout.com/tx/0x35c3031517db80ff192f7f470afbe4b3e7f4f5e8f3d97b201e2bad4cf4a36a04)
 
 **Launch parameters:** 1,000 $WIF per card · 10% of every pot burned · 5% of every resale burned · 50 $WIF keep fee, burned · 10 cards per player per match · 2 hour dispute window. Hunt: 10,000-card deck, 3 wanted cards, 100,000 $WIF prize pool. First fixtures: UEFA Nations League, 12-17 Nov 2026.
 
@@ -370,7 +378,7 @@ A pack is drawn from the hash of the block after you pay, which nobody knows whe
 - [x] Settler bot from FotMob ratings, with corrections and finalize
 - [x] The Hunt: wanted-player decks, Silver, Gold and Diamond packs, free allowlist packs
 - [x] Claim & Keep
-- [ ] Mainnet deploy and a settled warm-up match with real transactions
+- [x] Mainnet deploy, verified contracts, real mint, open and Hunt pack transactions
 - [ ] Nations League matchdays 5 and 6 (12-17 Nov 2026)
 - [ ] Club leagues: Premier League, La Liga, Champions League
 - [ ] Settlement from several rating sources, then an attested verifier
